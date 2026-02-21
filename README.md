@@ -6,14 +6,21 @@ Bee takes a feature idea through a complete, repeatable pipeline: **spec > plan 
 
 ## Install
 
+**Option 1: From GitHub (recommended)**
+
 ```bash
-claude plugin add /path/to/bee
+# Add the repo as a marketplace source
+claude plugin marketplace add https://github.com/george-popescu/bee-dev
+
+# Install the plugin
+claude plugin install bee
 ```
 
-Or from a git URL:
+**Option 2: Local path (for development)**
 
 ```bash
-claude plugin add https://github.com/your-org/bee.git
+# Use --plugin-dir flag when starting Claude Code
+claude --plugin-dir /path/to/bee-dev
 ```
 
 ## Quick Start
