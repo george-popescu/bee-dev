@@ -1,0 +1,18 @@
+{
+  "version": "0.1.0",
+  "stack": "{STACK}",
+  "linter": "{LINTER}",
+  "testRunner": "{TEST_RUNNER}",
+  "ci": "{CI}",
+  "context7": true,
+  "review": {
+    "against_spec": true,
+    "against_standards": true,
+    "dead_code": true,
+    "loop": false,
+    "max_loop_iterations": 3
+  },
+  "phases": {
+    "require_review_before_next": true
+  }
+}

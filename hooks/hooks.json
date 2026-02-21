@@ -1,0 +1,61 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/load-context.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/auto-lint.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/save-session-context.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "implementer",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Validate implementer agent output. Context: $ARGUMENTS\n\nCheck: 1) Test files created BEFORE implementation (TDD compliance) 2) Tests run and passing 3) Structured task notes written (files created, patterns used, decisions) 4) Task reported complete, not abandoned.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/stop-review-check.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+# Development artifacts (GSD workflow)
+.planning/
+
+# Local project state (created per-project by /bee:init)
+.bee/
+
+# Archives
+archive/

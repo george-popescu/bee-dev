@@ -1,0 +1,8 @@
+{
+  "name": "bee",
+  "version": "1.0.0",
+  "description": "Spec-driven development workflow with review gates",
+  "author": {
+    "name": "Beecoded"
+  }
+}
