@@ -19,8 +19,8 @@ claude plugin install bee
 **Option 2: Local path (for development)**
 
 ```bash
-# Use --plugin-dir flag when starting Claude Code
-claude --plugin-dir /path/to/bee-dev
+# Use --plugin-dir flag pointing to the plugin inside the repo
+claude --plugin-dir /path/to/bee-dev/plugins/bee
 ```
 
 ## Quick Start

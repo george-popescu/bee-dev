@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "bee-dev",
+  "version": "1.0.0",
+  "description": "Spec-driven development workflow plugins for Claude Code",
+  "owner": {
+    "name": "Beecoded",
+    "email": "george.popescu@beecoded.ro"
+  },
+  "plugins": [
+    {
+      "name": "bee",
+      "description": "Spec-driven development workflow with review gates — take features from idea to commit",
+      "version": "1.0.0",
+      "author": {
+        "name": "Beecoded"
+      },
+      "source": "./plugins/bee",
+      "category": "development"
+    }
+  ]
+}
