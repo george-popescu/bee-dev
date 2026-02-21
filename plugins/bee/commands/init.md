@@ -24,6 +24,7 @@ If the dynamic context above does NOT contain `NO_EXISTING_CONFIG` (meaning `.be
 - Inform the user: "Existing BeeDev project detected. I'll update your config without touching existing specs or state."
 - Proceed through detection steps below but only update `.bee/config.json` values (stack, linter, testRunner, ci).
 - Do NOT overwrite `.bee/STATE.md`, `.bee/specs/`, or any other existing state files.
+- Re-copy the statusline script (Step 5) to pick up any updates from the plugin, but leave `.claude/settings.json` statusLine config as-is if already present.
 - Skip the CLAUDE.md and .gitignore steps (those were handled on first init).
 
 If `NO_EXISTING_CONFIG` appears, this is a fresh init -- proceed with all steps.
@@ -120,7 +121,34 @@ Create the `.bee/` directory and write `.bee/config.json` with the confirmed val
 
 Replace `{STACK}`, `{LINTER}`, `{TEST_RUNNER}`, and `{CI}` with the confirmed values from Steps 2-3.
 
-### Step 5: Create STATE.md
+### Step 5: Configure Statusline
+
+Set up the bee statusline to show context usage and workflow state in Claude Code.
+
+1. **Copy the statusline script** from the plugin to the project:
+   - Source: `${CLAUDE_PLUGIN_ROOT}/scripts/bee-statusline.js` (the plugin's scripts directory -- resolve relative to where this command file lives, i.e., `../scripts/bee-statusline.js` relative to the commands directory)
+   - Destination: `.bee/statusline.js`
+   - Use the Read tool to read the source file, then Write to create the destination.
+
+2. **Configure `.claude/settings.json`** with the statusLine setting:
+   - If `.claude/settings.json` exists, read it first.
+   - If it contains an existing `"statusLine"` key, warn the user: "Existing statusLine configuration detected. Override with bee statusline? (yes/no)"
+     - If user says no, skip this step.
+   - Add or update the `statusLine` field:
+     ```json
+     {
+       "statusLine": {
+         "type": "command",
+         "command": "node .bee/statusline.js"
+       }
+     }
+     ```
+   - Preserve all other existing settings in the file.
+   - If `.claude/` directory doesn't exist, create it first.
+
+3. **Add `.bee/statusline.js` to `.gitignore`** if not already present (the script is a local copy, not tracked in the project repo).
+
+### Step 6: Create STATE.md
 
 Create `.bee/STATE.md` with the initial state:
 
@@ -146,7 +174,7 @@ Create `.bee/STATE.md` with the initial state:
 
 Replace `{TIMESTAMP}` with the current ISO 8601 timestamp (e.g., `2026-02-20T14:30:00Z`).
 
-### Step 6: Optional CLAUDE.md Update
+### Step 7: Optional CLAUDE.md Update
 
 Ask the user: "Should I add BeeDev instructions to your CLAUDE.md?"
 
@@ -166,7 +194,7 @@ Replace `{selected-stack}` with the stack chosen in Step 2.
 
 If the user declines, skip this step.
 
-### Step 7: Optional .gitignore Update
+### Step 8: Optional .gitignore Update
 
 Ask the user: "Should I add .bee transient files to .gitignore?"
 
@@ -174,6 +202,7 @@ Show what would be ignored:
 ```
 .bee/STATE.md
 .bee/SESSION-CONTEXT.md
+.bee/statusline.js
 .bee/eod-reports/
 ```
 
@@ -183,7 +212,7 @@ If the user agrees:
 
 If the user declines, skip this step.
 
-### Step 8: Completion Summary
+### Step 9: Completion Summary
 
 Display a summary of everything that was created or updated:
 
@@ -198,6 +227,8 @@ CI: {ci}
 Created:
 - .bee/config.json
 - .bee/STATE.md
+- .bee/statusline.js
+- .claude/settings.json (statusLine configured)
 {- CLAUDE.md (if updated)}
 {- .gitignore (if updated)}
 
