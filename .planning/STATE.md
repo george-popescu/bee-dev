@@ -29,9 +29,10 @@ Last activity: 2026-02-21 -- v1.0 milestone archived
 | 2 | Remove name field from command YAML so commands show bee: prefix | 2026-02-21 | 26715ef | [2-fix-bee-plugin-commands-not-showing-bee-](./quick/2-fix-bee-plugin-commands-not-showing-bee-/) |
 | 3 | Add /bee:plan-review command + plan-reviewer agent for spec-plan alignment | 2026-02-21 | 8d585f5 | [3-add-plan-review-command-that-reviews-pla](./quick/3-add-plan-review-command-that-reviews-pla/) |
 | 4 | Add bee statusline script showing model, state, dir, context bar | 2026-02-21 | 6a2d0b0 | [4-add-bee-statusline-script-showing-contex](./quick/4-add-bee-statusline-script-showing-contex/) |
+| 5 | Bump plugin version to 1.1.0 | 2026-02-21 | cb4a847 | [5-bump-plugin-version-to-1-1-0-after-quick](./quick/5-bump-plugin-version-to-1-1-0-after-quick/) |
 
 ## Session Continuity
 
 Last session: 2026-02-21
-Last activity: 2026-02-21 - Quick task 4: added bee-statusline.js and integrated statusline setup into /bee:init
+Last activity: 2026-02-21 - Quick task 5: bumped plugin version to 1.1.0
 Next: /gsd:new-milestone for v1.1 or v2.0
