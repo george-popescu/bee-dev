@@ -1,5 +1,4 @@
 ---
-name: review
 description: Review current phase implementation against spec, standards, and quality checklist
 argument-hint: "[--loop]"
 ---

@@ -1,5 +1,4 @@
 ---
-name: execute-phase
 description: Execute a planned phase with wave-based parallel TDD implementation
 argument-hint: "[phase-number]"
 ---

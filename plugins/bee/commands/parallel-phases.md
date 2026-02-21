@@ -1,5 +1,4 @@
 ---
-name: parallel-phases
 description: Execute independent phases simultaneously using agent teams (experimental, requires agent teams)
 argument-hint: "[phase-numbers]"
 ---

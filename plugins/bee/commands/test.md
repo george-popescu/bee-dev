@@ -1,5 +1,4 @@
 ---
-name: test
 description: Generate manual test scenarios and verify with developer
 argument-hint: ""
 ---

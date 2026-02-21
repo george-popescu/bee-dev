@@ -1,5 +1,4 @@
 ---
-name: commit
 description: Show diff summary and create a commit with user approval
 argument-hint: ""
 ---

@@ -1,5 +1,4 @@
 ---
-name: quick
 description: Execute a quick task without the full spec pipeline — just describe, execute, commit
 argument-hint: "[--agents] [task description]"
 ---

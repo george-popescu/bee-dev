@@ -1,5 +1,4 @@
 ---
-name: new-spec
 description: Create a new feature specification through interactive Q&A
 argument-hint: "[--amend]"
 ---

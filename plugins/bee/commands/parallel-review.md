@@ -1,5 +1,4 @@
 ---
-name: parallel-review
 description: Run parallel code review with 4 specialized reviewer teammates (experimental, requires agent teams)
 argument-hint: "[--loop]"
 ---

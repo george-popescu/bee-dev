@@ -1,5 +1,4 @@
 ---
-name: review-project
 description: Review entire implementation against original spec
 argument-hint: ""
 ---

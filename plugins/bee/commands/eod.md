@@ -1,5 +1,4 @@
 ---
-name: eod
 description: Run end-of-day integrity check with 4 parallel audits
 argument-hint: ""
 ---

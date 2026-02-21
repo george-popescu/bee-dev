@@ -1,5 +1,4 @@
 ---
-name: init
 description: Initialize BeeDev for a project -- detect stack, create .bee/, configure workflow
 argument-hint: ""
 ---

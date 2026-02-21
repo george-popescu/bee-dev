@@ -1,5 +1,4 @@
 ---
-name: plan-phase
 description: Create a detailed execution plan for a spec phase with researched tasks and wave grouping
 argument-hint: "[phase-number]"
 ---

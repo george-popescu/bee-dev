@@ -1,5 +1,4 @@
 ---
-name: resume
 description: Resume BeeDev work from where you left off with full context restoration
 argument-hint: ""
 ---

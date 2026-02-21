@@ -1,5 +1,4 @@
 ---
-name: progress
 description: Show current BeeDev project state and suggest next action
 argument-hint: ""
 ---
