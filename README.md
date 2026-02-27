@@ -27,7 +27,7 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 
 ```
 /bee:init            # Detect stack, create .bee/ config
-/bee:new-spec        # Define a feature through interactive Q&A
+/bee:new-spec        # Conversational discovery → spec → phases
 /bee:plan-phase 1    # Plan phase 1 with tasks and wave grouping
 /bee:execute-phase 1 # Execute with parallel TDD implementation
 /bee:review          # 4-step code review pipeline
@@ -42,7 +42,7 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 | Command | Description |
 |---------|-------------|
 | `/bee:init` | Initialize project -- detect stack, create `.bee/` config |
-| `/bee:new-spec` | Create feature spec through interactive Q&A. Use `--amend` to modify existing |
+| `/bee:new-spec` | Create feature spec through conversational discovery with structured options. Use `--amend` to modify existing |
 | `/bee:plan-phase N` | Plan a phase: task decomposition, research, wave assignment |
 | `/bee:execute-phase N` | Execute a planned phase with wave-based parallel TDD |
 | `/bee:review` | Review pipeline: code review, validate findings, fix, re-review. Use `--loop` for auto-loop |
@@ -63,18 +63,22 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 
 ```
 /bee:init
-    |
-/bee:new-spec
-    |
+    │
+/bee:new-spec ─── Research codebase
+    │              │
+    │         Discovery conversation (AskUserQuestion rounds)
+    │              │
+    │         requirements.md → spec-writer → spec.md + phases.md
+    │
     v
 /bee:plan-phase 1 --> /bee:execute-phase 1 --> /bee:review --> /bee:test --> /bee:commit
-    |                                                                            |
+    │                                                                            │
 /bee:plan-phase 2 --> /bee:execute-phase 2 --> /bee:review --> /bee:test --> /bee:commit
-    |                                                                            |
+    │                                                                            │
    ...                                                                          ...
-    |
+    │
 /bee:review-project  (optional: full spec compliance check)
-    |
+    │
 /bee:eod             (optional: end-of-day audit)
 ```
 
@@ -104,15 +108,16 @@ your-project/
     ├── COMPACT-CONTEXT.md   # Context snapshot for /bee:compact
     ├── specs/
     │   └── feature-name/
-    │       ├── spec.md      # Feature specification
-    │       └── phases.md    # Phase breakdown
+    │       ├── requirements.md  # Discovery conversation output
+    │       ├── spec.md          # Feature specification
+    │       └── phases.md        # Phase breakdown
     ├── quick-reviews/       # Lightweight review reports from /bee:quick-review
     └── eod-reports/         # End-of-day audit reports
 ```
 
 ## How It Works
 
-1. **Spec creation** (`/bee:new-spec`) -- Interactive Q&A builds a complete feature specification with requirements, constraints, and acceptance criteria.
+1. **Spec creation** (`/bee:new-spec`) -- Conversational discovery with structured clickable options: researches codebase, asks multi-round questions, converges on requirements, then writes spec + phases.
 
 2. **Phase planning** (`/bee:plan-phase`) -- Decomposes a phase into tasks, runs research, assigns tasks to parallel execution waves.
 
