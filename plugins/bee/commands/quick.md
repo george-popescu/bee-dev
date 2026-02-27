@@ -1,6 +1,6 @@
 ---
 description: Execute a quick task without the full spec pipeline — just describe, execute, commit
-argument-hint: "[--agents] [task description]"
+argument-hint: "[--agents] [--review] [task description]"
 ---
 
 ## Current State (load before proceeding)
@@ -8,6 +8,7 @@ argument-hint: "[--agents] [task description]"
 Read these files using the Read tool:
 - `.bee/STATE.md` — if not found: NOT_INITIALIZED
 - `.bee/config.json` — if not found: use `{}`
+- `.bee/PROJECT.md` — if not found: skip (project index not available)
 
 ## Instructions
 
@@ -26,8 +27,9 @@ No spec is required for quick tasks. No phase is required.
 Check `$ARGUMENTS` for flags and task description.
 
 1. **Check for `--agents` flag.** If present, store `$USE_AGENTS = true` and remove the flag from the remaining text. Otherwise `$USE_AGENTS = false`.
-2. **Get task description.** Use the remaining text after flag removal as `$DESCRIPTION`.
-3. If `$DESCRIPTION` is empty, ask the user:
+2. **Check for `--review` flag.** If present, store `$USE_REVIEW = true` and remove the flag from the remaining text. Otherwise `$USE_REVIEW = false`. Also check `config.json` for `quick.review` setting -- if true, set `$USE_REVIEW = true` regardless of flag.
+3. **Get task description.** Use the remaining text after flag removal as `$DESCRIPTION`.
+4. If `$DESCRIPTION` is empty, ask the user:
 
 ```
 What's the quick task? Describe what you want to do.
@@ -42,11 +44,13 @@ Present the task back to the user:
 ```
 Quick task: {DESCRIPTION}
 Mode: {USE_AGENTS ? "agents (researcher + implementer)" : "direct (main context)"}
+Review: {USE_REVIEW ? "yes (lightweight review before commit)" : "no"}
 
 This will:
 1. Implement the changes {USE_AGENTS ? "using specialized agents" : "directly"}
-2. Commit the result
-3. Track it in STATE.md
+{USE_REVIEW ? "2. Review changes for bugs and standards" : ""}
+{USE_REVIEW ? "3" : "2"}. Commit the result
+{USE_REVIEW ? "4" : "3"}. Track it in STATE.md
 
 Proceed? (yes/no)
 ```
@@ -80,7 +84,7 @@ Done. Changes:
 ...
 ```
 
-Skip to Step 5.
+If `$USE_REVIEW` is true, continue to Step 4.5. Otherwise skip to Step 5.
 
 ---
 
@@ -90,13 +94,16 @@ Use the Task tool to spawn specialized agents. This is useful when the task bene
 
 **Phase 1: Research (optional but recommended)**
 
-Spawn a researcher agent to understand the codebase area before making changes:
+Spawn the `researcher` agent (runs on sonnet for speed) to understand the codebase area before making changes:
 
 ```
 Task(
-  subagent_type="Explore",
+  subagent_type="bee:researcher",
+  model="sonnet",
   description="Research: {DESCRIPTION}",
   prompt="
+    QUICK TASK RESEARCH MODE -- No TASKS.md, no phase context.
+
     Research the codebase to understand how to: {DESCRIPTION}
 
     Project stack: {stack from config.json}
@@ -107,7 +114,8 @@ Task(
     3. Dependencies and imports that will be affected
     4. Existing tests that cover this area
 
-    Return a concise summary with specific file paths and line numbers.
+    Do NOT write to TASKS.md -- return your findings in your final message as a concise
+    summary with specific file paths and line numbers.
   "
 )
 ```
@@ -159,7 +167,67 @@ Changes:
 Tests: {pass/fail summary}
 ```
 
-If the implementer reported failures or issues, present them and ask the user how to proceed before continuing to Step 5.
+If the implementer reported failures or issues, present them and ask the user how to proceed before continuing to Step 4.5.
+
+### Step 4.5: Review Gate (if --review)
+
+**Skip this step entirely if `$USE_REVIEW` is false.** Proceed directly to Step 5.
+
+If `$USE_REVIEW` is true, run a lightweight review before committing:
+
+**Build check:** If `package.json` has a `build` script, run `npm run build`. If it fails, display the error and ask: "(a) Fix first (b) Continue anyway". If no build script, skip.
+
+**Test check:** Ask: "Run tests before review? (yes/no)". If yes:
+1. Read `testRunner` from `config.json`. If `none`, display "No test runner configured. Skipping." and continue.
+2. Run the test command (`vitest`: `npx vitest run`, `jest`: `npx jest --maxWorkers=auto`, `pest`: `./vendor/bin/pest --parallel`). Display results. If tests fail, ask: "(a) Fix first (b) Continue anyway".
+
+1. Run `git diff --stat` to identify all changed files. Filter to source files only (`.php`, `.js`, `.ts`, `.jsx`, `.tsx`, `.vue`, `.css`, `.scss`).
+2. Spawn the `reviewer` agent via Task tool with `model: "sonnet"` (quick-review is focused scope scanning) and a quick-review context:
+
+```
+Task(
+  subagent_type="bee:reviewer",
+  description="Quick review: {DESCRIPTION}",
+  prompt="
+    QUICK REVIEW MODE -- No spec, no TASKS.md, no phase context.
+
+    Review ONLY these changed files against stack conventions and common bug patterns:
+    {list of changed source files}
+
+    Project stack: {stack from config.json}
+    False positives: {.bee/false-positives.md path if exists, otherwise 'none'}
+
+    Focus on: Bug, Security, Stack Standards, Dead Code, Pattern Consistency.
+    SKIP: Spec Compliance, TDD Compliance (no spec/acceptance criteria).
+
+    Write REVIEW.md to: .bee/quick-reviews/{YYYY-MM-DD}-{N}.md
+    Target 3-8 findings. Only HIGH confidence issues.
+  "
+)
+```
+
+3. Read the produced REVIEW.md. Parse findings.
+
+4. If 0 findings: display "Quick review: clean!" and proceed to Step 5.
+
+5. If findings exist, for each finding spawn `finding-validator` agent with `model: "sonnet"` (single-finding classification) — up to 5 in parallel — to classify as REAL BUG / FALSE POSITIVE / STYLISTIC.
+
+6. Present confirmed findings (REAL BUG + STYLISTIC) to the user. Note: In quick-review mode, STYLISTIC findings are auto-included as confirmed without per-issue user choice (unlike full `/bee:review` which asks for each). This is intentional — the quick gate prioritizes speed over granular control:
+
+```
+Quick review found {N} confirmed issue(s):
+{For each: F-NNN [severity] category: summary}
+
+Options:
+(a) Fix before commit -- spawn fixers for confirmed issues
+(b) Commit anyway -- acknowledge and proceed
+(c) Cancel -- stop here
+```
+
+7. Handle user choice:
+   - **(a) Fix:** For each confirmed finding, spawn `fixer` agent SEQUENTIALLY (one at a time). After all fixes, proceed to Step 5.
+   - **(b) Commit anyway:** Proceed to Step 5.
+   - **(c) Cancel:** Display "Cancelled. Changes remain unstaged." Stop.
 
 ### Step 5: Commit
 
@@ -224,6 +292,7 @@ Display:
 ```
 Quick task {N} complete: {DESCRIPTION}
 Commit: {commit_hash}
+{If $USE_REVIEW was false: "Tip: Use --review flag for a lightweight code review before commit."}
 
 Next: /bee:progress to see project state, or /bee:quick for another task.
 ```
@@ -232,12 +301,15 @@ Next: /bee:progress to see project state, or /bee:quick for another task.
 
 **Design Notes (do not display to user):**
 
-- Quick tasks are INDEPENDENT of the spec/phase pipeline. They don't require a spec, don't create phases, and don't go through review/test gates.
+- Quick tasks are INDEPENDENT of the spec/phase pipeline. They don't require a spec, don't create phases, and don't go through the full review/test gates.
 - Quick tasks are tracked in STATE.md for audit trail purposes.
 - NEVER auto-commit. Always show the diff and get explicit user confirmation.
 - NEVER use `git add -A`, `git add .`, or destructive git operations.
 - If the task seems too large (>5 files, complex architecture changes), recommend `/bee:new-spec` instead.
 - The quick task table uses a simple incrementing number (1, 2, 3...) separate from phase numbering.
-- Default mode (no flag) runs in main context for speed. `--agents` mode spawns researcher + implementer for deeper work.
-- Agent mode is useful for tasks that need codebase exploration or touch unfamiliar areas.
+- Default mode (no flag) runs in main context for speed. `--agents` mode spawns researcher (sonnet) + implementer (inherit) for deeper work.
+- Agent mode research uses the `bee:researcher` agent which runs on sonnet for speed. Implementation uses `general-purpose` which inherits parent model for code quality.
+- `--review` flag enables a lightweight review gate before commit. Can also be set permanently via `config.quick.review: true`.
+- Review gate uses the reviewer agent in quick-review mode (no spec/TDD checks, focus on bugs/standards/security).
 - Even in agent mode, commit confirmation is always done in the main context (never auto-committed by agents).
+- The standalone `/bee:quick-review` command can also be used to review quick task changes independently.

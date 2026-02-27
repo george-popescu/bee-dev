@@ -61,7 +61,7 @@ Display to user: "Starting testing of Phase {N}: {phase-name}..."
    - Phase name: `{phase_name}`
    - Instruction: "Generate manual test scenarios for this phase. Read the spec, TASKS.md, and implementation files. Write TESTING.md to the phase directory."
 
-2. Spawn the `test-planner` agent via Task tool with the context packet above. Wait for it to complete.
+2. Spawn the `test-planner` agent via Task tool with `model: "sonnet"` (scenario generation from structured inputs) and the context packet above. Wait for it to complete.
 
 3. After the test-planner completes, read `{phase_directory}/TESTING.md` using the Read tool. Verify the file was created and contains scenarios.
 
@@ -146,7 +146,7 @@ This step loops until the developer confirms all scenarios pass.
       - Stack info from config.json
       - Instruction: "The developer manually tested this scenario and it failed. The scenario was: '{scenario}'. The developer observed: '{observation}'. Fix the implementation so this scenario passes. Read the relevant files, identify the issue, apply a minimal fix, and run tests."
 
-   d. Spawn `fixer` agent via Task tool with the context packet. Wait for completion.
+   d. Spawn `fixer` agent via Task tool with the context packet (omit model -- fixers write production code). Wait for completion.
 
    e. Read the fixer's fix report from its final message.
 

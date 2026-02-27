@@ -1,5 +1,5 @@
 ---
-description: Execute independent phases simultaneously using agent teams (experimental, requires agent teams)
+description: Execute independent phases simultaneously using agent teams
 argument-hint: "[phase-numbers]"
 ---
 
@@ -11,7 +11,7 @@ Read these files using the Read tool:
 
 ## Instructions
 
-You are running `/bee:parallel-phases` -- the experimental parallel phase execution command for BeeDev. This command uses Claude Code agent teams to execute multiple independent phases simultaneously, with dependency analysis, file conflict detection, and coordinated state management. Follow these steps in order.
+You are running `/bee:parallel-phases` -- the parallel phase execution command for BeeDev. This command uses Claude Code agent teams to execute multiple independent phases simultaneously, with dependency analysis, file conflict detection, and coordinated state management. Follow these steps in order.
 
 ### Step 1: Validation Guards
 
@@ -35,11 +35,17 @@ Check these guards in order. Stop immediately if any fails:
    - Verify the Status is NOT "EXECUTED", "REVIEWED", "TESTED", or "COMMITTED". If it is: "Phase {N} is already {status}. Skipping." Remove from the list. If all phases are skipped, stop.
 
 5. **Agent teams prerequisite guard:** Attempt to use TeamCreate to create a team (the team will be used in Step 5). If TeamCreate fails or the tool is not available, tell the user:
-   "Agent teams are not enabled. To use parallel phases, add to your settings.json:"
+
+   "Agent teams are not available. Quick setup:
+
+   Add to your Claude Code settings (`~/.claude/settings.json`):
    ```json
    { "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" } }
    ```
-   "Use `/bee:execute-phase N` for each phase sequentially instead."
+
+   Then restart your Claude Code session.
+   Use `/bee:execute-phase N` for sequential execution in the meantime."
+
    Do NOT proceed.
 
 ### Step 2: Dependency Analysis

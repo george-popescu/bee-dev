@@ -8,7 +8,7 @@ argument-hint: ""
 Read these files using the Read tool:
 - `.bee/STATE.md` — if not found: NOT_INITIALIZED
 - `.bee/config.json` — if not found: use `{}`
-- `.bee/SESSION-CONTEXT.md` — if not found: NO_SESSION_CONTEXT
+- `.bee/COMPACT-CONTEXT.md` — if not found: try `.bee/SESSION-CONTEXT.md` — if neither found: NO_SESSION_CONTEXT
 
 ## Instructions
 
@@ -47,7 +47,7 @@ If there are multiple phases, show which ones are complete and which remain.
 
 **3. Session Context (if available)**
 
-If `NO_SESSION_CONTEXT` does NOT appear in the injected context (meaning `.bee/SESSION-CONTEXT.md` exists), this contains a snapshot of the working state from the last session. Present:
+If `NO_SESSION_CONTEXT` does NOT appear in the injected context (meaning `.bee/COMPACT-CONTEXT.md` or `.bee/SESSION-CONTEXT.md` was found), this contains a snapshot of the working state from the last session. Present:
 - What was actively being worked on
 - Any pending decisions or choices the developer needs to make
 - Wave progress (if mid-execution): which tasks are complete, which remain

@@ -39,7 +39,19 @@ Re-render the Phases table from STATE.md with status indicators for scannability
 
 If the Phases table is empty, note: "No phases planned yet."
 
-**3. Last Action:**
+**3. Quick Tasks (if any):**
+
+If STATE.md has a Quick Tasks section with entries, show a summary line:
+```
+Quick tasks: {count} completed
+```
+
+If there are uncommitted changes in the working directory (run `git diff --stat` via Bash), add:
+```
+Uncommitted changes detected. Run /bee:quick-review for a lightweight code review.
+```
+
+**4. Last Action:**
 
 Show the Last Action section from STATE.md (command, timestamp, result).
 
@@ -49,7 +61,8 @@ Based on the current state, suggest exactly one next command. Use this logic:
 
 | Current State | Suggested Command |
 |--------------|-------------------|
-| Status is `NO_SPEC` (no spec exists) | `/bee:new-spec` -- "Start by defining what you want to build." |
+| No spec but uncommitted changes exist | `/bee:quick-review` -- "Uncommitted changes found. Review them before committing." |
+| Status is `NO_SPEC` (no spec exists, no uncommitted changes) | `/bee:new-spec` -- "Start by defining what you want to build." |
 | Spec exists but no phases are planned | `/bee:plan-phase 1` -- "Your spec is ready. Plan the first phase." |
 | A phase is planned but not yet executed | `/bee:execute-phase N` -- "Phase N is planned and ready to execute." |
 | A phase is executed but not reviewed | `/bee:review` -- "Phase N is implemented. Time to review." |

@@ -34,8 +34,13 @@ try {
 
   const currentCmd = settings.statusLine?.command || '';
   if (!currentCmd.includes('bee-statusline')) {
-    settings.statusLine = { type: 'command', command: STATUSLINE_CMD };
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2) + '\n');
+    // Don't overwrite an existing non-bee statusline — respect user's config
+    if (settings.statusLine && currentCmd) {
+      // Another statusline is already configured; skip
+    } else {
+      settings.statusLine = { type: 'command', command: STATUSLINE_CMD };
+      fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2) + '\n');
+    }
   }
 } catch (e) {
   // Silent fail - never break session start

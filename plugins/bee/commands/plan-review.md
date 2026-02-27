@@ -77,7 +77,7 @@ Check these guards in order. Stop immediately if any fails:
    - Phase number
    - Instruction: "Review the plan for phase {N}. Read spec.md for feature behavior and acceptance criteria. Read requirements.md for the structured requirements summary. Read phases.md for phase decomposition context. Read TASKS.md for the planned tasks. Write PLAN-REVIEW.md to the phase directory."
 
-2. Spawn `plan-reviewer` agent via Task tool with the context packet above. Wait for the reviewer to complete.
+2. Spawn `plan-reviewer` agent via Task tool with `model: "sonnet"` (cross-reference comparison work) and the context packet above. Wait for the reviewer to complete.
 
 3. After the reviewer completes, read `{phase_directory}/PLAN-REVIEW.md` using the Read tool. Verify the file was created. If PLAN-REVIEW.md does not exist, tell the user:
    "Plan reviewer did not produce PLAN-REVIEW.md. Review failed."

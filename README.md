@@ -34,6 +34,7 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 /bee:test            # Generate test scenarios, verify with developer
 /bee:commit          # Guided commit with diff summary
 /bee:quick           # Fast-track: describe, execute, commit (no spec needed)
+/bee:quick-review    # Lightweight review for uncommitted changes
 ```
 
 ## Commands
@@ -47,13 +48,16 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 | `/bee:review` | Review pipeline: code review, validate findings, fix, re-review. Use `--loop` for auto-loop |
 | `/bee:test` | Manual testing handoff with scenario generation and fix loop |
 | `/bee:commit` | Show diff summary, suggest commit message, require confirmation |
-| `/bee:quick` | Fast-track task: describe, execute, commit. No spec or phases needed |
+| `/bee:quick` | Fast-track task: describe, execute, commit. Supports `--agents` and `--review` flags |
+| `/bee:quick-review` | Lightweight code review for uncommitted changes (no spec required) |
+| `/bee:plan-review N` | Review a phase plan (TASKS.md) against the spec before execution |
+| `/bee:compact` | Smart compact -- preserve bee context, then compress conversation |
 | `/bee:progress` | Show current project state and suggest next action |
 | `/bee:resume` | Restore full context after a break |
 | `/bee:eod` | End-of-day audit with 4 parallel checks |
 | `/bee:review-project` | Full project compliance review against original spec |
-| `/bee:parallel-phases` | Execute multiple independent phases simultaneously (experimental) |
-| `/bee:parallel-review` | Parallel code review with 4 specialized reviewers (experimental) |
+| `/bee:parallel-phases` | Execute multiple independent phases simultaneously using agent teams |
+| `/bee:parallel-review` | Parallel code review with 4 specialized reviewers using agent teams |
 
 ## Workflow
 
@@ -95,12 +99,14 @@ After running `/bee:init`, your project gets a `.bee/` directory:
 your-project/
 └── .bee/
     ├── config.json          # Stack, linter, test runner, CI config
+    ├── PROJECT.md           # Codebase index (structure, entry points, deps)
     ├── STATE.md             # Current workflow state (phases, progress)
-    ├── SESSION-CONTEXT.md   # Session snapshot for /bee:resume
+    ├── COMPACT-CONTEXT.md   # Context snapshot for /bee:compact
     ├── specs/
     │   └── feature-name/
     │       ├── spec.md      # Feature specification
     │       └── phases.md    # Phase breakdown
+    ├── quick-reviews/       # Lightweight review reports from /bee:quick-review
     └── eod-reports/         # End-of-day audit reports
 ```
 
@@ -110,7 +116,7 @@ your-project/
 
 2. **Phase planning** (`/bee:plan-phase`) -- Decomposes a phase into tasks, runs research, assigns tasks to parallel execution waves.
 
-3. **Execution** (`/bee:execute-phase`) -- Spawns implementer agents per wave. Each agent follows TDD: write tests first, then implement, then verify. Atomic commits per task.
+3. **Execution** (`/bee:execute-phase`) -- Spawns implementer agents per wave. Each agent follows TDD: write tests first, then implement, then verify.
 
 4. **Review** (`/bee:review`) -- 4-step pipeline: code review against spec + standards, validate findings (filter false positives), auto-fix confirmed issues, optional re-review loop.
 
@@ -118,11 +124,41 @@ your-project/
 
 6. **Commit** (`/bee:commit`) -- Shows diff summary, suggests conventional commit message, waits for explicit confirmation.
 
+## Smart Model Delegation
+
+Bee optimizes cost and speed by dynamically selecting the model for each agent at spawn time:
+
+- **Sonnet** -- structured work: research, planning, validation, classification, audits
+- **Inherit (parent model)** -- production code, deep analysis, interactive sessions
+
+The parent command (conductor) decides the model based on task complexity. Agents don't hardcode their model — the conductor overrides at spawn time.
+
+## Quick Tasks
+
+For small changes that don't need the full pipeline:
+
+```
+/bee:quick fix the login button alignment     # Direct execution + commit
+/bee:quick --agents add dark mode toggle      # Research + implement with agents
+/bee:quick --review update the footer links   # Execute + lightweight review before commit
+/bee:quick-review                             # Standalone review of uncommitted changes
+```
+
+## Statusline
+
+Bee installs a custom statusline (auto-configured on first session):
+
+```
+Opus │ 🐝 ▰▰▱▱▱ P2/5 EXEC │ 3Δ │ ████░░░░░░ 40%
+```
+
+Shows: model | implementation progress + active phase + status | git dirty count | context usage.
+
 ## Hooks
 
 The plugin includes automatic hooks:
 
-- **SessionStart** -- Loads `.bee/STATE.md` and config into Claude's context
+- **SessionStart** -- Loads `.bee/STATE.md` and config; auto-configures statusline
 - **PostToolUse** -- Auto-lints after file edits (uses project's configured linter)
 - **PreCompact** -- Saves session context before context compression
 - **Stop** -- Warns if executed phases haven't been reviewed

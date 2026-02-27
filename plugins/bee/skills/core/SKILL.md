@@ -33,6 +33,20 @@ The user decides when and what to commit via `/bee:commit`. Never commit automat
 - Present options and let the user choose
 - Show what will change before making changes
 
+### Smart model delegation
+When spawning agents via the Task tool, the conductor (parent command) chooses the model based on the agent's work complexity. All agents use `model: inherit` in their frontmatter -- the conductor overrides at spawn time.
+
+**Model selection guide:**
+
+| Model | When to use | Examples |
+|-------|-------------|---------|
+| `model: "sonnet"` | Structured/template work, scanning, classification, validation, comparison | researcher, spec-writer, phase-planner, plan-reviewer, finding-validator, integrity-auditor, test-auditor, test-planner, project-reviewer, reviewer (quick-review mode — focused scope scan) |
+| (omit / inherit) | Production code, complex reasoning, deep analysis, interactive sessions | implementer, fixer, reviewer (full phase review — deep multi-category analysis), spec-shaper |
+
+**Decision principle:** If the agent follows a template, does read-only scanning, runs tools mechanically, or classifies into fixed categories -- pass `model: "sonnet"`. If the agent writes production code, makes architectural decisions, or needs deep nuanced analysis -- omit the model parameter (inherits parent model).
+
+The conductor SHOULD assess each spawn and pass `model: "sonnet"` explicitly for structured work, or omit the model for reasoning-heavy work. This is not optional -- it is how Bee manages cost and speed.
+
 ### Spec-driven development
 Work only on features and tasks defined in specs. No ad-hoc implementation.
 - Specs define WHAT to build (behavior, acceptance criteria)

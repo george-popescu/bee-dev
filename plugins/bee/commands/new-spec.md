@@ -8,6 +8,7 @@ argument-hint: "[--amend]"
 Read these files using the Read tool:
 - `.bee/STATE.md` — if not found: NOT_INITIALIZED
 - `.bee/config.json` — if not found: use `{}`
+- `.bee/PROJECT.md` — if not found: skip (project index not available)
 
 ## Instructions
 
@@ -49,7 +50,7 @@ Wait for the user to confirm they are ready to proceed (they may need time to ad
 
 ### Step 5: Spawn spec-shaper Agent
 
-Spawn the `spec-shaper` agent as a subagent with the following context:
+Spawn the `spec-shaper` agent as a subagent (omit model parameter -- interactive requirements gathering needs full reasoning). Provide the following context:
 
 - The spec folder path (e.g., `.bee/specs/2026-02-20-user-management/`)
 - The user's feature name and any initial description they provided
@@ -65,7 +66,7 @@ Relay all agent questions to the user. Provide the user's answers back to the ag
 
 ### Step 6: Spawn spec-writer Agent
 
-After the spec-shaper completes (requirements.md has been written), spawn the `spec-writer` agent as a subagent with the following context:
+After the spec-shaper completes (requirements.md has been written), spawn the `spec-writer` agent as a subagent with `model: "sonnet"` (structured template-filling from gathered requirements). Provide the following context:
 
 - The spec folder path
 - Instruction: "Read requirements.md from the spec folder, then write spec.md and phases.md following the templates in skills/core/templates/"
@@ -97,7 +98,7 @@ Provide the spec-shaper agent with:
 Relay the amendment discussion between the agent and the user.
 
 **Spawn spec-writer in amend mode:**
-After the spec-shaper finishes updating `requirements.md`, provide the spec-writer agent with:
+After the spec-shaper finishes updating `requirements.md`, spawn the spec-writer with `model: "sonnet"`. Provide the spec-writer agent with:
 - The spec folder path
 - Instruction: "This is an amended spec. Read the updated requirements.md. Rewrite only sections affected by the changes in spec.md and phases.md. Preserve unchanged content exactly."
 

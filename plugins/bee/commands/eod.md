@@ -51,23 +51,25 @@ mkdir -p .bee/eod-reports
 
 Spawn ALL 4 agents simultaneously using the Task tool. Do NOT wait for one to finish before spawning the next. All 4 audits are independent.
 
-**Agent 1: integrity-auditor**
+**Model selection for EOD agents:** Use `model: "sonnet"` for all 4 agents. EOD audits are structured validation, comparison, and reporting tasks -- not creative work. This keeps the audit fast and cost-efficient.
+
+**Agent 1: integrity-auditor** (`model: "sonnet"`)
 Use the Task tool to spawn the `integrity-auditor` agent. Provide context:
 - "Check .bee/STATE.md against disk reality. Verify all referenced files exist, phase statuses are consistent, and no orphaned directories exist. Report findings in your final message."
 - Include the spec path and all phase directory paths from STATE.md.
 
-**Agent 2: reviewer (existing agent, reused)**
+**Agent 2: reviewer** (`model: "sonnet"`)
 Use the Task tool to spawn the `reviewer` agent. Provide context that OVERRIDES its default scope:
 - "EOD audit mode: Review ONLY the files shown in the git diff below (uncommitted changes). Do NOT write REVIEW.md to disk. Report findings in your final message as a brief summary. Focus on: standards violations, dead code, security concerns."
 - Include the list of changed files from the Git Status section above.
 - If no uncommitted changes exist, skip this agent and record Code Quality as "CLEAN -- no uncommitted changes".
 
-**Agent 3: test-auditor**
+**Agent 3: test-auditor** (`model: "sonnet"`)
 Use the Task tool to spawn the `test-auditor` agent. Provide context:
 - "Run the test suite once. Cross-reference acceptance criteria from all TASKS.md files. Report test health (pass/fail counts, stale tests, coverage gaps) in your final message."
 - Include the spec path and all phase directory paths.
 
-**Agent 4: project-reviewer**
+**Agent 4: project-reviewer** (`model: "sonnet"`)
 Use the Task tool to spawn the `project-reviewer` agent. Provide context:
 - "EOD audit mode: Provide a spec compliance SUMMARY in your final message. Do NOT write REVIEW-PROJECT.md to disk. Report per-phase compliance status and overall percentage."
 - Include the spec path and all phase directory paths.

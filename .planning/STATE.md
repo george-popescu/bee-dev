@@ -30,9 +30,10 @@ Last activity: 2026-02-21 -- v1.0 milestone archived
 | 3 | Add /bee:plan-review command + plan-reviewer agent for spec-plan alignment | 2026-02-21 | 8d585f5 | [3-add-plan-review-command-that-reviews-pla](./quick/3-add-plan-review-command-that-reviews-pla/) |
 | 4 | Add bee statusline script showing model, state, dir, context bar | 2026-02-21 | 6a2d0b0 | [4-add-bee-statusline-script-showing-contex](./quick/4-add-bee-statusline-script-showing-contex/) |
 | 5 | Bump plugin version to 1.1.0 | 2026-02-21 | cb4a847 | [5-bump-plugin-version-to-1-1-0-after-quick](./quick/5-bump-plugin-version-to-1-1-0-after-quick/) |
+| 6 | Auto-configure bee statusline globally via SessionStart hook | 2026-02-23 | 9e2ac67 | - |
 
 ## Session Continuity
 
 Last session: 2026-02-21
-Last activity: 2026-02-21 - Quick task 5: bumped plugin version to 1.1.0
+Last activity: 2026-02-23 - Quick task 6: auto-configure bee statusline globally via SessionStart hook
 Next: /gsd:new-milestone for v1.1 or v2.0

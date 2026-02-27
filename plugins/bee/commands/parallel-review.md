@@ -1,5 +1,5 @@
 ---
-description: Run parallel code review with 4 specialized reviewer teammates (experimental, requires agent teams)
+description: Run parallel code review with 4 specialized reviewer teammates
 argument-hint: "[--loop]"
 ---
 
@@ -11,7 +11,7 @@ Read these files using the Read tool:
 
 ## Instructions
 
-You are running `/bee:parallel-review` -- the experimental parallel code review command for BeeDev. This command uses Claude Code agent teams to create 4 specialized reviewer teammates, synthesizes their findings into a single REVIEW.md, and feeds the result into the existing validate-fix pipeline. Follow these steps in order.
+You are running `/bee:parallel-review` -- the parallel code review command for BeeDev. This command uses Claude Code agent teams to create 4 specialized reviewer teammates, synthesizes their findings into a single REVIEW.md, and feeds the result into the existing validate-fix pipeline. Follow these steps in order.
 
 ### Step 1: Validation Guards
 
@@ -34,7 +34,17 @@ Check these guards in order. Stop immediately if any fails:
    Wait for explicit confirmation before proceeding. If the user declines, stop.
 
 5. **Agent teams prerequisite guard:** Attempt to use TeamCreate to create a team. If TeamCreate fails or the tool is not available, tell the user:
-   "Agent teams are not enabled. To use parallel review, add to your settings.json: {\"env\": {\"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS\": \"1\"}}. Use `/bee:review` for standard single-agent review."
+
+   "Agent teams are not available. Quick setup:
+
+   Add to your Claude Code settings (`~/.claude/settings.json`):
+   ```json
+   { "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" } }
+   ```
+
+   Then restart your Claude Code session.
+   Use `/bee:review` for standard single-agent review in the meantime."
+
    Do NOT proceed.
 
 ### Step 2: Load Phase Context
@@ -65,6 +75,34 @@ Read current `.bee/STATE.md` from disk (fresh read, not cached dynamic context).
 3. Write updated STATE.md to disk
 
 Display to user: "Starting parallel review of Phase {N}: {phase-name} with 4 specialized reviewers..."
+
+### Step 3.5: Build & Test Gate
+
+**Build check (automatic):**
+
+1. Check `package.json` for a `build` script. If stack is PHP-only, skip.
+2. If a build script exists, run `npm run build` via Bash.
+3. If build **fails**: display the error and ask:
+   "Build failed. (a) Fix first (b) Continue review anyway"
+   - If (a): stop.
+   - If (b): continue.
+4. If build **passes**: display "Build: OK".
+5. If no build script: display "Build: skipped" and continue.
+
+**Test check (user opt-in):**
+
+Ask: "Run tests before review? (yes/no)"
+
+If **yes**:
+1. Read `testRunner` from `config.json`. If `none`, skip.
+2. Run the test command with parallel support:
+   - `vitest`: `npx vitest run`
+   - `jest`: `npx jest --maxWorkers=auto`
+   - `pest`: `./vendor/bin/pest --parallel`
+3. If tests **pass**: display "Tests: passed". Continue.
+4. If tests **fail**: display failures and ask: "(a) Fix first (b) Continue review anyway"
+
+If **no**: display "Tests: skipped" and continue.
 
 ### Step 4: Create Agent Team and Spawn 4 Reviewer Teammates
 

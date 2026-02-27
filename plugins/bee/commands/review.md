@@ -62,6 +62,40 @@ Read current `.bee/STATE.md` from disk (fresh read, not cached dynamic context).
 
 Display to user: "Starting review of Phase {N}: {phase-name}..."
 
+### Step 3.5: Build & Test Gate
+
+**Build check (automatic):**
+
+1. Check `package.json` for a `build` script (run `node -e "const p=require('./package.json'); process.exit(p.scripts?.build ? 0 : 1)"` via Bash). Also check `composer.json` if the stack is Laravel-based.
+2. If a build script exists, run it via Bash:
+   - Node projects: `npm run build`
+   - PHP projects: skip (no build step typically)
+3. If build **fails**: display the error output and ask:
+   "Build failed. Options: (a) Fix build errors first (b) Continue review anyway"
+   - If (a): stop the review. The user fixes and re-runs `/bee:review`.
+   - If (b): continue to review (note build failure in the review context).
+4. If build **passes**: display "Build: OK" and continue.
+5. If no build script exists: display "Build: skipped (no build script)" and continue.
+
+**Test check (user opt-in):**
+
+Ask the user: "Run tests before review? (yes/no)"
+
+If the user says **yes**:
+1. Read `testRunner` from `config.json`. If `none`, display "No test runner configured. Skipping." and continue.
+2. Detect the best parallel-capable test command:
+   - `vitest`: `npx vitest run` (parallel by default via worker threads)
+   - `jest`: `npx jest` (parallel by default via workers, use `--maxWorkers=auto` if not set)
+   - `pest`: `./vendor/bin/pest --parallel` (uses Paratest under the hood)
+3. Run the detected test command via Bash (timeout: 5 minutes).
+4. If tests **pass**: display "Tests: {count} passed" and continue.
+5. If tests **fail**: display the failure summary and ask:
+   "Tests failed ({fail_count} failures). Options: (a) Fix test failures first (b) Continue review anyway"
+   - If (a): stop. User fixes and re-runs.
+   - If (b): continue (note test failures in the review context).
+
+If the user says **no**: display "Tests: skipped" and continue.
+
 ### Step 4: STEP 1 -- REVIEW (spawn reviewer agent)
 
 1. Build the reviewer context packet:
@@ -72,7 +106,7 @@ Display to user: "Starting review of Phase {N}: {phase-name}..."
    - Phase number: `{N}`
    - Instruction: "Review the phase implementation. Read spec.md for requirements, TASKS.md for acceptance criteria and file list. Write REVIEW.md to the phase directory."
 
-2. Spawn the `reviewer` agent via Task tool with the context packet above. Wait for the reviewer to complete.
+2. Spawn the `reviewer` agent via Task tool with the context packet above. Use the parent model (omit model parameter) -- the reviewer does deep multi-category code analysis that benefits from full reasoning capability. Wait for the reviewer to complete.
 
 3. After the reviewer completes, read `{phase_directory}/REVIEW.md` using the Read tool. Verify the file was created. If REVIEW.md does not exist, tell the user: "Reviewer did not produce REVIEW.md. Review failed." Stop.
 
@@ -100,7 +134,7 @@ Display to user: "Starting review of Phase {N}: {phase-name}..."
 
 1. For each finding in REVIEW.md (parsed from the `### F-NNN` sections):
    - Build validation context: finding ID, summary, severity, category, file path, line range, description, suggested fix
-   - Spawn `finding-validator` agent via Task tool with the finding context
+   - Spawn `finding-validator` agent via Task tool with `model: "sonnet"` (single-finding classification is structured work) and the finding context
    - Multiple validators CAN be spawned in parallel (they are read-only and independent)
    - Batch up to 5 validators at a time to avoid overwhelming the system
 2. Collect classifications from each validator's final message (the `## Classification` section with Finding, Verdict, Confidence, Reason fields)
@@ -144,7 +178,7 @@ Display to user: "Starting review of Phase {N}: {phase-name}..."
      - Finding details: ID, summary, severity, category, file path, line range, description, suggested fix
      - Validation classification: REAL BUG or STYLISTIC (user-approved)
      - Stack info: stack name from config.json for the fixer to load the stack skill
-   - Spawn `fixer` agent via Task tool with the context packet
+   - Spawn `fixer` agent via Task tool with the context packet. Use the parent model (omit model parameter) -- fixers write production code and need full reasoning.
    - WAIT for the fixer to complete before spawning the next fixer
    - Read the fixer's fix report from its final message (## Fix Report section)
    - Read current REVIEW.md from disk (fresh read -- Read-Modify-Write pattern)

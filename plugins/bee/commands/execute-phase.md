@@ -8,6 +8,7 @@ argument-hint: "[phase-number]"
 Read these files using the Read tool:
 - `.bee/STATE.md` — if not found: NOT_INITIALIZED
 - `.bee/config.json` — if not found: use `{}`
+- `.bee/PROJECT.md` — if not found: skip (project index not available)
 
 ## Instructions
 
@@ -102,6 +103,7 @@ Keep each context packet to approximately 30% of context window. Include file pa
 Spawn ALL pending tasks in the current wave simultaneously using the Task tool. Each task becomes one parallel agent invocation:
 
 - Agent: `implementer`
+- Model: omit (inherit parent model) -- implementers write production code and need full reasoning capability
 - Context: the assembled context packet for that task
 - Each agent runs independently in its own context window
 

@@ -8,6 +8,7 @@ argument-hint: "[phase-number]"
 Read these files using the Read tool:
 - `.bee/STATE.md` — if not found: NOT_INITIALIZED
 - `.bee/config.json` — if not found: use `{}`
+- `.bee/PROJECT.md` — if not found: skip (project index not available)
 
 ## Spec Context (load before proceeding)
 
@@ -53,7 +54,7 @@ Check these four guards in order. Stop immediately if any fails:
 
 ### Step 3: Plan What -- Spawn phase-planner Agent (Pass 1)
 
-Spawn the `phase-planner` agent as a subagent with the following context:
+Spawn the `phase-planner` agent as a subagent with `model: "sonnet"` (structured decomposition work). Provide the following context:
 
 - The phase directory path (where to write TASKS.md)
 - The phase number being planned
@@ -73,7 +74,7 @@ If TASKS.md was not created, tell the user the planner failed and stop.
 
 ### Step 4: Plan How -- Spawn researcher Agent
 
-After the phase-planner completes, spawn the `researcher` agent as a subagent with the following context:
+After the phase-planner completes, spawn the `researcher` agent as a subagent with `model: "sonnet"` (codebase scanning and doc lookups). Provide the following context:
 
 - The phase directory path (where TASKS.md lives)
 - The spec folder path
@@ -88,7 +89,7 @@ If no research notes were added, warn the user but continue (research enrichment
 
 ### Step 5: Plan Who -- Spawn phase-planner Agent (Pass 2)
 
-Re-spawn the `phase-planner` agent as a subagent with the following context:
+Re-spawn the `phase-planner` agent as a subagent with `model: "sonnet"` (dependency analysis and wave grouping are mechanical). Provide the following context:
 
 - The phase directory path (where research-enriched TASKS.md lives)
 - Instruction: "This is Pass 2 (Plan Who). Read the research-enriched TASKS.md. Analyze task dependencies, detect file ownership conflicts (no two tasks in the same wave may modify the same file), group tasks into parallel waves, and define context packets per task. Write the final TASKS.md with wave structure, replacing the pre-wave version."

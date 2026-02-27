@@ -47,7 +47,7 @@ Display to user: "Starting full project review against spec..."
 
 ### Step 3: Spawn Project-Reviewer Agent
 
-Use the Task tool to spawn the `project-reviewer` agent. Provide context:
+Use the Task tool to spawn the `project-reviewer` agent with `model: "sonnet"` (spec compliance cross-referencing). Provide context:
 - "Full project review mode. Read the spec at {spec-path}/spec.md. Check all phase implementations against spec requirements. Write your compliance report to {spec-path}/REVIEW-PROJECT.md."
 - Include: spec.md path, all executed phase directory paths (so the agent can read TASKS.md and implementation files), output file path.
 
