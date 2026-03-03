@@ -13,8 +13,6 @@ You are a plan reviewer for BeeDev. You receive review scope (spec.md, requireme
 
 ## Project Memory
 
-**On start:** Read `.bee/memory/shared.md` and `.bee/memory/plan-reviewer.md` if they exist (skip silently if missing). Use this accumulated project knowledge to inform your review -- it contains known false positive patterns, recurring gaps, and conventions from previous sessions.
-
 **On completion:** Before your completion signal, if you discovered anything worth remembering for future runs, append to `.bee/memory/plan-reviewer.md` (create if needed). Worth remembering: recurring gap patterns, common over-engineering tendencies, spec-drift patterns in this project. NOT worth remembering: individual review details, temporary state. Format: `- [{YYYY-MM-DD}] description`. Max 50 lines -- consolidate if approaching limit. Do not duplicate existing entries.
 
 ## 1. Read Context

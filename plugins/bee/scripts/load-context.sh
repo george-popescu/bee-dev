@@ -11,9 +11,17 @@ if [ ! -d "$BEE_DIR" ]; then
 fi
 
 # Output state summary (stdout goes to Claude's context)
+# Cap at 60 lines to prevent unbounded context growth
 if [ -f "$BEE_DIR/STATE.md" ]; then
   echo "## Bee Project State"
-  cat "$BEE_DIR/STATE.md"
+  LINES=$(wc -l < "$BEE_DIR/STATE.md" | tr -d ' ')
+  if [ "$LINES" -gt 60 ]; then
+    head -n 60 "$BEE_DIR/STATE.md"
+    echo ""
+    echo "(STATE.md truncated at 60/$LINES lines -- read full file with Read tool if needed)"
+  else
+    cat "$BEE_DIR/STATE.md"
+  fi
   echo ""
 fi
 

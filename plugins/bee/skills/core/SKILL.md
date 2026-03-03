@@ -55,6 +55,8 @@ Agents have persistent per-project memory stored in `.bee/memory/`. This is NOT 
 - `shared.md` -- cross-cutting knowledge all agents read
 - `{agent-name}.md` -- per-agent knowledge (only that agent reads/writes it)
 
+**Memory injection:** The SubagentStart hook (`scripts/inject-memory.sh`) automatically reads `shared.md` and `{agent-name}.md` and injects the content into the agent's context at spawn time. Agents do NOT need to read memory files manually. If no memory appears in context, the project has no accumulated knowledge yet -- fallback: read `.bee/memory/shared.md` and `.bee/memory/{agent-name}.md` manually.
+
 **Rules for agents writing memory:**
 - Append new learnings, never rewrite the entire file
 - One entry per line: `- [{YYYY-MM-DD}] description`
@@ -99,40 +101,7 @@ Phases must be reviewed before advancing to the next phase (`phases.require_revi
 
 ## File Format References
 
-### TASKS.md structure
-The execution contract for each phase. Contains:
-- **Header:** Phase name, spec reference, status
-- **Wave table:** Tasks grouped by wave number (Wave 1 = no dependencies, Wave N+1 depends on Wave N)
-- **Task entries:** Each has an ID, description, acceptance criteria, assigned agent, status checkbox
-- **Research notes:** Findings from the researcher agent
-- **Agent notes:** Implementation notes from executing agents
-
-Tasks within the same wave have NO file conflicts and can run in parallel.
-
-### STATE.md format
-Tracks overall project state with four sections:
-- **Current Spec:** Name, path, and status of the active spec (NO_SPEC when none loaded)
-- **Phases table:** Progress grid with Plan/Executed/Reviewed/Tested/Committed columns per phase
-- **Decisions Log:** Record of key decisions made during the workflow
-- **Last Action:** Most recent command, timestamp, and result
-
-For the STATE.md template, see [templates/state.md](templates/state.md).
-
-### Wave conventions
-- **Wave 1:** Tasks with no dependencies. Can all run in parallel.
-- **Wave N+1:** Tasks that depend on output from Wave N.
-- Within a wave, tasks are assigned to avoid file ownership conflicts.
-- The conductor orchestrates wave execution: run all tasks in Wave 1, wait, then Wave 2, etc.
-
-### config.json format
-Project configuration with these fields:
-- `version` -- Bee plugin version
-- `stack` -- Detected project stack (e.g., "laravel-inertia-vue")
-- `linter` -- Detected linter (e.g., "pint", "eslint", "none")
-- `testRunner` -- Detected test runner (e.g., "pest", "vitest", "none")
-- `ci` -- Detected CI system (e.g., "github-actions", "none")
-- `context7` -- Whether to use Context7 MCP for framework docs (default: true)
-- `review` -- Review settings (against_spec, against_standards, dead_code, loop, max_loop_iterations)
-- `phases` -- Phase settings (require_review_before_next)
-
-For the config.json template, see [templates/project-config.json](templates/project-config.json).
+- **TASKS.md:** Execution contract for each phase. See [templates/tasks.md](templates/tasks.md)
+- **STATE.md:** Project state tracking. See [templates/state.md](templates/state.md)
+- **config.json:** Project configuration. See [templates/project-config.json](templates/project-config.json)
+- **Wave conventions:** Wave 1 = no dependencies (parallel). Wave N+1 depends on Wave N. No file conflicts within a wave.

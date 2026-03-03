@@ -39,13 +39,55 @@
         ]
       }
     ],
+    "SubagentStart": [
+      {
+        "matcher": "implementer|fixer|researcher|reviewer|spec-writer|phase-planner|plan-reviewer|spec-shaper|finding-validator|integrity-auditor|test-auditor|test-planner|project-reviewer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/inject-memory.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "matcher": "implementer",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Validate implementer agent output. Context: $ARGUMENTS\n\nCheck: 1) Test files created BEFORE implementation (TDD compliance) 2) Tests run and passing 3) Structured task notes written (files created, patterns used, decisions) 4) Task reported complete, not abandoned.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "prompt": "Validate implementer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Test files created BEFORE implementation (TDD compliance) 2) Tests run and passing 3) Structured task notes written (files created, patterns used, decisions) 4) Task reported complete, not abandoned.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "fixer",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Validate fixer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Fix Report section present with Finding ID, Status, Files Changed, What Changed, Tests fields 2) Tests were run after the fix (test results mentioned) 3) If tests failed after two attempts, changes were reverted 4) Only ONE finding was addressed (not multiple).\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "researcher",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Validate researcher agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Research notes were written to TASKS.md (mentions updating research sections) 2) No production code was written (no file creation or modification outside TASKS.md and memory files) 3) Completion signal matches expected format ('Research complete: [N] tasks enriched').\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "reviewer",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Validate reviewer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) REVIEW.md was written with findings or explicit 'no findings' signal 2) Each finding has required fields (Severity, Category, File, Description, Suggested Fix) 3) Finding count is between 0-15 (not excessive) 4) No code modifications were made (read-only agent).\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
             "timeout": 30
           }
         ]
@@ -58,6 +100,17 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/stop-review-check.sh",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-end-summary.sh",
+            "timeout": 5
           }
         ]
       }

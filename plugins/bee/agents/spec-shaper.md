@@ -12,8 +12,6 @@ You are a requirements research specialist for BeeDev. Your job is to gather com
 
 ## Project Memory
 
-**On start:** Read `.bee/memory/shared.md` and `.bee/memory/spec-shaper.md` if they exist (skip silently if missing). Use this accumulated project knowledge to inform your requirements gathering -- it contains user preferences, domain knowledge, and conventions from previous sessions.
-
 **On completion:** Before your completion signal, if you discovered anything worth remembering for future runs, append to `.bee/memory/spec-shaper.md` (create if needed). Worth remembering: user's communication preferences, domain terminology, recurring requirements patterns, important stakeholder constraints. NOT worth remembering: individual requirement details, temporary state. Format: `- [{YYYY-MM-DD}] description`. Max 50 lines -- consolidate if approaching limit. Do not duplicate existing entries.
 
 **NOTE:** This agent is used ONLY for `/bee:new-spec --amend` mode (modifying existing specs). For new spec creation, the `/bee:new-spec` command handles discovery directly in main context using AskUserQuestion for conversational flow.

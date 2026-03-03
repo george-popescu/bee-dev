@@ -1,6 +1,7 @@
 #!/bin/bash
-# PreCompact hook: snapshot working state to SESSION-CONTEXT.md
-# Receives JSON on stdin with trigger (manual/auto)
+# PreCompact hook: save compact session note to SESSION-CONTEXT.md
+# STATE.md and config.json are already on disk and loaded separately at SessionStart
+# This file only stores session-specific context not captured elsewhere
 
 set -euo pipefail
 
@@ -11,33 +12,20 @@ if [ ! -d "$BEE_DIR" ]; then
   exit 0
 fi
 
-# Read current state
-STATE=""
-if [ -f "$BEE_DIR/STATE.md" ]; then
-  STATE=$(cat "$BEE_DIR/STATE.md")
-fi
-
-CONFIG=""
-if [ -f "$BEE_DIR/config.json" ]; then
-  CONFIG=$(cat "$BEE_DIR/config.json")
-fi
-
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Write snapshot
+# Extract current spec and phase from STATE.md if available
+CURRENT_SPEC=""
+if [ -f "$BEE_DIR/STATE.md" ]; then
+  CURRENT_SPEC=$(grep -A1 "## Current Spec" "$BEE_DIR/STATE.md" 2>/dev/null | tail -1 || true)
+fi
+
+# Write compact session note (avoid duplicating STATE.md/config.json)
 cat > "$BEE_DIR/SESSION-CONTEXT.md" << EOF
 # Session Context (auto-generated)
 
-**Snapshot:** $TIMESTAMP
-**Trigger:** PreCompact
-
-## Project State
-$STATE
-
-## Config
-\`\`\`json
-$CONFIG
-\`\`\`
+**Last compaction:** $TIMESTAMP
+**Active spec:** $CURRENT_SPEC
 EOF
 
 exit 0
