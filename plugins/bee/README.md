@@ -1,12 +1,12 @@
 # Bee - Spec-Driven Development Workflow
 
-A Claude Code plugin that enforces disciplined, spec-driven development with TDD, parallel agent execution, persistent agent memory, and review gates.
+A Claude Code plugin that enforces disciplined, spec-driven development with TDD, parallel agent execution, persistent agent memory, review gates, and autonomous autopilot mode.
 
 ## What Bee Does
 
 Bee structures your development workflow into a lifecycle: **Spec > Plan > Execute > Review > Test > Commit**. Each step produces artifacts on disk, every feature goes through review gates, and 13 specialized agents handle different aspects of the work.
 
-## Commands (18)
+## Commands (19)
 
 ### Setup & Navigation
 | Command | Args | Description |
@@ -29,6 +29,7 @@ Bee structures your development workflow into a lifecycle: **Spec > Plan > Execu
 |---------|------|-------------|
 | `/bee:execute-phase` | `[phase-number]` | Execute a phase with wave-based parallel TDD agents |
 | `/bee:parallel-phases` | `[phase-numbers]` | Execute independent phases simultaneously using agent teams |
+| `/bee:autopilot` | | Run all spec phases automatically -- plan, execute, review loop with auto-compacting |
 | `/bee:quick` | `[--agents] [--review] [task description]` | Fast-track task without full spec pipeline -- describe, execute, commit |
 
 ### Quality
@@ -78,6 +79,31 @@ The complete lifecycle for building a feature with full quality gates:
 | `commit` | Git diff | Git commit | (none -- main context) |
 | `review-project` | All phases + spec | `REVIEW-PROJECT.md` | project-reviewer |
 | `eod` | Full project state | Integrity + health report | integrity-auditor, test-auditor, project-reviewer, reviewer |
+
+### Autopilot Workflow (Hands-Off)
+
+Run all phases from a spec automatically with no human gates:
+
+```
+1. /bee:new-spec                # Create the spec first
+2. /bee:autopilot               # Start autopilot -- plans, executes, reviews all phases
+   /compact                     # At each compact point, compress context
+   /bee:autopilot               # Resume -- autopilot picks up where it left off
+   --- repeat compact + autopilot until all phases done ---
+3. Review changes and commit    # No commits are made during autopilot
+```
+
+**What autopilot does per phase:**
+
+```
+Plan (3-pass, auto-approved) -> Execute (parallel waves) -> Review + Auto-fix -> Next Phase
+```
+
+- No commits (you review and commit after)
+- No manual testing (relies on automated tests during TDD)
+- All gates auto-approved (plans, review findings, stylistic fixes)
+- Compact points between steps for context management
+- Resumable via STATE.md tracking (crash-safe)
 
 ### Quick Task Workflow (No Spec)
 
