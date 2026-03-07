@@ -67,7 +67,7 @@ What would you like to change?
 7. Set `$USE_AGENTS` and `$USE_REVIEW` from the plan file's metadata (Mode and Review fields).
 8. Proceed to Step 4 (Execute), using the amended plan file as context for the implementer.
 9. After execution completes, update the plan file's `## Execution Notes` section and set Status to EXECUTED.
-10. In Step 5 (Commit), after committing, update the EXISTING quick task row in STATE.md with the new commit hash (do NOT add a new row).
+10. In Step 6 (Update STATE.md), the single-row replacement handles this naturally — the amended task becomes the latest entry.
 
 ---
 
@@ -441,12 +441,14 @@ Commit? (yes / edit message / cancel)
 |---|-------------|------|--------|
 ```
 
-3. **If `$AMEND` is true:** Find the existing row for quick task `$AMEND_NUMBER` and update its Commit column with the new commit hash. Do NOT add a new row.
-4. **If `$AMEND` is false:** Count existing quick task rows to determine the next number. Get the commit hash: `git rev-parse --short HEAD`. Append a new row:
+3. Count existing quick task rows to determine the next number `{N}`. Get the commit hash: `git rev-parse --short HEAD`.
+4. **Replace** all existing data rows in the Quick Tasks table with a SINGLE row for the current task. The table always shows only the latest quick task (old entries are removed — the commit history is the audit trail):
 
 ```markdown
 | {N} | {DESCRIPTION} | {YYYY-MM-DD} | {commit_hash} |
 ```
+
+Note: `{N}` still increments (it's the historical task counter), but the table only ever has one row.
 
 5. Update the Last Action section:
 
@@ -481,7 +483,7 @@ Next: /bee:progress to see project state, or /bee:quick for another task.
 - NEVER auto-commit. Always show the diff and get explicit user confirmation.
 - NEVER use `git add -A`, `git add .`, or destructive git operations.
 - If the task seems too large (>5 files, complex architecture changes), recommend `/bee:new-spec` instead.
-- The quick task table uses a simple incrementing number (1, 2, 3...) separate from phase numbering.
+- The quick task table uses a simple incrementing number (1, 2, 3...) separate from phase numbering. Only the LATEST quick task is shown in the table (old rows are replaced). The incrementing number and commit history serve as the audit trail.
 - **Default mode is agents** (researcher on sonnet + implementer on inherit). `--fast` flag switches to direct execution in main context. The `quick.agents` config option controls the default: `true` (default) = agents mode, `false` = fast mode. The `--fast` flag always forces fast mode regardless of config.
 - Agent mode research uses the `bee:researcher` agent which runs on sonnet for speed. Implementation uses `general-purpose` which inherits parent model for code quality.
 - `--review` flag enables a lightweight review gate before commit. Can also be set permanently via `config.quick.review: true`.
@@ -492,4 +494,4 @@ Next: /bee:progress to see project state, or /bee:quick for another task.
 - The standalone `/bee:quick-review` command shares the same three-agent parallel pattern and can also be used to review quick task changes independently.
 - Even in agent mode, commit confirmation is always done in the main context (never auto-committed by agents).
 - **Plan persistence:** In agents mode, a plan file is written to `.bee/quick/{NNN}-{slug}.md` before execution. The plan captures the task description, research findings, and execution notes. This enables `--amend` and provides an audit trail. Fast mode (`--fast`) skips plan creation entirely -- no `.bee/quick/` artifacts.
-- **`--amend` flow:** Allows re-executing a previous quick task with modifications. Reads the existing plan file, lets the user modify it, then re-executes. After execution, updates the existing STATE.md row (new commit hash) rather than creating a new row. Only works for tasks that have plan files (agents mode tasks). Fast mode tasks cannot be amended.
+- **`--amend` flow:** Allows re-executing a previous quick task with modifications. Reads the existing plan file, lets the user modify it, then re-executes. Only works for tasks that have plan files (agents mode tasks). Fast mode tasks cannot be amended.

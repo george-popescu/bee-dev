@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `setup-statusline.js` now injects plugin version into the global copy
 - `bee-statusline.js` uses injectable `BEE_VERSION` constant with fallback to `plugin.json`
 - `/bee:init` Step 5 verifies global statusline instead of creating local copies
+- `/bee:quick` STATE.md tracking: only the latest quick task is shown (single row, old entries replaced)
 
 ### Removed
 - Local `.bee/statusline.js` copy (legacy, replaced by global hook)
