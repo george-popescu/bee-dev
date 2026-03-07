@@ -6,7 +6,7 @@ A Claude Code plugin that enforces disciplined, spec-driven development with TDD
 
 Bee structures your development workflow into a lifecycle: **Spec > Plan > Execute > Review > Test > Commit**. Each step produces artifacts on disk, every feature goes through review gates, and 15 specialized agents handle different aspects of the work.
 
-## Commands (19)
+## Commands (20)
 
 ### Setup & Navigation
 | Command | Args | Description |
@@ -23,6 +23,7 @@ Bee structures your development workflow into a lifecycle: **Spec > Plan > Execu
 | `/bee:new-spec` | `[--amend] [feature description]` | Create or amend a feature spec through structured developer interview (2-5 adaptive rounds with selectable options) |
 | `/bee:plan-phase` | `[phase-number]` | Plan a phase with tasks, acceptance criteria, research, and wave grouping |
 | `/bee:plan-review` | `[phase-number]` | Review plan coverage against spec -- find gaps and discrepancies |
+| `/bee:add-phase` | | Append a new phase to the current spec |
 
 ### Execution
 | Command | Args | Description |
@@ -30,7 +31,7 @@ Bee structures your development workflow into a lifecycle: **Spec > Plan > Execu
 | `/bee:execute-phase` | `[phase-number]` | Execute a phase with wave-based parallel TDD agents |
 | `/bee:parallel-phases` | `[phase-numbers]` | Execute independent phases simultaneously using agent teams |
 | `/bee:autopilot` | | Run all spec phases automatically -- plan, execute, review loop with auto-compacting |
-| `/bee:quick` | `[--agents] [--review] [task description]` | Fast-track task without full spec pipeline -- describe, execute, commit |
+| `/bee:quick` | `[--fast] [--amend] [--review] [task description]` | Fast-track task without full spec pipeline -- agents mode default, `--fast` for direct, `--amend` to modify existing plan |
 
 ### Quality
 | Command | Args | Description |
@@ -113,12 +114,15 @@ For small tasks that don't need the full spec pipeline. Quick tasks are tracked 
 
 ```
 1. /bee:quick fix the login button alignment on mobile
-   # Bee executes the task directly with TDD, no spec needed
+   # Agents mode (default) -- spawns researcher + implementer agents
 
-2. /bee:quick --agents add dark mode toggle to the settings page
-   # Same but spawns researcher + implementer agents for more complex work
+2. /bee:quick --fast fix the button color
+   # Direct mode -- executes inline without agents
 
-3. /bee:quick --review refactor the auth middleware to use JWT
+3. /bee:quick --amend 3
+   # Modify existing quick task plan #3
+
+4. /bee:quick --review refactor the auth middleware to use JWT
    # Executes + runs a quick review before presenting for commit
 ```
 
@@ -193,6 +197,7 @@ Memory is automatically injected via the `SubagentStart` hook. Write-capable age
 |-------|---------|
 | **SessionStart** | Load project context (STATE.md, config) + configure statusline |
 | **PostToolUse** | Auto-lint modified files after Write/Edit |
+| **PreToolUse** | Pre-commit validation gate -- runs linter + test checks before allowing commits |
 | **PreCompact** | Snapshot session context before compaction |
 | **SubagentStart** | Inject agent memory into subagent context |
 | **SubagentStop** | Validate agent output (TDD compliance, format, completeness) -- includes role-specific validation for 4 specialized review agents |
