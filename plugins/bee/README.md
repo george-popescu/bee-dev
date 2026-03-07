@@ -4,7 +4,7 @@ A Claude Code plugin that enforces disciplined, spec-driven development with TDD
 
 ## What Bee Does
 
-Bee structures your development workflow into a lifecycle: **Spec > Plan > Execute > Review > Test > Commit**. Each step produces artifacts on disk, every feature goes through review gates, and 13 specialized agents handle different aspects of the work.
+Bee structures your development workflow into a lifecycle: **Spec > Plan > Execute > Review > Test > Commit**. Each step produces artifacts on disk, every feature goes through review gates, and 15 specialized agents handle different aspects of the work.
 
 ## Commands (19)
 
@@ -20,7 +20,7 @@ Bee structures your development workflow into a lifecycle: **Spec > Plan > Execu
 ### Specification
 | Command | Args | Description |
 |---------|------|-------------|
-| `/bee:new-spec` | `[--amend] [feature description]` | Create or amend a feature spec through conversational discovery |
+| `/bee:new-spec` | `[--amend] [feature description]` | Create or amend a feature spec through structured developer interview (2-5 adaptive rounds with selectable options) |
 | `/bee:plan-phase` | `[phase-number]` | Plan a phase with tasks, acceptance criteria, research, and wave grouping |
 | `/bee:plan-review` | `[phase-number]` | Review plan coverage against spec -- find gaps and discrepancies |
 
@@ -35,8 +35,8 @@ Bee structures your development workflow into a lifecycle: **Spec > Plan > Execu
 ### Quality
 | Command | Args | Description |
 |---------|------|-------------|
-| `/bee:review` | `[--loop]` | Review phase implementation against spec, standards, and quality checklist |
-| `/bee:parallel-review` | `[--loop]` | Run review with 4 specialized reviewer teammates in parallel |
+| `/bee:review` | `[--loop]` | Multi-agent parallel review (4 specialized agents) with finding validation, specialist escalation, and auto-fix |
+| `/bee:parallel-review` | `[--loop]` | **Deprecated** -- redirects to `/bee:review` which now runs parallel review natively |
 | `/bee:quick-review` | | Lightweight review of uncommitted changes -- no spec required |
 | `/bee:review-project` | | Review entire implementation against original spec for compliance |
 | `/bee:test` | | Generate manual test scenarios and verify with developer |
@@ -57,7 +57,8 @@ The complete lifecycle for building a feature with full quality gates:
 1. /bee:init                    # One-time project setup
 2. /bee:new-spec                # Describe the feature, answer questions, get spec.md + phases.md
 3. /bee:plan-phase 1            # Decompose phase 1 into tasks with acceptance criteria
-   /bee:plan-review 1           # (Optional) Verify plan covers all spec requirements
+                                # Plan review runs automatically (4 parallel agents) -- developer approves or modifies
+   /bee:plan-review 1           # Standalone plan review still available if needed separately
 4. /bee:execute-phase 1         # TDD implementation -- agents work in parallel waves
 5. /bee:review                  # Code review against spec + standards, auto-fix findings
 6. /bee:test                    # Generate manual test scenarios, verify with developer
@@ -71,14 +72,14 @@ The complete lifecycle for building a feature with full quality gates:
 
 | Step | Input | Output | Agents Used |
 |------|-------|--------|-------------|
-| `new-spec` | Feature description + Q&A | `spec.md`, `phases.md`, `requirements.md` | spec-shaper, spec-writer |
-| `plan-phase` | `spec.md` + phase number | `TASKS.md` with waves | phase-planner, researcher |
+| `new-spec` | Feature description + structured interview (2-5 adaptive rounds) | `spec.md`, `phases.md`, `requirements.md` | spec-shaper, spec-writer |
+| `plan-phase` | `spec.md` + phase number | `TASKS.md` with waves | phase-planner, researcher, plan-reviewer (automatic review step) |
 | `execute-phase` | `TASKS.md` | Implementation + tests | implementer (parallel per wave) |
-| `review` | Implementation files | `REVIEW.md` with findings | reviewer, finding-validator, fixer |
+| `review` | Implementation files | `REVIEW.md` with findings | bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer, finding-validator, fixer |
 | `test` | Implementation + spec | `TESTING.md` with scenarios | test-planner |
 | `commit` | Git diff | Git commit | (none -- main context) |
-| `review-project` | All phases + spec | `REVIEW-PROJECT.md` | project-reviewer |
-| `eod` | Full project state | Integrity + health report | integrity-auditor, test-auditor, project-reviewer, reviewer |
+| `review-project` | All phases + spec | `REVIEW-PROJECT.md` | bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer, finding-validator, fixer |
+| `eod` | Full project state | Integrity + health report | integrity-auditor, test-auditor, plan-compliance-reviewer, pattern-reviewer |
 
 ### Autopilot Workflow (Hands-Off)
 
@@ -108,7 +109,7 @@ After all: Project Review
 
 ### Quick Task Workflow (No Spec)
 
-For small tasks that don't need the full spec pipeline:
+For small tasks that don't need the full spec pipeline. Quick tasks are tracked in a separate STATE.md section with no impact on the spec/phase pipeline.
 
 ```
 1. /bee:quick fix the login button alignment on mobile
@@ -157,15 +158,18 @@ When phases have no dependencies between them:
 /bee:progress                   # Shows where you left off and suggests next action
 ```
 
-## Agents (13)
+## Agents (15)
 
 | Agent | Role | Tools |
 |-------|------|-------|
 | **implementer** | TDD full-stack implementation | Read, Write, Edit, Bash, Grep, Glob |
-| **fixer** | Minimal targeted fixes for review findings | Read, Write, Edit, Bash, Grep, Glob |
+| **fixer** | Minimal targeted fixes for review findings | Read, Write, Edit, Bash, Grep, Glob, Context7 |
 | **researcher** | Codebase patterns and Context7 docs | Read, Grep, Glob, Bash, Write |
-| **reviewer** | Code review against spec and standards | Read, Grep, Glob, Bash |
-| **finding-validator** | Classify findings as real/false/stylistic | Read, Grep, Glob |
+| **bug-detector** | Detect bugs, logic errors, and security issues | Read, Glob, Grep, Context7 |
+| **pattern-reviewer** | Review code against established project patterns | Read, Glob, Grep |
+| **plan-compliance-reviewer** | Review code/plans against spec and acceptance criteria | Read, Glob, Grep |
+| **stack-reviewer** | Review code against stack-specific best practices (dynamically loaded) | Read, Glob, Grep, Context7 |
+| **finding-validator** | Classify findings as real/false/stylistic (with source agent for specialist escalation) | Read, Grep, Glob |
 | **phase-planner** | Decompose phases into tasks and waves | Read, Grep, Glob, Bash, Write |
 | **plan-reviewer** | Review plan coverage against spec | Read, Grep, Glob, Write |
 | **spec-writer** | Write spec and phase breakdown | Read, Grep, Glob, Write |
@@ -173,7 +177,6 @@ When phases have no dependencies between them:
 | **test-planner** | Generate manual test scenarios | Read, Grep, Glob, Write |
 | **test-auditor** | Audit test suite health | Read, Grep, Glob, Bash |
 | **integrity-auditor** | Verify STATE.md matches disk reality | Read, Grep, Glob, Bash |
-| **project-reviewer** | Spec compliance review | Read, Grep, Glob, Bash |
 
 ## Agent Memory System
 
@@ -192,7 +195,7 @@ Memory is automatically injected via the `SubagentStart` hook. Write-capable age
 | **PostToolUse** | Auto-lint modified files after Write/Edit |
 | **PreCompact** | Snapshot session context before compaction |
 | **SubagentStart** | Inject agent memory into subagent context |
-| **SubagentStop** | Validate agent output (TDD compliance, format, completeness) |
+| **SubagentStop** | Validate agent output (TDD compliance, format, completeness) -- includes role-specific validation for 4 specialized review agents |
 | **Stop** | Check for unreviewed executed phases |
 | **SessionEnd** | Warn about memory files approaching limits |
 

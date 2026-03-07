@@ -234,8 +234,13 @@ Create `.bee/STATE.md` with the initial state:
 - Status: NO_SPEC
 
 ## Phases
-| # | Name | Status | Plan | Executed | Reviewed | Tested | Committed |
-|---|------|--------|------|----------|----------|--------|-----------|
+| # | Name | Status | Plan | Plan Review | Executed | Reviewed | Tested | Committed |
+|---|------|--------|------|-------------|----------|----------|--------|-----------|
+
+## Quick Tasks
+
+| # | Description | Date | Commit |
+|---|-------------|------|--------|
 
 ## Decisions Log
 

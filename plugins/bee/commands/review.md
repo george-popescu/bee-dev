@@ -25,7 +25,7 @@ Check these guards in order. Stop immediately if any fails:
    "No spec found. Run `/bee:new-spec` first."
    Do NOT proceed.
 
-3. **Phase detection:** Read the Phases table from STATE.md. Find the first phase where: Status is "EXECUTED" AND the Reviewed column is NOT "Yes" (or not "Yes (N)" for any N). This is the phase to review. If no such phase exists, tell the user:
+3. **Phase detection:** Read the Phases table from STATE.md. Find the first phase where: Status is "EXECUTED" or "REVIEWED". This allows both first-time reviews and re-reviews of already-reviewed phases. If no such phase exists, tell the user:
    "No executed phases waiting for review. Run `/bee:execute-phase N` first."
    Do NOT proceed.
 
@@ -42,25 +42,37 @@ Check these guards in order. Stop immediately if any fails:
    - TASKS.md: `{phase_directory}/TASKS.md`
    - spec.md: `{spec-path}/spec.md`
 4. Read TASKS.md to identify files created/modified by the phase
-5. Read `.bee/false-positives.md` if it exists (pass path to reviewer)
+5. Note whether `.bee/false-positives.md` exists (Step 3.9 extracts false positives before review agents)
 6. Check `$ARGUMENTS` for `--loop` flag
 7. Read `config.json` from dynamic context for `review.loop` and `review.max_loop_iterations` settings
 8. Determine loop mode: enabled if `--loop` in arguments OR `config.review.loop` is true
 9. Set max iterations: from `config.review.max_loop_iterations` (default: 3)
-10. Initialize iteration counter to 1
+10. Check the Reviewed column for the detected phase. If it shows "Yes (N)" for some number N, this is a re-review -- set the base iteration count to N. Otherwise (empty or no previous review), set the base iteration count to 0.
+11. Initialize iteration counter to base iteration count + 1 (first review = 1, first re-review of "Yes (1)" = 2, etc.)
 
-### Step 3: Update STATE.md to REVIEWING
+### Step 3: Archive Previous Review (if re-review) and Update STATE.md
 
-Read current `.bee/STATE.md` from disk (fresh read, not cached dynamic context). Update the detected phase:
+Read current `.bee/STATE.md` from disk (fresh read, not cached dynamic context).
+
+**3a. Archive previous REVIEW.md (re-review only):**
+
+If the detected phase has a Reviewed value of "Yes (N)" (i.e., it was previously reviewed):
+1. Check if `{phase_directory}/REVIEW.md` exists on disk
+2. If it exists, rename it to `{phase_directory}/REVIEW-{N}.md` where N is the iteration number extracted from "Yes (N)" (e.g., "Yes (1)" -> archive as `REVIEW-1.md`, "Yes (2)" -> archive as `REVIEW-2.md`)
+3. Display: "Archived previous review as REVIEW-{N}.md"
+
+If the phase has not been reviewed before (Reviewed column is empty), skip archival.
+
+**3b. Update STATE.md:**
 
 1. Set the phase row's Status to `REVIEWING`
 2. Set Last Action to:
    - Command: `/bee:review`
    - Timestamp: current ISO 8601 timestamp
-   - Result: "Starting review of phase {N}"
+   - Result: "Starting review of phase {N} (iteration {iteration_counter})"
 3. Write updated STATE.md to disk
 
-Display to user: "Starting review of Phase {N}: {phase-name}..."
+Display to user: "Starting review of Phase {N}: {phase-name} (iteration {iteration_counter})..."
 
 ### Step 3.5: Build & Test Gate
 
@@ -96,52 +108,212 @@ If the user says **yes**:
 
 If the user says **no**: display "Tests: skipped" and continue.
 
-### Step 4: STEP 1 -- REVIEW (spawn reviewer agent)
+### Step 3.9: Extract False Positives
 
-1. Build the reviewer context packet:
-   - Spec path: `{spec.md path}` -- reviewer reads this for requirements
-   - TASKS.md path: `{TASKS.md path}` -- reviewer reads this for acceptance criteria and file list
-   - Phase directory: `{phase_directory}` -- reviewer writes REVIEW.md here
-   - False positives path: `.bee/false-positives.md` (if the file exists; otherwise include "no false positives file yet")
-   - Phase number: `{N}`
-   - Instruction: "Review the phase implementation. Read spec.md for requirements, TASKS.md for acceptance criteria and file list. Write REVIEW.md to the phase directory."
+Before spawning review agents, extract documented false positives so each agent can exclude known non-issues:
 
-2. Spawn the `reviewer` agent via Task tool with the context packet above. Use the parent model (omit model parameter) -- the reviewer does deep multi-category code analysis that benefits from full reasoning capability. Wait for the reviewer to complete.
+1. Read `.bee/false-positives.md` using the Read tool.
+2. If the file exists, build a formatted false-positives list from its contents. Extract each `## FP-NNN` entry with its finding description, reason, and file reference. Format the list as:
+   ```
+   EXCLUDE these documented false positives from your findings:
+   - FP-001: {summary} ({file}, {reason})
+   - FP-002: {summary} ({file}, {reason})
+   ...
+   ```
+3. If the file does not exist, set the false-positives list to: `"No documented false positives."`
+4. This formatted list is included verbatim in each agent's context packet in Step 4.
 
-3. After the reviewer completes, read `{phase_directory}/REVIEW.md` using the Read tool. Verify the file was created. If REVIEW.md does not exist, tell the user: "Reviewer did not produce REVIEW.md. Review failed." Stop.
+### Step 4: STEP 1 -- REVIEW (spawn four specialized agents in parallel)
 
-4. Parse findings from REVIEW.md:
-   - Count total findings (each `### F-NNN` section is one finding)
-   - Count by severity: critical, high, medium
-   - Count by category: bug, spec gap, standards, dead code, security, TDD, pattern
+Spawn four specialized review agents in parallel. Each agent focuses on a distinct review domain. The command (not the agents) writes REVIEW.md after consolidating all findings.
 
-5. If 0 findings:
+#### 4.1: Build context packets
+
+Build a shared context base for all four agents:
+- Spec path: `{spec.md path}`
+- TASKS.md path: `{TASKS.md path}`
+- Phase directory: `{phase_directory}`
+- Phase number: `{N}`
+- False positives list: the formatted list from Step 3.9
+
+Then build four agent-specific context packets:
+
+**Agent 1: Bug Detector** (`bee:bug-detector`, `model: "sonnet"`)
+```
+You are reviewing Phase {N} implementation for bugs and security issues.
+
+Spec: {spec.md path}
+TASKS.md: {TASKS.md path}
+Phase directory: {phase_directory}
+Phase number: {N}
+
+{false-positives list from Step 3.9}
+
+Read TASKS.md to find the files created/modified by this phase. Review those files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). Report only HIGH confidence findings in your standard output format.
+```
+
+**Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`, `model: "sonnet"`)
+```
+You are reviewing Phase {N} implementation for pattern deviations.
+
+Spec: {spec.md path}
+TASKS.md: {TASKS.md path}
+Phase directory: {phase_directory}
+Phase number: {N}
+
+{false-positives list from Step 3.9}
+
+Read TASKS.md to find the files created/modified by this phase. For each file, find 2-3 similar existing files in the codebase, extract their patterns, and compare. Report only HIGH confidence deviations in your standard output format.
+```
+
+**Agent 3: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`, `model: "sonnet"`)
+```
+You are reviewing Phase {N} implementation in CODE REVIEW MODE (not plan review mode).
+
+Spec: {spec.md path}
+TASKS.md: {TASKS.md path}
+Phase directory: {phase_directory}
+Phase number: {N}
+
+{false-positives list from Step 3.9}
+
+Review mode: code review. Check implemented code against spec requirements and acceptance criteria. Verify every acceptance criterion in TASKS.md has corresponding implementation. Check for missing features, incorrect behavior, and over-scope additions. If phase > 1, also check cross-phase integration (imports, data contracts, workflow connections, shared state). Report findings in your standard code review mode output format.
+```
+
+**Agent 4: Stack Reviewer** (`bee:stack-reviewer`, `model: "sonnet"`)
+```
+You are reviewing Phase {N} implementation for stack best practice violations.
+
+Spec: {spec.md path}
+TASKS.md: {TASKS.md path}
+Phase directory: {phase_directory}
+Phase number: {N}
+
+{false-positives list from Step 3.9}
+
+Read TASKS.md to find the files created/modified by this phase. Load the stack skill dynamically from config.json and check all code against the stack's conventions. Use Context7 to verify framework best practices. Report only HIGH confidence violations in your standard output format.
+```
+
+#### 4.2: Spawn all four agents in parallel
+
+Spawn all four agents via four Task tool calls in a SINGLE message (parallel execution). Use `model: "sonnet"` for all four agents -- they perform focused scope scanning and classification work.
+
+Wait for all four agents to complete.
+
+#### 4.3: Parse findings from each agent
+
+After all four agents complete, parse findings from each agent's final message. Each agent has a distinct output format -- normalize all findings into a unified list:
+
+**Bug Detector** findings (from `## Bugs Detected` section):
+- Each `- **[Bug type]:** [Description] - \`file:line\`` entry becomes one finding
+- Severity: taken from the Critical/High/Medium subsection the entry appears under
+- Category: "Bug" (or "Security" if the bug type mentions security, injection, XSS, CSRF, auth, or access control)
+
+**Pattern Reviewer** findings (from `## Project Pattern Deviations` section):
+- Each `- **[Pattern type]:** [Deviation description] - \`file:line\`` entry becomes one finding
+- Severity: Medium (pattern deviations default to Medium)
+- Category: "Pattern"
+
+**Plan Compliance Reviewer** findings (from `## Plan Compliance Findings` section):
+- SG-NNN entries (Spec Gap) -> Category: "Spec Gap", severity from the entry
+- CI-NNN entries (Cross-Phase Integration) -> Category: "Spec Gap", severity from the entry
+- OS-NNN entries (Over-Scope) -> Category: "Spec Gap", severity: Medium
+
+**Stack Reviewer** findings (from `## Stack Best Practice Violations` section):
+- Each `- **[Rule category]:** [Violation description] - \`file:line\`` entry becomes one finding
+- Severity: Medium (stack violations default to Medium)
+- Category: "Standards"
+
+If an agent reports no findings (e.g., "No bugs detected.", "No project pattern deviations found.", etc.), it contributes zero findings.
+
+#### 4.4: Deduplicate and merge
+
+For each pair of findings from different agents, check if they reference the same file AND their line ranges overlap (within 5 lines of each other). If so, merge them:
+- Keep the higher severity (Critical > High > Medium)
+- Combine categories (e.g., "Bug, Standards")
+- Combine descriptions (concatenate with "; " separator)
+- Use the broader line range
+
+#### 4.5: Assign IDs and write REVIEW.md
+
+1. Assign sequential IDs to all merged findings: F-001, F-002, F-003, ...
+2. Write `{phase_directory}/REVIEW.md` using the review-report template (`skills/core/templates/review-report.md`):
+   - Fill in the Summary section (spec name, phase number, date, iteration, status: PENDING)
+   - Fill in the Counts tables (by severity and by category)
+   - Write each finding as a `### F-NNN` section with: Severity, Category, File, Lines, Description, Suggested Fix, Validation: pending, Fix Status: pending
+   - Leave the False Positives section empty
+   - Leave the Fix Summary table with one row per finding, all showing "pending"
+3. Verify REVIEW.md was written by reading it back with the Read tool.
+
+#### 4.6: Evaluate findings
+
+1. Count total findings, count by severity (critical, high, medium), count by category.
+
+2. If 0 findings after consolidation:
    - Read current STATE.md from disk
-   - Set Reviewed column to "Yes (0)"
+   - Set Reviewed column to "Yes ({iteration_counter})" where iteration_counter is the current cumulative iteration count
    - Set Status to REVIEWED
-   - Set Last Action result to "Phase {N} reviewed: 0 findings -- clean code"
+   - Set Last Action result to "Phase {N} reviewed (iteration {iteration_counter}): 0 findings -- clean code"
    - Write STATE.md to disk
-   - Display: "Review complete -- clean code! No findings. Next step: Run `/bee:test` to test this phase."
+   - Display: "Review complete -- clean code! No findings (iteration {iteration_counter}). Next step: Run `/bee:test` to test this phase."
    - Stop here.
 
-6. Display findings summary: "{N} findings: {critical} critical, {high} high, {medium} medium"
+3. Display findings summary: "{N} findings from 4 reviewers: {critical} critical, {high} high, {medium} medium"
 
-7. If more than 10 findings: present the list to user before proceeding:
-   "The reviewer found {N} findings (above typical range). Review the list in REVIEW.md and confirm you want to proceed with validation."
+4. If more than 10 findings: present the list to user before proceeding:
+   "The review found {N} findings (above typical range). Review the list in REVIEW.md and confirm you want to proceed with validation."
    Wait for user confirmation. If user declines, stop.
 
 ### Step 5: STEP 2 -- VALIDATE EACH FINDING (spawn finding-validator agents)
 
 1. For each finding in REVIEW.md (parsed from the `### F-NNN` sections):
-   - Build validation context: finding ID, summary, severity, category, file path, line range, description, suggested fix
+   - Build validation context: finding ID, summary, severity, category, file path, line range, description, suggested fix, and `source_agent` (the specialist agent that originally produced the finding -- determined by category mapping: Bug/Security -> `bug-detector`, Pattern -> `pattern-reviewer`, Spec Gap -> `plan-compliance-reviewer`, Standards -> `stack-reviewer`)
    - Spawn `finding-validator` agent via Task tool with `model: "sonnet"` (single-finding classification is structured work) and the finding context
    - Multiple validators CAN be spawned in parallel (they are read-only and independent)
    - Batch up to 5 validators at a time to avoid overwhelming the system
-2. Collect classifications from each validator's final message (the `## Classification` section with Finding, Verdict, Confidence, Reason fields)
-3. Read current REVIEW.md from disk (fresh read -- another validator batch may have been processed). Update REVIEW.md:
-   - Set each finding's Validation field to the classification (REAL BUG / FALSE POSITIVE / STYLISTIC)
+2. Collect classifications from each validator's final message (the `## Classification` section with Finding, Verdict, Confidence, Source Agent, and Reason fields)
+3. Escalate MEDIUM confidence classifications to specialist agents for a second opinion:
+   - Filter the collected classifications: separate HIGH confidence (proceed unchanged) from MEDIUM confidence (need escalation)
+   - For each MEDIUM confidence classification, read the `Source Agent` field to identify which specialist originally found the issue (one of: `bug-detector`, `pattern-reviewer`, `plan-compliance-reviewer`, or `stack-reviewer`)
+   - Spawn the identified specialist agent (`bee:{source_agent}`) via Task tool with `model: "sonnet"` and a context packet containing:
+     ```
+     You are providing a second opinion on a review finding that received an uncertain classification.
+
+     ## Original Finding
+     - **ID:** F-{NNN}
+     - **Severity:** {severity}
+     - **Category:** {category}
+     - **File:** {file_path}
+     - **Lines:** {line_range}
+     - **Description:** {description}
+     - **Suggested Fix:** {suggested_fix}
+
+     ## Validator Classification
+     - **Verdict:** {verdict}
+     - **Confidence:** MEDIUM
+     - **Reason:** {validator_reason}
+
+     ## Your Task
+     Provide a second opinion on whether this finding is valid. Read the file and surrounding context. Respond with your verdict: REAL BUG or FALSE POSITIVE, followed by your reasoning.
+
+     End your response with:
+     ## Second Opinion
+     - **Verdict:** {REAL BUG | FALSE POSITIVE}
+     - **Reason:** {your reasoning}
+     ```
+   - Specialist escalations are spawned SEQUENTIALLY (one at a time) -- each is a focused re-analysis
+   - After the specialist responds, parse the `## Second Opinion` section from the specialist's final message
+   - Use the specialist's verdict as the FINAL classification, overriding the validator's uncertain MEDIUM confidence classification
+   - If the specialist confirms REAL BUG: the finding stays with verdict REAL BUG
+   - If the specialist says FALSE POSITIVE: the finding's verdict becomes FALSE POSITIVE
+   - Record the escalation: append " (Escalated to {source_agent} -- reclassified as {verdict})" to the finding's Validation field in REVIEW.md (e.g., "FALSE POSITIVE (Escalated to bug-detector -- reclassified as FALSE POSITIVE)" or "REAL BUG (Escalated to pattern-reviewer -- reclassified as REAL BUG)")
+   - Display each escalation: "Escalated F-{NNN} to {source_agent} -- reclassified as {verdict}"
+4. Read current REVIEW.md from disk (fresh read -- another validator batch may have been processed). Update REVIEW.md:
+   - Set each finding's Validation field to the final classification:
+     - HIGH confidence findings: the validator's verdict (REAL BUG / FALSE POSITIVE / STYLISTIC)
+     - Escalated MEDIUM confidence findings: the specialist's verdict with escalation note (e.g., "REAL BUG (Escalated to bug-detector -- reclassified as REAL BUG)")
    - Update the Counts table with classification breakdown
-4. Handle FALSE POSITIVE findings:
+5. Handle FALSE POSITIVE findings (including those reclassified by specialist escalation):
    - If `.bee/false-positives.md` does not exist, create it with a `# False Positives` header
    - For each FALSE POSITIVE finding, append an entry:
      ```
@@ -151,18 +323,19 @@ If the user says **no**: display "Tests: skipped" and continue.
      - **Phase:** {phase number}
      - **Date:** {current ISO 8601 date}
      ```
+   - For findings reclassified as FALSE POSITIVE via specialist escalation, include the specialist's reason (not the validator's) in the Reason field
    - Update REVIEW.md: set the finding's Fix Status to "False Positive"
 
-5. Handle STYLISTIC findings (user interaction):
+6. Handle STYLISTIC findings (user interaction):
    - For each STYLISTIC finding, present to user:
      "STYLISTIC finding: F-{NNN} -- '{summary}'. Options: (a) Fix it, (b) Ignore, (c) False Positive (won't be flagged again)"
    - Wait for user response for each STYLISTIC finding
    - If user chooses (a): add finding to the confirmed fix list
    - If user chooses (b): mark as "Skipped (user ignored)" in REVIEW.md Fix Status
-   - If user chooses (c): append to `.bee/false-positives.md` (same format as step 4) and mark as "False Positive" in REVIEW.md
+   - If user chooses (c): append to `.bee/false-positives.md` (same format as step 5) and mark as "False Positive" in REVIEW.md
 
-6. Build confirmed fix list: all REAL BUG findings + user-approved STYLISTIC findings (those where user chose option a)
-7. Display validation summary: "{real_bug} real bugs, {false_positive} false positives, {stylistic} stylistic ({user_fix} to fix, {user_ignore} ignored)"
+7. Build confirmed fix list: all REAL BUG findings (both HIGH confidence and specialist-confirmed) + user-approved STYLISTIC findings (those where user chose option a). Exclude any findings reclassified as FALSE POSITIVE by specialist escalation.
+8. Display validation summary: "{real_bug} real bugs, {false_positive} false positives, {stylistic} stylistic ({user_fix} to fix, {user_ignore} ignored), {escalated} escalated ({escalated_real_bug} confirmed, {escalated_false_positive} reclassified as FP)"
 
 ### Step 6: STEP 3 -- FIX CONFIRMED ISSUES (spawn fixer agents sequentially)
 
@@ -200,28 +373,61 @@ CRITICAL: Spawn fixers SEQUENTIALLY, one at a time. Never spawn multiple fixers 
 3. If iteration counter > max iterations:
    - Display: "Max review iterations ({max}) reached. Review complete."
    - Skip to Step 8
-4. Display: "Starting re-review iteration {counter} of {max}..."
-5. Re-spawn the `reviewer` agent with the same context as Step 4:
-   - The reviewer reads the updated code (including fixes applied in previous iteration)
-   - The reviewer reads the updated `.bee/false-positives.md` (which now includes FPs from the previous iteration)
-   - The reviewer produces a fresh REVIEW.md (overwrites the previous one)
-6. Read the new REVIEW.md
-7. If 0 new findings: display "Re-review clean -- no new findings after iteration {counter}." Skip to Step 8.
-8. If new findings found:
+4. Display: "Starting re-review iteration {counter}..."
+
+#### 7.1: Archive current REVIEW.md
+
+Before the re-review overwrites REVIEW.md, archive the current one:
+1. Compute the previous iteration number: current iteration counter minus 1 (this is the iteration that produced the current REVIEW.md)
+2. Rename `{phase_directory}/REVIEW.md` to `{phase_directory}/REVIEW-{previous_iteration}.md`
+3. Display: "Archived previous review as REVIEW-{previous_iteration}.md"
+
+#### 7.2: Re-extract false positives
+
+Re-run the Step 3.9 false-positive extraction. The `.bee/false-positives.md` file now includes any FPs documented during the previous iteration's validation step:
+1. Read `.bee/false-positives.md` using the Read tool
+2. If the file exists, build the updated formatted false-positives list (same format as Step 3.9)
+3. If the file does not exist, set the false-positives list to: `"No documented false positives."`
+
+#### 7.3: Spawn four review agents in parallel
+
+Spawn the same four specialized agents as Step 4, with updated context. The agents review the updated code (including all fixes applied in previous iterations) and the updated false-positives list. Build context packets identical to Step 4.1 but with the refreshed false-positives list from Step 7.2:
+
+- **Agent 1: Bug Detector** (`bee:bug-detector`, `model: "sonnet"`) -- same context packet as Step 4.1
+- **Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`, `model: "sonnet"`) -- same context packet as Step 4.1
+- **Agent 3: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`, `model: "sonnet"`) -- same context packet as Step 4.1
+- **Agent 4: Stack Reviewer** (`bee:stack-reviewer`, `model: "sonnet"`) -- same context packet as Step 4.1
+
+Spawn all four agents via four Task tool calls in a SINGLE message (parallel execution). Wait for all four to complete.
+
+#### 7.4: Parse, deduplicate, and write new REVIEW.md
+
+Apply the same consolidation and deduplication logic as Steps 4.3 through 4.5:
+1. Parse findings from each agent's final message using the same category/severity mapping as Step 4.3
+2. Deduplicate and merge overlapping findings using the same rules as Step 4.4 (same file + line ranges within 5 lines -> merge with higher severity, combined categories/descriptions)
+3. Assign sequential IDs (F-001, F-002, ...) and write the new `{phase_directory}/REVIEW.md` using the review-report template, with the iteration number set to the current iteration counter in the Summary section
+
+#### 7.5: Evaluate re-review findings
+
+1. Count total findings after consolidation
+2. If 0 new findings after consolidation:
+   - Display: "Re-review clean -- no new findings after iteration {counter}."
+   - Skip to Step 8 (completion)
+3. If new findings found:
    - Display: "Re-review found {N} new findings. Validating and fixing..."
-   - Repeat from Step 5 (validate findings -> fix confirmed -> check for another loop iteration)
+   - Repeat from Step 5 (validate findings -> fix confirmed issues -> check for another loop iteration at Step 7)
 
 ### Step 8: Completion
 
 After all steps complete (or early exit from clean review):
 
 1. Update STATE.md:
-   - Reviewed column: "Yes ({N})" where N = total confirmed findings fixed across all iterations
+   - Reviewed column: "Yes ({iteration_counter})" where iteration_counter is the cumulative review iteration count (first review = 1, first re-review = 2, etc.)
    - Status: `REVIEWED`
    - Last Action:
      - Command: `/bee:review`
      - Timestamp: current ISO 8601 timestamp
-     - Result: "Phase {N} reviewed: {total_findings} findings, {confirmed} confirmed, {fixed} fixed, {false_positives} false positives"
+     - Result: "Phase {N} reviewed (iteration {iteration_counter}): {total_findings} findings, {confirmed} confirmed, {fixed} fixed, {false_positives} false positives"
 2. Write updated STATE.md to disk
 3. Display completion summary:
 
@@ -244,12 +450,19 @@ Next step:
 
 **Design Notes (do not display to user):**
 
-- The command auto-detects the phase to review (first EXECUTED but not REVIEWED). No phase number argument needed.
+- The command auto-detects the phase to review (first EXECUTED or REVIEWED phase). Re-reviewing an already-reviewed phase is allowed -- the previous REVIEW.md is archived as REVIEW-{N}.md where N is the previous iteration number, and the iteration counter increments.
+- Four specialized agents (bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer) replace the single reviewer agent. All four run in parallel via four Task tool calls in a single message. All use `model: "sonnet"` (focused scope scanning/classification work).
+- The command (not the agents) writes REVIEW.md. Agents report findings in their own output formats; the command normalizes, deduplicates, and writes the unified REVIEW.md.
+- Step 3.9 extracts false positives BEFORE spawning agents. Each agent receives the formatted false-positives list in its context packet so it can self-filter. The command does NOT need to post-filter.
+- The plan-compliance-reviewer operates in "code review mode" (not plan review mode). The context packet explicitly states this.
+- Deduplication merges findings from different agents when they reference the same file AND line ranges overlap within 5 lines. Higher severity is kept, categories and descriptions are combined.
 - REVIEW.md is the pipeline state, progressively updated as validation and fixing proceed. Analogous to TASKS.md checkboxes in execute-phase.
 - Finding validation can be parallel (up to 5 at a time). Fixing MUST be sequential (one at a time) to prevent fix conflicts.
+- Specialist escalation for MEDIUM confidence findings happens AFTER batch validation completes (not inline during validation batching). Flow: (1) batch validate up to 5 findings, (2) collect all classifications, (3) for MEDIUM confidence ones, spawn the source specialist sequentially for a second opinion, (4) then proceed to update REVIEW.md with final classifications. Escalation uses `bee:{source_agent}` (e.g., `bee:bug-detector`) with `model: "sonnet"`. HIGH confidence classifications proceed unchanged -- only MEDIUM triggers escalation.
 - The command handles user interaction for STYLISTIC findings. Commands handle interaction, agents handle work.
 - `.bee/false-positives.md` is created on first use when the first false positive is documented. If no false positives exist yet, the file does not exist.
-- Loop mode is opt-in: `--loop` flag or `config.review.loop`. Capped at `max_loop_iterations` (default 3).
+- Loop mode is opt-in: `--loop` flag or `config.review.loop`. Capped at `max_loop_iterations` (default 3). Re-review (Step 7) re-extracts false positives (Step 7.2), re-spawns all four agents in parallel (Step 7.3), and applies the same parse/deduplicate/consolidate pipeline (Step 7.4) before evaluating findings. The re-review agents see the updated code (post-fix) and updated false-positives list.
 - Always re-read STATE.md from disk before each update (Read-Modify-Write pattern) to ensure latest state.
-- The reviewer, finding-validator, and fixer are spawned via Task tool as foreground subagents. The SubagentStop hook in hooks.json fires for implementer agents only (matcher: "implementer") -- it does NOT fire for review pipeline agents.
+- The four review agents, finding-validator, and fixer are spawned via Task tool as foreground subagents. The SubagentStop hook in hooks.json fires for implementer agents only (matcher: "implementer") -- it does NOT fire for review pipeline agents.
 - If the session ends mid-review (context limit, crash, user stops), re-running `/bee:review` detects the REVIEWING status and offers to resume. REVIEW.md on disk reflects the pipeline state at the time of interruption.
+- Token usage is approximately 4x that of the previous single-reviewer approach due to four parallel sessions. The tradeoff is more focused, higher-quality findings from domain specialists.

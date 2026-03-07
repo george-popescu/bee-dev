@@ -18,7 +18,7 @@ Use Glob to find `.bee/specs/*/spec.md`, `.bee/specs/*/requirements.md`, and `.b
 
 ## Instructions
 
-You are running `/bee:plan-review` -- the plan review command for BeeDev. This command spawns the plan-reviewer agent to analyze a phase's TASKS.md against the original spec and requirements, finding coverage gaps and discrepancies before execution begins. Follow these steps in order.
+You are running `/bee:plan-review` -- the plan review command for BeeDev. This command spawns four specialized review agents in parallel (bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer) to analyze a phase's TASKS.md against the original spec and requirements, finding coverage gaps and discrepancies before execution begins. Findings are consolidated into a single PLAN-REVIEW.md. Follow these steps in order.
 
 ### Step 1: Validation Guards
 
@@ -66,32 +66,228 @@ Check these guards in order. Stop immediately if any fails:
    "TASKS.md not found or empty for phase {N}. Run `/bee:plan-phase {N}` first."
    Do NOT proceed.
 
-### Step 3: Spawn plan-reviewer Agent
+### Step 3: Spawn Four Specialized Agents in Parallel
 
-1. Build the reviewer context packet:
-   - spec.md path
-   - requirements.md path
-   - phases.md path
-   - TASKS.md path
-   - Phase directory path (where to write PLAN-REVIEW.md)
-   - Phase number
-   - Instruction: "Review the plan for phase {N}. Read spec.md for feature behavior and acceptance criteria. Read requirements.md for the structured requirements summary. Read phases.md for phase decomposition context. Read TASKS.md for the planned tasks. Write PLAN-REVIEW.md to the phase directory."
+#### 3.1: Build context packets
 
-2. Spawn `plan-reviewer` agent via Task tool with `model: "sonnet"` (cross-reference comparison work) and the context packet above. Wait for the reviewer to complete.
+Build a shared context base for all four agents:
+- spec.md path: `{spec-path}/spec.md`
+- requirements.md path: `{spec-path}/requirements.md`
+- phases.md path: `{spec-path}/phases.md`
+- TASKS.md path: `{phase_directory}/TASKS.md`
+- Phase directory: `{phase_directory}`
+- Phase number: `{N}`
 
-3. After the reviewer completes, read `{phase_directory}/PLAN-REVIEW.md` using the Read tool. Verify the file was created. If PLAN-REVIEW.md does not exist, tell the user:
-   "Plan reviewer did not produce PLAN-REVIEW.md. Review failed."
-   Do NOT proceed.
+Then build four agent-specific context packets:
+
+**Agent 1: Bug Detector** (`bee:bug-detector`, `model: "sonnet"`)
+```
+You are reviewing the plan for Phase {N} in PLAN REVIEW MODE.
+
+Spec: {spec.md path}
+Requirements: {requirements.md path}
+Phases: {phases.md path}
+TASKS.md: {TASKS.md path}
+Phase directory: {phase_directory}
+Phase number: {N}
+
+Read spec.md for feature behavior and acceptance criteria. Read requirements.md for the structured requirements summary. Read phases.md for phase decomposition context. Read TASKS.md for the planned tasks.
+
+Review the planned tasks for potential bug risks: tasks that are likely to introduce logic errors, race conditions, edge case failures, null handling issues, or security vulnerabilities based on their described scope and acceptance criteria. Report only HIGH confidence concerns in your standard output format.
+```
+
+**Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`, `model: "sonnet"`)
+```
+You are reviewing the plan for Phase {N} in PLAN REVIEW MODE.
+
+Spec: {spec.md path}
+Requirements: {requirements.md path}
+Phases: {phases.md path}
+TASKS.md: {TASKS.md path}
+Phase directory: {phase_directory}
+Phase number: {N}
+
+Read spec.md for feature behavior and acceptance criteria. Read requirements.md for the structured requirements summary. Read phases.md for phase decomposition context. Read TASKS.md for the planned tasks.
+
+Review the planned tasks for pattern concerns: tasks whose described approach deviates from established project patterns, uses inconsistent naming or structure, or does not reference the correct existing patterns to follow. Find similar existing files in the codebase and compare against planned approaches. Report only HIGH confidence deviations in your standard output format.
+```
+
+**Agent 3: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`, `model: "sonnet"`)
+```
+You are reviewing the plan for Phase {N} in PLAN REVIEW MODE (not code review mode).
+
+Spec: {spec.md path}
+Requirements: {requirements.md path}
+Phases: {phases.md path}
+TASKS.md: {TASKS.md path}
+Phase directory: {phase_directory}
+Phase number: {N}
+
+Review mode: plan review. Read spec.md for feature behavior and acceptance criteria. Read requirements.md for the structured requirements summary. Read phases.md for phase decomposition context. Read TASKS.md for the planned tasks.
+
+Build a coverage matrix mapping every spec requirement to planned tasks. Identify gaps (requirements not covered), partial coverage, spec drift (tasks misaligned with spec), and over-engineering (tasks beyond spec scope). Report findings in your standard plan review mode output format with Coverage Matrix, Gaps, Partial Coverage, Spec Drift, and Over-Engineering sections.
+```
+
+**Agent 4: Stack Reviewer** (`bee:stack-reviewer`, `model: "sonnet"`)
+```
+You are reviewing the plan for Phase {N} in PLAN REVIEW MODE.
+
+Spec: {spec.md path}
+Requirements: {requirements.md path}
+Phases: {phases.md path}
+TASKS.md: {TASKS.md path}
+Phase directory: {phase_directory}
+Phase number: {N}
+
+Read spec.md for feature behavior and acceptance criteria. Read requirements.md for the structured requirements summary. Read phases.md for phase decomposition context. Read TASKS.md for the planned tasks.
+
+Load the stack skill dynamically from config.json and review the planned tasks for stack best practice concerns: tasks whose described approach violates stack conventions, uses anti-patterns for the configured framework, or misses recommended practices. Use Context7 to verify framework best practices. Report only HIGH confidence violations in your standard output format.
+```
+
+#### 3.2: Spawn all four agents in parallel
+
+Spawn all four agents via four Task tool calls in a SINGLE message (parallel execution). Use `model: "sonnet"` for all four agents -- they perform structured cross-reference comparison work.
+
+Wait for all four agents to complete.
+
+#### 3.3: Parse findings from each agent
+
+After all four agents complete, parse findings from each agent's final message:
+
+**Plan Compliance Reviewer** provides the primary PLAN-REVIEW.md structure:
+- Coverage Matrix table (R-NNN requirements mapped to tasks)
+- Summary counts (total requirements, covered, partial, not covered, over-engineered)
+- Gaps (G-NNN), Partial Coverage (P-NNN), Spec Drift (D-NNN), Over-Engineering (O-NNN) sections
+
+**Bug Detector** findings become an additional "Bug Risk" section:
+- Each reported concern becomes a bug risk entry with its description and the task(s) it applies to
+
+**Pattern Reviewer** findings become an additional "Pattern Concerns" section:
+- Each reported deviation becomes a pattern concern entry with its description and the task(s) it applies to
+
+**Stack Reviewer** findings become an additional "Stack Best Practice Concerns" section:
+- Each reported violation becomes a stack concern entry with its description and the task(s) it applies to
+
+If an agent reports no findings, its section is omitted from PLAN-REVIEW.md.
+
+#### 3.4: Deduplicate and merge
+
+For each pair of findings from different agents, check if they reference the same requirement or the same task AND describe the same underlying issue. If so, merge them:
+- Keep the most specific finding (longest description with most detail)
+- Note which agents flagged the issue (e.g., "Flagged by: plan-compliance-reviewer, bug-detector")
+- Place the merged finding in the most relevant section (Gaps, Partial Coverage, Spec Drift, Over-Engineering, Bug Risk, Pattern Concerns, or Stack Concerns)
+
+#### 3.5: Write PLAN-REVIEW.md
+
+Write `{phase_directory}/PLAN-REVIEW.md` using this consolidated format:
+
+```markdown
+## Plan Review: Phase {N}
+
+**Spec:** {spec name}
+**Phase:** {phase name}
+**Date:** {ISO 8601}
+**Status:** {CLEAN | ISSUES_FOUND}
+**Reviewers:** bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer
+
+### Coverage Matrix
+
+| Req ID | Requirement | Coverage | Task(s) | Notes |
+|--------|-------------|----------|---------|-------|
+| R-001  | {requirement} | COVERED / PARTIAL / NOT COVERED | T{N}.{M} | {rationale} |
+
+### Summary
+
+- **Total requirements:** {N}
+- **Covered:** {N}
+- **Partial:** {N}
+- **Not covered:** {N}
+- **Plan tasks:** {N}
+- **Over-engineered tasks:** {N}
+
+### Gaps (Requirements Not Covered)
+
+#### G-001: {requirement summary}
+- **Requirement:** {full requirement text}
+- **Impact:** {what the user loses if this is not planned}
+- **Suggestion:** {what task to add or which existing task to expand}
+
+{Repeat for each gap. If no gaps: "No gaps found -- all requirements are covered."}
+
+### Partial Coverage
+
+#### P-001: {requirement summary}
+- **Requirement:** {full requirement text}
+- **Covered by:** T{N}.{M}
+- **Missing aspect:** {what part of the requirement is not addressed}
+- **Suggestion:** {how to close the gap}
+
+{If none: "No partial coverage issues found."}
+
+### Spec Drift
+
+#### D-001: {task summary}
+- **Task:** T{N}.{M} -- {task description}
+- **Spec says:** {what the spec requires}
+- **Plan says:** {what the task does differently}
+- **Suggestion:** {how to realign}
+
+{If none: "No spec drift found -- all tasks align with spec intent."}
+
+### Over-Engineering
+
+#### O-001: {task summary}
+- **Task:** T{N}.{M} -- {task description}
+- **Not in spec:** {what capability goes beyond spec}
+- **Suggestion:** Remove or defer to a future phase
+
+{If none: "No over-engineering found -- plan stays within spec scope."}
+
+### Bug Risk
+
+#### BR-001: {risk summary}
+- **Task:** T{N}.{M} -- {task description}
+- **Risk:** {what bug, logic error, or security issue this task is likely to introduce}
+- **Suggestion:** {how to mitigate in the plan}
+
+{If none: omit this section entirely.}
+
+### Pattern Concerns
+
+#### PC-001: {concern summary}
+- **Task:** T{N}.{M} -- {task description}
+- **Pattern deviation:** {how the planned approach deviates from established patterns}
+- **Suggestion:** {which pattern to follow instead}
+
+{If none: omit this section entirely.}
+
+### Stack Best Practice Concerns
+
+#### SC-001: {concern summary}
+- **Task:** T{N}.{M} -- {task description}
+- **Violation:** {what stack best practice is violated by the planned approach}
+- **Suggestion:** {recommended approach per stack conventions}
+
+{If none: omit this section entirely.}
+```
+
+Verify PLAN-REVIEW.md was written by reading it back with the Read tool.
+
+#### 3.6: Evaluate findings
+
+Count total issues across all sections: gaps + partial + drift + over-engineering + bug risks + pattern concerns + stack concerns.
+
+If 0 issues total, set Status to CLEAN. Otherwise set Status to ISSUES_FOUND.
 
 ### Step 4: Present Findings
 
-1. Parse PLAN-REVIEW.md summary counts: total requirements, covered, partial, not covered, over-engineered
+1. Parse PLAN-REVIEW.md summary counts and additional section counts from all four agents' consolidated output.
 
-2. If status is CLEAN (0 gaps, 0 partial, 0 drift, 0 over-engineering):
+2. If status is CLEAN (0 gaps, 0 partial, 0 drift, 0 over-engineering, 0 bug risks, 0 pattern concerns, 0 stack concerns):
    - Display:
      ```
      Plan review complete -- plan fully covers the spec!
-     No gaps or discrepancies found.
+     No gaps or discrepancies found across all four reviewers.
 
      Proceed with `/bee:execute-phase {N}` when ready.
      ```
@@ -100,6 +296,7 @@ Check these guards in order. Stop immediately if any fails:
 3. If issues found, display a formatted summary:
    ```
    Plan Review for Phase {N}: {phase-name}
+   Reviewed by: bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer
 
    Requirements: {total} checked
    - Covered: {N}
@@ -110,6 +307,9 @@ Check these guards in order. Stop immediately if any fails:
    - Gaps: {N} requirements not covered
    - Spec drift: {N} tasks misaligned with spec
    - Over-engineering: {N} tasks beyond spec scope
+   - Bug risks: {N} potential bug concerns
+   - Pattern concerns: {N} pattern deviations
+   - Stack concerns: {N} best practice violations
 
    Full review: {phase_directory}/PLAN-REVIEW.md
    ```
@@ -132,7 +332,9 @@ Check these guards in order. Stop immediately if any fails:
 **Design Notes (do not display to user):**
 
 - This command does NOT modify TASKS.md or STATE.md. It is a read-analyze-report command.
-- The plan-reviewer agent is read-only except for writing PLAN-REVIEW.md.
+- Four specialized agents (bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer) review the plan in parallel via four Task tool calls in a single message. All use `model: "sonnet"` (structured cross-reference comparison work).
+- The command (not the agents) writes PLAN-REVIEW.md. Agents report findings in their own output formats; the command normalizes, deduplicates, and writes the unified PLAN-REVIEW.md.
+- The plan-compliance-reviewer operates in "plan review mode" (not code review mode). Its output provides the primary PLAN-REVIEW.md structure (Coverage Matrix, Gaps, Partial Coverage, Spec Drift, Over-Engineering). The other three agents' findings are merged as additional sections (Bug Risk, Pattern Concerns, Stack Best Practice Concerns).
+- Deduplication merges findings from different agents when they reference the same requirement or task AND describe the same underlying issue. The most specific finding (longest description) is kept.
 - The command does not auto-chain into plan-phase. It presents findings and lets the user decide next steps in a fresh context window.
-- For future integration with plan-phase: the plan-phase command can optionally spawn this review between Step 5 and Step 6 if `config.planReview` is true. That integration is not part of this task -- it can be added later as a one-line spawn in plan-phase.md.
 - Always re-read files from disk, never rely on cached dynamic context for file contents.

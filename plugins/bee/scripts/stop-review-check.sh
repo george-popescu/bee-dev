@@ -28,15 +28,15 @@ if [ ! -f "$STATE_FILE" ]; then
 fi
 
 # Parse the Phases table for rows where Status is EXECUTED but Reviewed is not Yes
-# Table format: | # | Name | Status | Plan | Executed | Reviewed | Tested | Committed |
-# Fields:        1   2      3        4      5          6          7        8
+# Table format: | # | Name | Status | Plan | Plan Review | Executed | Reviewed | Tested | Committed |
+# Fields:        1   2      3        4      5              6          7          8        9
 UNREVIEWED=$(awk -F'|' '
   /EXECUTED/ {
     status = $4
-    reviewed = $7
+    reviewed = $8
     gsub(/^[ \t]+|[ \t]+$/, "", status)
     gsub(/^[ \t]+|[ \t]+$/, "", reviewed)
-    if (status == "EXECUTED" && reviewed != "Yes") {
+    if (status == "EXECUTED" && reviewed !~ /^Yes/) {
       name = $3
       gsub(/^[ \t]+|[ \t]+$/, "", name)
       print name

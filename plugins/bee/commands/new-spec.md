@@ -260,7 +260,7 @@ After all steps complete successfully (in either the new or amend flow), update 
 2. Set **Current Spec Path** to the spec folder path (e.g., `.bee/specs/2026-02-20-user-management/`)
 3. Set **Current Spec Status** to `SPEC_CREATED`
 4. Read the newly created (or updated) `phases.md` from the spec folder
-5. Populate the **Phases** table with one row per phase, all with Status `PENDING` and all other columns empty
+5. Populate the **Phases** table with one row per phase, all with Status `PENDING` and all other columns (Plan, Plan Review, Executed, Reviewed, Tested, Committed) empty
 6. Set **Last Action** to:
    - Command: `/bee:new-spec` (or `/bee:new-spec --amend` if amending)
    - Timestamp: current ISO 8601 timestamp

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Bee Statusline for Claude Code
-// Shows: model | 🐝 ▰▰▱▱▱ P2/5 EXEC | gitΔ | context bar
+// Shows: model | v2.0.0 | 🐝 ▰▰▱▱▱ P2/5 EXEC | gitΔ | context bar
 
 const fs = require('fs');
 const path = require('path');
@@ -9,6 +9,7 @@ const { execFileSync } = require('child_process');
 // Compact status map
 const STATUS_SHORT = {
   'PLANNED': 'PLAN',
+  'PLAN_REVIEWED': 'PRVW',
   'EXECUTING': 'EXEC',
   'EXECUTED': 'BUILT',
   'REVIEWING': 'RVNG',
@@ -72,6 +73,20 @@ process.stdin.on('end', () => {
     const model = shortModel(data.model?.display_name);
     const dir = data.workspace?.current_dir || process.cwd();
     const remaining = data.context_window?.remaining_percentage;
+
+    // Plugin version from plugin.json
+    let versionSegment = '';
+    try {
+      const pluginPath = path.join(__dirname, '..', '.claude-plugin', 'plugin.json');
+      if (fs.existsSync(pluginPath)) {
+        const pluginData = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
+        if (pluginData.version) {
+          versionSegment = `\x1b[2mv${pluginData.version}\x1b[0m \x1b[2m\u2502\x1b[0m `;
+        }
+      }
+    } catch (e) {
+      // Never crash the statusline
+    }
 
     // Bee state extraction from .bee/STATE.md
     let beeSegment = '\x1b[2mnot init\x1b[0m';
@@ -166,9 +181,9 @@ process.stdin.on('end', () => {
       }
     }
 
-    // Output: Model │ 🐝 ▰▰▱▱▱ P2/5 EXEC │ 3Δ │ ████░░░░░░ 40%
+    // Output: Model │ v2.0.0 │ 🐝 ▰▰▱▱▱ P2/5 EXEC │ 3Δ │ ████░░░░░░ 40%
     process.stdout.write(
-      `\x1b[2m${model}\x1b[0m \x1b[2m\u2502\x1b[0m \u{1F41D} ${beeSegment}${gitSegment}${ctx}`
+      `\x1b[2m${model}\x1b[0m \x1b[2m\u2502\x1b[0m ${versionSegment}\u{1F41D} ${beeSegment}${gitSegment}${ctx}`
     );
   } catch (e) {
     // Silent fail - don't break statusline on parse errors

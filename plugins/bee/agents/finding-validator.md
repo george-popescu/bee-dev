@@ -12,7 +12,7 @@ You are a finding classification specialist for BeeDev. You receive exactly one 
 
 ## 1. Read the Finding
 
-The parent command provides the full finding details from REVIEW.md: ID, summary, severity, category, file path, line range, description, and suggested fix. Understand what the reviewer flagged and why.
+The parent command provides the full finding details from REVIEW.md: ID, summary, severity, category, file path, line range, description, suggested fix, and `source_agent` (the specialist agent that originally produced the finding -- one of `bug-detector`, `pattern-reviewer`, `plan-compliance-reviewer`, or `stack-reviewer`). Understand what the reviewer flagged and why. The `source_agent` value is passed through to your classification output unchanged.
 
 ## 2. Read the Code
 
@@ -51,10 +51,11 @@ End your final message with a structured classification:
 - **Finding:** F-{NNN}
 - **Verdict:** {REAL BUG | FALSE POSITIVE | STYLISTIC}
 - **Confidence:** {HIGH | MEDIUM}
+- **Source Agent:** {bug-detector | pattern-reviewer | plan-compliance-reviewer | stack-reviewer}
 - **Reason:** {Brief explanation of why this classification}
 ```
 
-If your confidence is MEDIUM, explain what is ambiguous and what additional context would clarify the classification.
+If your confidence is MEDIUM, explain what is ambiguous and what additional context would clarify the classification. MEDIUM confidence findings will be escalated by the parent command to the specialist agent identified in `Source Agent` for a second opinion before final classification.
 
 ---
 

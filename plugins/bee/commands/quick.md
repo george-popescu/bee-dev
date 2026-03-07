@@ -181,38 +181,141 @@ If `$USE_REVIEW` is true, run a lightweight review before committing:
 1. Read `testRunner` from `config.json`. If `none`, display "No test runner configured. Skipping." and continue.
 2. Run the test command (`vitest`: `npx vitest run`, `jest`: `npx jest --maxWorkers=auto`, `pest`: `./vendor/bin/pest --parallel`). Display results. If tests fail, ask: "(a) Fix first (b) Continue anyway".
 
-1. Run `git diff --stat` to identify all changed files. Filter to source files only (`.php`, `.js`, `.ts`, `.jsx`, `.tsx`, `.vue`, `.css`, `.scss`).
-2. Spawn the `reviewer` agent via Task tool with `model: "sonnet"` (quick-review is focused scope scanning) and a quick-review context:
+#### 4.5.0: Detect review scope and compute output path
 
+1. Run `git diff --stat` to identify all changed files. Filter to source files only (`.php`, `.js`, `.ts`, `.jsx`, `.tsx`, `.vue`, `.css`, `.scss`). Store as `$REVIEW_FILES`.
+2. Create `.bee/quick-reviews/` directory if it does not exist.
+3. Check what files already exist for today's date (YYYY-MM-DD pattern).
+4. Set `{review_output_path}` = `.bee/quick-reviews/YYYY-MM-DD-{N}.md` where N is `(existing count for today) + 1`.
+
+#### 4.5.1: Extract false positives
+
+Before spawning review agents, extract documented false positives so each agent can exclude known non-issues:
+
+1. Read `.bee/false-positives.md` using the Read tool.
+2. If the file exists, build a formatted false-positives list from its contents. Extract each `## FP-NNN` entry with its finding description, reason, and file reference. Format the list as:
+   ```
+   EXCLUDE these documented false positives from your findings:
+   - FP-001: {summary} ({file}, {reason})
+   - FP-002: {summary} ({file}, {reason})
+   ...
+   ```
+3. If the file does not exist, set the false-positives list to: `"No documented false positives."`
+4. This formatted list is included verbatim in each agent's context packet in Step 4.5.2.
+
+#### 4.5.2: Build context packets and spawn three agents in parallel
+
+Build three agent-specific context packets. Each includes the changed files list, "quick review mode" instruction, and the false-positives list from Step 4.5.1. The plan-compliance-reviewer is excluded because quick tasks have no spec or plan context.
+
+**Agent 1: Bug Detector** (`bee:bug-detector`, `model: "sonnet"`)
 ```
-Task(
-  subagent_type="bee:reviewer",
-  description="Quick review: {DESCRIPTION}",
-  prompt="
-    QUICK REVIEW MODE -- No spec, no TASKS.md, no phase context.
+QUICK REVIEW MODE -- No spec, no TASKS.md, no phase context.
 
-    Review ONLY these changed files against stack conventions and common bug patterns:
-    {list of changed source files}
+You are reviewing changed files for bugs and security issues.
 
-    Project stack: {stack from config.json}
-    False positives: {.bee/false-positives.md path if exists, otherwise 'none'}
+Review ONLY these changed files:
+{$REVIEW_FILES -- one per line}
 
-    Focus on: Bug, Security, Stack Standards, Dead Code, Pattern Consistency.
-    SKIP: Spec Compliance, TDD Compliance (no spec/acceptance criteria).
+Project stack: {stack from config.json}
 
-    Write REVIEW.md to: .bee/quick-reviews/{YYYY-MM-DD}-{N}.md
-    Target 3-8 findings. Only HIGH confidence issues.
-  "
-)
+{false-positives list from Step 4.5.1}
+
+SKIP these categories (no spec/phase context to evaluate):
+- Spec Compliance (no spec exists)
+- TDD Compliance (no acceptance criteria to check)
+
+Review these files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). Report only HIGH confidence findings in your standard output format.
+
+Target 1-3 findings. Only report issues you have HIGH confidence in.
 ```
 
-3. Read the produced REVIEW.md. Parse findings.
+**Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`, `model: "sonnet"`)
+```
+QUICK REVIEW MODE -- No spec, no TASKS.md, no phase context.
 
-4. If 0 findings: display "Quick review: clean!" and proceed to Step 5.
+You are reviewing changed files for pattern deviations against the existing codebase.
 
-5. If findings exist, for each finding spawn `finding-validator` agent with `model: "sonnet"` (single-finding classification) — up to 5 in parallel — to classify as REAL BUG / FALSE POSITIVE / STYLISTIC.
+Review ONLY these changed files:
+{$REVIEW_FILES -- one per line}
 
-6. Present confirmed findings (REAL BUG + STYLISTIC) to the user. Note: In quick-review mode, STYLISTIC findings are auto-included as confirmed without per-issue user choice (unlike full `/bee:review` which asks for each). This is intentional — the quick gate prioritizes speed over granular control:
+{false-positives list from Step 4.5.1}
+
+Compare changed files against existing codebase patterns only. There is no spec to reference -- focus on whether the changed files follow the patterns already established in the project. For each file, find 2-3 similar existing files and compare.
+
+Target 1-3 findings. Only report deviations you have HIGH confidence in.
+```
+
+**Agent 3: Stack Reviewer** (`bee:stack-reviewer`, `model: "sonnet"`)
+```
+QUICK REVIEW MODE -- No spec, no TASKS.md, no phase context.
+
+You are reviewing changed files for stack best practice violations.
+
+Review ONLY these changed files:
+{$REVIEW_FILES -- one per line}
+
+Project stack: {stack from config.json}
+
+{false-positives list from Step 4.5.1}
+
+Check changed files against stack conventions only. Load the stack skill from config.json and verify all code follows the stack's conventions. Use Context7 to verify framework best practices.
+
+Target 1-3 findings. Only report violations you have HIGH confidence in.
+```
+
+Spawn all three agents via three Task tool calls in a SINGLE message (parallel execution). Use `model: "sonnet"` for all three agents -- they perform focused scope scanning and classification work.
+
+Wait for all three agents to complete.
+
+#### 4.5.3: Parse findings from each agent
+
+After all three agents complete, parse findings from each agent's final message. Each agent has a distinct output format -- normalize all findings into a unified list:
+
+**Bug Detector** findings (from `## Bugs Detected` section):
+- Each `- **[Bug type]:** [Description] - \`file:line\`` entry becomes one finding
+- Severity: taken from the Critical/High/Medium subsection the entry appears under
+- Category: "Bug" (or "Security" if the bug type mentions security, injection, XSS, CSRF, auth, or access control)
+
+**Pattern Reviewer** findings (from `## Project Pattern Deviations` section):
+- Each `- **[Pattern type]:** [Deviation description] - \`file:line\`` entry becomes one finding
+- Severity: Medium (pattern deviations default to Medium)
+- Category: "Pattern"
+
+**Stack Reviewer** findings (from `## Stack Best Practice Violations` section):
+- Each `- **[Rule category]:** [Violation description] - \`file:line\`` entry becomes one finding
+- Severity: Medium (stack violations default to Medium)
+- Category: "Standards"
+
+If an agent reports no findings (e.g., "No bugs detected.", "No project pattern deviations found.", "No stack best practice violations found."), it contributes zero findings.
+
+#### 4.5.4: Deduplicate and merge
+
+For each pair of findings from different agents, check if they reference the same file AND their line ranges overlap (within 5 lines of each other). If so, merge them:
+- Keep the higher severity (Critical > High > Medium)
+- Combine categories (e.g., "Bug, Standards")
+- Combine descriptions (concatenate with "; " separator)
+- Use the broader line range
+
+#### 4.5.5: Assign IDs and write REVIEW.md
+
+1. Assign sequential IDs to all merged findings: F-001, F-002, F-003, ...
+2. Write `{review_output_path}` using the review-report template (`skills/core/templates/review-report.md`):
+   - Fill in the Summary section: Spec="Quick Review", Phase="N/A", date, iteration=1, status: PENDING
+   - Fill in the Counts tables (by severity and by category)
+   - Write each finding as a `### F-NNN` section with: Severity, Category, File, Lines, Description, Suggested Fix, Validation: pending, Fix Status: pending
+   - Leave the False Positives section empty
+   - Leave the Fix Summary table with one row per finding, all showing "pending"
+3. Verify the REVIEW.md was written by reading it back with the Read tool.
+
+#### 4.5.6: Evaluate and present findings
+
+1. If 0 findings after consolidation: display "Quick review: clean!" and proceed to Step 5.
+
+2. Display findings summary: "{N} findings from 3 reviewers: {critical} critical, {high} high, {medium} medium"
+
+3. For each finding, spawn `finding-validator` agent with `model: "sonnet"` (single-finding classification) -- up to 5 in parallel -- to classify as REAL BUG / FALSE POSITIVE / STYLISTIC.
+
+4. Present confirmed findings (REAL BUG + STYLISTIC) to the user. Note: In quick-review mode, STYLISTIC findings are auto-included as confirmed without per-issue user choice (unlike full `/bee:review` which asks for each). This is intentional -- the quick gate prioritizes speed over granular control:
 
 ```
 Quick review found {N} confirmed issue(s):
@@ -224,7 +327,7 @@ Options:
 (c) Cancel -- stop here
 ```
 
-7. Handle user choice:
+5. Handle user choice:
    - **(a) Fix:** For each confirmed finding, spawn `fixer` agent SEQUENTIALLY (one at a time). After all fixes, proceed to Step 5.
    - **(b) Commit anyway:** Proceed to Step 5.
    - **(c) Cancel:** Display "Cancelled. Changes remain unstaged." Stop.
@@ -310,6 +413,9 @@ Next: /bee:progress to see project state, or /bee:quick for another task.
 - Default mode (no flag) runs in main context for speed. `--agents` mode spawns researcher (sonnet) + implementer (inherit) for deeper work.
 - Agent mode research uses the `bee:researcher` agent which runs on sonnet for speed. Implementation uses `general-purpose` which inherits parent model for code quality.
 - `--review` flag enables a lightweight review gate before commit. Can also be set permanently via `config.quick.review: true`.
-- Review gate uses the reviewer agent in quick-review mode (no spec/TDD checks, focus on bugs/standards/security).
+- Review gate uses three specialized agents (bug-detector, pattern-reviewer, stack-reviewer) in quick-review mode (no spec/TDD checks, focus on bugs/standards/security). All three run in parallel via three Task tool calls in a single message. All use `model: "sonnet"` (focused scope scanning/classification work).
+- The plan-compliance-reviewer is excluded because quick tasks have no spec or plan context to evaluate.
+- Before spawning agents, documented false positives are extracted and included in each agent's context packet so known non-issues are excluded.
+- Each agent targets 1-3 findings; combined target is 3-8 findings. Findings are consolidated, deduplicated (same file + line ranges within 5 lines merged), and written to `.bee/quick-reviews/`.
+- The standalone `/bee:quick-review` command shares the same three-agent parallel pattern and can also be used to review quick task changes independently.
 - Even in agent mode, commit confirmation is always done in the main context (never auto-committed by agents).
-- The standalone `/bee:quick-review` command can also be used to review quick task changes independently.
