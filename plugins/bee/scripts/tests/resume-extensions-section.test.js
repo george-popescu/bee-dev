@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Test: resume.md has Section 7 "Extensions" that scans for local extensions
 // after Section 6, listing custom agents and skills from .claude/bee-extensions/.
-// Verifies T10.4 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

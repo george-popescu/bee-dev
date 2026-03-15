@@ -1,11 +1,5 @@
 #!/usr/bin/env node
 // Test: execute-phase.md Step 5a reads config.implementation_mode and sets model tier
-// Verifies T8.1 acceptance criteria:
-// - Step 5a reads config.implementation_mode (defaults to "quality")
-// - Quality mode: implementer spawned with model omitted (inherit)
-// - Economy mode: implementer spawned with model: "sonnet"
-// - Clear inline comment documenting the logic
-// - No other logic modified
 
 const fs = require('fs');
 const path = require('path');

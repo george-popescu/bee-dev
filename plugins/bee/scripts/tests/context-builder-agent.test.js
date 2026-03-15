@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Test: context-builder.md agent has correct frontmatter, structure,
-// and behavioral instructions per T5.1 acceptance criteria.
+// and behavioral instructions.
 
 const fs = require('fs');
 const path = require('path');

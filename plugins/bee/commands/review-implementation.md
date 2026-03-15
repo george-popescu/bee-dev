@@ -275,11 +275,11 @@ In full spec mode, the total number of agents is `(3 x N) + 1` where N is the nu
 
 In ad-hoc mode, the total number of agents is `3 x N` where N is the number of stacks (3 for single-stack: bug-detector, pattern-reviewer, stack-reviewer -- no plan-compliance-reviewer).
 
-**Quality mode** (default, `implementation_mode: "quality"`): Spawn ALL agents via Task tool calls in a SINGLE message (parallel execution). Omit the model parameter for all agents (they inherit the parent model) -- quality mode uses the stronger model for deeper, more thorough review analysis. Wait for all agents to complete.
-
-**Economy mode** (`implementation_mode: "economy"`): To reduce token usage, pass `model: "sonnet"` for all agents and spawn agents sequentially per stack:
+**Economy mode** (`implementation_mode: "economy"`): Pass `model: "sonnet"` for all agents. Spawn agents sequentially per stack to reduce token usage:
 1. In full spec mode: spawn the global plan-compliance-reviewer first (single Task tool call, `model: "sonnet"`). Wait for it to complete.
 2. For each stack in order: spawn that stack's per-stack agents (bug-detector, pattern-reviewer, stack-reviewer) via Task tool calls in a single message (parallel within the stack, all `model: "sonnet"`). Wait for all to complete before proceeding to the next stack.
+
+**Quality or Premium mode** (default `"quality"`, or `"premium"`): Spawn ALL agents via Task tool calls in a SINGLE message (parallel execution). Omit the model parameter for all agents (they inherit the parent model) -- quality/premium mode uses the stronger model for deeper, more thorough review analysis. Wait for all agents to complete.
 
 Wait for all agents to complete before proceeding.
 

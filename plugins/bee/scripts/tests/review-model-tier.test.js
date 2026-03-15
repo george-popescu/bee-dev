@@ -1,11 +1,5 @@
 #!/usr/bin/env node
 // Test: review.md and review-implementation.md Step 4.2 implement implementation_mode model-tier branching
-// Verifies T8.9 acceptance criteria:
-// - review.md Step 4.2: quality mode (default) -> omit model param (inherit); economy mode -> model: "sonnet"
-// - review-implementation.md Step 4.2: same change
-// - Economy sequential-per-stack spawning unchanged
-// - Single-stack fast path unchanged
-// - No other steps modified
 
 const fs = require('fs');
 const path = require('path');

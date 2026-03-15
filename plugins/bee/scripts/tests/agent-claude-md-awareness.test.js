@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // Test: generic implementer.md and fixer.md agents read CLAUDE.md
-// Verifies T3.12 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

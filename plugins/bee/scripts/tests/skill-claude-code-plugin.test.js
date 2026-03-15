@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Test: claude-code-plugin SKILL.md has correct frontmatter, all required sections,
-// and required content items per acceptance criteria for T3.10.
+// and required content items.
 
 const fs = require('fs');
 const path = require('path');

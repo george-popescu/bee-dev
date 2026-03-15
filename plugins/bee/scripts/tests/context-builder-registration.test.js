@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// Test: inject-memory.sh and hooks.json include context-builder agent name
-// Verifies T5.2 acceptance criteria.
+// Test: inject-memory.sh and hooks.json include context-builder agent name.
 
 const fs = require('fs');
 const path = require('path');

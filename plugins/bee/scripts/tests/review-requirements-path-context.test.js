@@ -1,12 +1,6 @@
 #!/usr/bin/env node
-// Test: T8.7 -- review.md and review-implementation.md wire requirements_path
+// Test: review.md and review-implementation.md wire requirements_path
 // into the plan-compliance-reviewer context packet (Step 4.1d).
-//
-// Acceptance Criteria:
-// - review.md Step 4.1d: plan-compliance-reviewer context packet adds Requirements line
-// - review-implementation.md Step 4.1d: same change for full spec mode; ad-hoc mode unaffected
-// - If requirements.md not found: fallback message
-// - No other agent packets or logic modified
 
 const fs = require('fs');
 const path = require('path');

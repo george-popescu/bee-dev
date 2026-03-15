@@ -1,12 +1,8 @@
 #!/usr/bin/env node
-// Test: laravel-inertia-vue stack-specific implementer agent
-// Verifies T3.3 acceptance criteria:
-// - File exists at correct path
-// - Frontmatter has correct fields (name, tools, model, color, skills)
-// - Loads stack skill in Step 1, respects CLAUDE.md if present
-// - TDD Red-Green-Refactor cycle identical to generic implementer
-// - Adds compliance check step: pint, phpstan, test --parallel
-// - Emits completion signal
+// Test: laravel-inertia-vue stack-specific implementer agent verifies file
+// exists at correct path, frontmatter has correct fields, loads stack skill
+// in Step 1, respects CLAUDE.md, TDD Red-Green-Refactor cycle identical to
+// generic implementer, adds compliance check step, and emits completion signal.
 
 const fs = require('fs');
 const path = require('path');

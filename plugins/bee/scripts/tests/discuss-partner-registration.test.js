@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // Test: hooks.json and inject-memory.sh include discuss-partner agent
-// Verifies T7.2 acceptance criteria: dual-mode SubagentStop, SubagentStart, inject-memory, validity, preservation.
 
 const fs = require('fs');
 const path = require('path');

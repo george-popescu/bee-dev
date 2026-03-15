@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Tests for T3.5: Enrich laravel-inertia-react stack skill with structured sections
+// Test: Enrich laravel-inertia-react stack skill with structured sections.
 // Validates that SKILL.md contains 5 enrichment sections with required entries,
 // sourced from existing skill + archive/CLAUDE.md backend rules.
 

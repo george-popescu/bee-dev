@@ -49,7 +49,7 @@ const V2_STATE_NO_SPEC = `# Bee Project State
 - Result: Project initialized
 `;
 
-// v3 STATE.md -- with HTML comment block (added by T1.5)
+// v3 STATE.md -- with HTML comment block
 const V3_STATE_NO_SPEC = `# Bee Project State
 
 ## Current Spec

@@ -1,11 +1,8 @@
 #!/usr/bin/env node
-// Test: laravel-inertia-vue stack-specific pattern-reviewer agent
-// Verifies T3.2 acceptance criteria:
-// - Agent file exists at correct path
-// - Frontmatter has correct fields (name, tools, color, model, skills)
-// - Agent loads stack skill first, then CLAUDE.md for higher-priority overrides
-// - Output format matches generic pattern-reviewer
-// - Ends with same read-only IMPORTANT notices as generic
+// Test: laravel-inertia-vue stack-specific pattern-reviewer agent verifies
+// file exists at correct path, frontmatter has correct fields, agent loads
+// stack skill first, CLAUDE.md for higher-priority overrides, output format
+// matches generic pattern-reviewer, and ends with same read-only IMPORTANT notices.
 
 const fs = require('fs');
 const path = require('path');

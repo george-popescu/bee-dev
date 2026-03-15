@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Test: inject-memory.sh fallback supports extension agents
 // and hooks.json SubagentStart matcher uses ".*" to match all agents.
-// Verifies T10.5 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

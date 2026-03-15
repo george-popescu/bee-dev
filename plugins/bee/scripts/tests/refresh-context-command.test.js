@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Test: refresh-context.md command file has correct frontmatter, dynamic context,
 // all required steps (NOT_INITIALIZED guard, inform user, spawn context-builder,
-// display completion, update STATE.md), and follows command conventions per acceptance criteria.
+// display completion, update STATE.md), and follows command conventions.
 
 const fs = require('fs');
 const path = require('path');

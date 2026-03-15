@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Test: laravel-inertia-vue stack-specific bug-detector agent
-// Validates T3.1 acceptance criteria: frontmatter, Laravel-specific bug categories,
-// CLAUDE.md reading, output format matching generic bug-detector, read-only notices.
+// Test: laravel-inertia-vue stack-specific bug-detector agent validates
+// frontmatter, Laravel-specific bug categories, CLAUDE.md reading,
+// output format matching generic bug-detector, and read-only notices.
 
 const fs = require('fs');
 const path = require('path');

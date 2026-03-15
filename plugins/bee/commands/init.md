@@ -33,7 +33,7 @@ If the dynamic context above does NOT contain `NO_EXISTING_CONFIG` (meaning `.be
 - If the config has a `stack` key whose value is a **string** (not an array), it is **v2 format** -- run the migration:
   1. Read the current `stack` string value (e.g. `"nextjs"`).
   2. Replace the `stack` key with `stacks: [{ "name": "<value>", "path": "." }]`.
-  3. Add `"implementation_mode": "quality"` as a top-level field if not already present.
+  3. Add `"implementation_mode": "quality"` as a top-level field if not already present. Valid values are `"economy"`, `"quality"`, and `"premium"`.
   4. Add `"agents": true` to the `quick` object if not already present.
   5. Write the updated config back to `.bee/config.json`.
   6. Show the user a migration summary:
@@ -98,6 +98,28 @@ If nothing is detected (no manifests found or no matching patterns), present the
 - `react-native-expo`
 
 Ask: "No stacks were auto-detected. Which stack(s) does this project use? You can specify multiple with their paths."
+
+### Step 2.5: Validate Stack Skills
+
+After the developer confirms the stack list, validate that each stack has a matching skill file.
+
+For each confirmed stack in the stacks list:
+1. Check if `skills/stacks/{stack.name}/SKILL.md` exists using Glob
+2. If it exists: mark as supported (✓)
+3. If it does NOT exist:
+   - Display warning: "Stack '{name}' does not have a built-in skill. Agents will work without stack-specific guidance."
+   - Ask: "Would you like to create a custom stack skill for '{name}'? You can run `/bee:create-skill` after init completes."
+
+Track the skill status for each stack (used in Step 10 completion summary).
+
+**Available built-in stack skills:**
+- `laravel-inertia-vue`
+- `laravel-inertia-react`
+- `react`
+- `nextjs`
+- `nestjs`
+- `react-native-expo`
+- `claude-code-plugin`
 
 ### Step 3: Test Runner and Linter Detection
 
@@ -371,10 +393,15 @@ Display a summary of everything that was created or updated:
 ```
 BeeDev initialized!
 
-Stack: {stack}
+Stacks:
+- {name} at '{path}' {✓ skill | ⚠ no skill}
+- {name} at '{path}' {✓ skill | ⚠ no skill}
+{...repeat for each stack}
+
 Linter: {linter}
 Test runner: {testRunner}
 CI: {ci}
+Implementation mode: {implementation_mode}
 
 Created:
 - .bee/config.json
@@ -383,6 +410,9 @@ Created:
 - ~/.claude/hooks/bee-statusline.js (global, if missing)
 {- CLAUDE.md (if updated)}
 {- .gitignore (if updated)}
+
+{If any stack has ⚠ no skill:}
+Tip: Run /bee:create-skill to create custom stack skills for unsupported stacks.
 
 Next step:
   /clear
@@ -402,7 +432,10 @@ Extract codebase patterns and conventions into `.bee/CONTEXT.md` so that agents 
 **Extraction procedure:**
 
 1. Display: "Extracting codebase context..."
-2. Spawn the `context-builder` agent via the Task tool with `model: "sonnet"`. No additional context is needed -- the agent reads `.bee/config.json` and scans the codebase on its own.
+2. Read `implementation_mode` from `.bee/config.json` to determine model selection:
+   - `"economy"` or `"quality"` → spawn the `context-builder` agent via the Task tool with `model: "sonnet"`.
+   - `"premium"` → spawn the `context-builder` agent via the Task tool without specifying a model (omit the `model` parameter to use the default).
+   No additional context is needed -- the agent reads `.bee/config.json` and scans the codebase on its own.
 3. Wait for the agent to complete.
 4. Display: "Codebase context extracted to `.bee/CONTEXT.md`."
 

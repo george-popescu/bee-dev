@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Test: archive-spec.md command file has correct frontmatter, dynamic context,
 // all required steps (guards, pre-archive checklist, confirm, move, reset STATE,
-// bump version, summary), and follows command conventions per acceptance criteria.
+// bump version, summary), and follows command conventions.
 
 const fs = require('fs');
 const path = require('path');

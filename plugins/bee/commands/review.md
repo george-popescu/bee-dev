@@ -228,13 +228,12 @@ Review mode: code review. Check implemented code against spec requirements and a
 
 The total number of agents is `(3 x N) + 1` where N is the number of stacks. For a single-stack project this is exactly 4.
 
-**Quality mode** (default, `implementation_mode: "quality"`): Spawn ALL agents (all per-stack agents + the global plan-compliance-reviewer) via Task tool calls in a SINGLE message (parallel execution). Omit the model parameter for all agents (they inherit the parent model) -- quality mode uses the stronger model for deeper, more thorough review analysis. Wait for all agents to complete.
-
-**Economy mode** (`implementation_mode: "economy"`): To reduce token usage, pass `model: "sonnet"` for all agents and spawn agents sequentially per stack:
+**Economy mode** (`implementation_mode: "economy"`): Pass `model: "sonnet"` for all agents. Spawn agents sequentially per stack to reduce token usage:
 1. Spawn the global plan-compliance-reviewer first (single Task tool call, `model: "sonnet"`). Wait for it to complete.
 2. For each stack in order: spawn that stack's 3 per-stack agents (bug-detector, pattern-reviewer, stack-reviewer) via three Task tool calls in a single message (parallel within the stack, all `model: "sonnet"`). Wait for all three to complete before proceeding to the next stack.
-
 In economy mode with a single stack, this results in the same 4 agents but spawned in two sequential batches instead of one parallel batch.
+
+**Quality or Premium mode** (default `"quality"`, or `"premium"`): Spawn ALL agents (all per-stack agents + the global plan-compliance-reviewer) via Task tool calls in a SINGLE message (parallel execution). Omit the model parameter for all agents (they inherit the parent model) -- quality/premium mode uses the stronger model for deeper, more thorough review analysis. Wait for all agents to complete.
 
 Wait for all agents to complete before proceeding.
 
@@ -435,7 +434,7 @@ Apply the same multi-stack spawning logic as Step 4. Rebuild context packets usi
 - **Per-stack agents** (bug-detector, pattern-reviewer, stack-reviewer): one set per stack, same context packets as Step 4.1c with updated false-positives
 - **Global agent** (plan-compliance-reviewer): spawned ONCE, same context packet as Step 4.1d with updated false-positives
 
-Spawn using the same quality/economy mode logic as Step 4.2. Wait for all agents to complete.
+Spawn using the same economy/quality/premium mode logic as Step 4.2. Wait for all agents to complete.
 
 #### 7.4: Parse, deduplicate, and write new REVIEW.md
 
@@ -488,7 +487,7 @@ Next step:
 **Design Notes (do not display to user):**
 
 - The command auto-detects the phase to review (first EXECUTED or REVIEWED phase). Re-reviewing an already-reviewed phase is allowed -- the previous REVIEW.md is archived as REVIEW-{N}.md where N is the previous iteration number, and the iteration counter increments.
-- In multi-stack projects, bug-detector, pattern-reviewer, and stack-reviewer are spawned once per stack (3 per-stack agents) while plan-compliance-reviewer is spawned ONCE globally (stack-agnostic). Total: `(3 x N) + 1` agents where N = number of stacks. For single-stack projects this is exactly 4 agents, identical to the original behavior. Model tier depends on `implementation_mode`: quality mode omits model (inherits parent for deeper analysis); economy mode passes `model: "sonnet"` and spawns agents sequentially per stack to reduce token usage.
+- In multi-stack projects, bug-detector, pattern-reviewer, and stack-reviewer are spawned once per stack (3 per-stack agents) while plan-compliance-reviewer is spawned ONCE globally (stack-agnostic). Total: `(3 x N) + 1` agents where N = number of stacks. For single-stack projects this is exactly 4 agents, identical to the original behavior. Model tier depends on `implementation_mode`: quality/premium mode omits model (inherits parent for deeper analysis); economy mode passes `model: "sonnet"` and spawns agents sequentially per stack to reduce token usage.
 - The command (not the agents) writes REVIEW.md. Agents report findings in their own output formats; the command normalizes, deduplicates, and writes the unified REVIEW.md.
 - Step 3.9 extracts false positives BEFORE spawning agents. Each agent receives the formatted false-positives list in its context packet so it can self-filter. The command does NOT need to post-filter.
 - The plan-compliance-reviewer operates in "code review mode" (not plan review mode). The context packet explicitly states this.

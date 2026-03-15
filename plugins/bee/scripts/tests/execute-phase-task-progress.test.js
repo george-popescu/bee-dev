@@ -1,13 +1,5 @@
 #!/usr/bin/env node
 // Test: execute-phase.md includes TaskCreate and TaskUpdate calls for live task progress display
-// Verifies T9.3 acceptance criteria:
-// - Step 5a: after context packet assembly, call TaskCreate for each pending task
-// - Step 5b: before spawning agents, call TaskUpdate in-progress for ALL pending tasks in the wave
-// - Step 5c "On success": after writing TASKS.md, call TaskUpdate completed
-// - Step 5c "On failure (first attempt)": task remains in-progress during retry
-// - Step 5c "On failure (retry fails)": call TaskUpdate failed/cancelled before marking [FAILED]
-// - Design note added explaining TaskCreate/TaskUpdate pattern
-// - No other steps modified
 
 const fs = require('fs');
 const path = require('path');

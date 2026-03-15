@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Test: hooks.json has SubagentStop entries for 3 laravel-inertia-vue agents
 // and SubagentStart matcher includes them.
-// Verifies T3.14 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

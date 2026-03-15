@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Test: nestjs SKILL.md has all 5 enrichment sections
 // with required content items, and preserves existing content.
-// Verifies T3.8 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

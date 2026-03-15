@@ -1,13 +1,6 @@
 #!/usr/bin/env node
-// Test: T9.4 -- Verify STATE.md Plan Review column consistency between
+// Test: Verify STATE.md Plan Review column consistency between
 // plan-phase and plan-review commands.
-//
-// Acceptance criteria:
-// - plan-phase writes "Yes (1)" as baseline
-// - plan-review Approve parses and increments: "Yes (1)" -> "Yes (2)" -> "Yes (3)"
-// - plan-review.md uses parse+increment approach (NOT file-counting)
-// - Specific design note text present in plan-review.md
-// - Both commands have no conflicting STATE.md writes for Plan Review column
 
 const fs = require('fs');
 const path = require('path');
@@ -55,7 +48,7 @@ try {
   process.exit(1);
 }
 
-console.log('=== T9.4: Plan Review Column Consistency ===\n');
+console.log('=== Plan Review Column Consistency ===\n');
 
 // ----------------------------------------------------------
 // Test 1: plan-phase Step 8 writes "Yes (1)" as baseline

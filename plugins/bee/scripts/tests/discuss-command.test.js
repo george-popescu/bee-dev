@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // Test: discuss.md command file has correct frontmatter, dynamic context,
 // all required steps (NOT_INITIALIZED guard, get topic, spawn scan, adaptive rounds,
-// spawn write-notes, update STATE.md, completion message), and follows command conventions
-// per T7.4 acceptance criteria.
+// spawn write-notes, update STATE.md, completion message), and follows command conventions.
 
 const fs = require('fs');
 const path = require('path');

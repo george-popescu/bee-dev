@@ -82,12 +82,17 @@ Wait for the user to confirm they are ready to proceed (they may need time to ad
 
 ### Step 5: Research Codebase
 
-Spawn the `researcher` agent via Task tool with `model: "sonnet"` (structured codebase scanning). Provide this context:
+Read `config.implementation_mode` from config.json (defaults to `"quality"` if absent).
+
+**Premium mode** (`implementation_mode: "premium"`): Omit the model parameter (inherit parent model) -- premium uses the strongest model for all work.
+
+**Economy or Quality mode** (default): Pass `model: "sonnet"` -- scanning/planning work is structured and does not require deep reasoning.
+
+Spawn the `researcher` agent via Task tool with the model determined above. Provide this context:
 
 ```
 Task(
   subagent_type="bee:researcher",
-  model="sonnet",
   description="Research: {spec name}",
   prompt="
     SPEC RESEARCH MODE -- No TASKS.md, no phase context.
@@ -128,13 +133,20 @@ Codebase scanned. Found:
 Starting discovery conversation...
 ```
 
-### Step 6: Discovery Conversation
+### Step 6: Discovery Conversation (Brainstorming-Style)
 
-This is the core of the command. Use `AskUserQuestion` to run a multi-round conversational discovery loop directly in main context. The questions are informed by `$RESEARCH` findings and adapt based on previous answers.
+This is the core of the command. Use `AskUserQuestion` to run an adaptive conversational discovery loop directly in main context. The questions are informed by `$RESEARCH` findings and adapt based on previous answers.
 
 Store all questions and answers in `$DISCOVERY_LOG` (accumulate across rounds).
 
-#### Round 1: Feature Shape
+**Core principles (from brainstorming methodology):**
+- **One question per message** — never batch multiple questions. Each AskUserQuestion call contains exactly ONE question.
+- **Multiple choice preferred** — present 2-4 clickable options when possible. Open-ended is fine when options don't make sense.
+- **No fixed round limit** — ask until you truly understand the feature. Don't rush to convergence.
+- **Reference codebase** — every question MUST reference specific findings from `$RESEARCH` when relevant (file paths, component names, patterns).
+- **YAGNI** — actively identify and remove unnecessary complexity. If the user describes something beyond what's needed, ask: "Do we really need X, or would Y be simpler?"
+
+#### Phase 1: Load Discussion Context (if applicable)
 
 **When `$USE_DISCUSSION` is true:** Before asking any questions, present a summary of the discussion notes to the user:
 
@@ -143,90 +155,134 @@ Store all questions and answers in `$DISCOVERY_LOG` (accumulate across rounds).
 Then display the `## Discussion Summary` and `## Notes for Spec Creation` sections from `$DISCUSSION_NOTES`.
 
 Use AskUserQuestion to ask: "Should we start from these conclusions?" with 3 options:
-- "Yes, use these as our starting point (Recommended)" -- Round 1 questions are pre-answered using the discussion notes conclusions; proceed by asking only clarifying or gap-filling questions that the discussion notes did not already resolve
-- "Review and adjust first" -- Present the conclusions one by one and let the user modify each before continuing with targeted follow-up questions
-- "Start fresh (ignore discussion notes)" -- Discard the discussion notes and proceed with the standard Round 1 flow below as if `$USE_DISCUSSION` were false
+- "Yes, use these as our starting point (Recommended)" -- Skip questions already answered in discussion notes; proceed by asking only clarifying or gap-filling questions
+- "Review and adjust first" -- Present the conclusions one by one and let the user modify each
+- "Start fresh (ignore discussion notes)" -- Proceed with Phase 2 as if `$USE_DISCUSSION` were false
 
-**Standard Round 1 flow (or when `$USE_DISCUSSION` is false):**
+#### Phase 2: Decomposition Check
 
-Use AskUserQuestion to ask 2-4 questions about the high-level feature shape. Each question MUST have 2-4 options. Reference specific codebase findings from `$RESEARCH` when relevant.
+Before diving into details, assess the scope. If `$INITIAL_DESCRIPTION` describes multiple independent subsystems or unrelated concerns, flag this immediately:
 
-**Mandatory questions for Round 1:**
+"This sounds like it covers {N} independent pieces:
+1. {subsystem A}
+2. {subsystem B}
+3. {subsystem C}
+
+Should we spec the first one and handle the rest as separate specs later? Or tackle all together?"
+
+Use AskUserQuestion with options:
+- "{subsystem A} first (Recommended — smaller, focused spec)"
+- "All together (larger spec, more phases)"
+- "Let me clarify the scope"
+
+If the user chooses to focus on one, narrow `$INITIAL_DESCRIPTION` accordingly and note the others for future specs.
+
+If the description is focused (single concern), skip this and proceed directly to Phase 3.
+
+#### Phase 3: Understanding
+
+Ask questions ONE AT A TIME to understand the feature. Each question is its own AskUserQuestion call with 2-4 options when possible.
+
+**Start with the most important unknowns.** Adapt the order based on what matters most for this feature. Typical progression:
 
 1. **Feature type** — What kind of feature is this?
-   - Options should be derived from the description and research (e.g., CRUD management, dashboard/reporting, integration/API, workflow/process, UI component)
+   - Options derived from description + research (e.g., CRUD management, dashboard/reporting, integration/API, workflow/process)
 
 2. **Pattern to follow** — Reference a specific finding from `$RESEARCH`:
    - "I found {pattern/component} at {file path}. Should we follow this pattern?"
    - Options: "Yes, follow this pattern (Recommended)" / "Use a different approach" / "This is unique, design from scratch"
 
 3. **Scope/Access** — Who uses this feature?
-   - Options derived from what auth/role patterns exist in the codebase
+   - Options derived from auth/role patterns found in codebase
 
-**Optional Round 1 questions (pick 0-1 based on relevance):**
-
-4. **Data model** — If the feature involves data, ask about the model approach
+4. **Data model** (if relevant) — What data is involved?
    - Reference existing models found in research
 
-#### Round 2: Behavior Details
+5. Continue with behavior questions as needed:
+   - UI approach (reference existing pages/components from research)
+   - Edge cases ("What happens when {X}?" with common options)
+   - Integration points (how does it touch existing systems)
+   - Data relationships (relationships to existing models)
 
-Based on Round 1 answers, use AskUserQuestion to ask 2-3 more specific questions:
+**Self-check every 3 questions:** After every 3 questions answered, pause and assess: "Do I understand this feature well enough to propose approaches?" If yes, move to Phase 4. If no, continue asking.
 
-- **UI approach** — If a UI is involved, reference existing pages/components from research
-- **Edge cases** — "What happens when {edge case}?" with common options
-- **Integration points** — If the feature touches existing systems, ask how
-- **Data relationships** — If entities are involved, ask about relationships to existing models
+Skip questions that are already answered by discussion notes (when `$USE_DISCUSSION` is true).
 
-Adapt questions to what's relevant based on Round 1 answers. Skip questions that are already answered or not applicable.
+#### Phase 4: Approaches
 
-**Mandatory question for Round 2 (or Round 3+ if Round 2 is full):**
+Present 2-3 approaches with trade-offs from the research findings. Lead with your recommendation:
 
-Use AskUserQuestion to ask about implementation mode. Store the user's choice as `$IMPLEMENTATION_MODE` (lowercase: `quality` or `economy`).
+```
+Based on what we've discussed and the codebase patterns, here are the approaches I see:
+
+**A. {approach name} (Recommended)**
+{description} — follows {existing pattern at file path}
+Pros: {benefits}
+Cons: {drawbacks}
+
+**B. {approach name}**
+{description}
+Pros: {benefits}
+Cons: {drawbacks}
+
+**C. {approach name}** (optional, only if a third viable option exists)
+{description}
+Pros: {benefits}
+Cons: {drawbacks}
+```
+
+Use AskUserQuestion: "Which approach do you prefer? You can also combine elements."
+
+After the user picks, ask 1-2 follow-up questions (one per message) to clarify approach-specific details.
+
+#### Phase 5: Implementation Mode
+
+Use AskUserQuestion to ask about implementation mode. Store the user's choice as `$IMPLEMENTATION_MODE`.
 
 ```
 question: "How should this feature be implemented?"
 header: "Implementation Mode"
 options:
-  - "Quality mode -- heavier model for all agents (default, recommended for critical features)" → $IMPLEMENTATION_MODE = "quality"
-  - "Economy mode -- lighter model for scanning/planning, heavier model only for implementation (faster, lower cost)" → $IMPLEMENTATION_MODE = "economy"
+  - "Quality mode (default) -- opus for implementation and review, sonnet for scanning" → $IMPLEMENTATION_MODE = "quality"
+  - "Economy mode -- sonnet for everything (faster, lower cost)" → $IMPLEMENTATION_MODE = "economy"
+  - "Premium mode -- opus for everything (maximum quality)" → $IMPLEMENTATION_MODE = "premium"
 ```
 
-#### Round 3+: Convergence
+#### Phase 6: Convergence
 
-After Round 2, present a structured summary of your understanding:
+When you believe you understand the feature well enough, present a structured summary:
 
 ```
-Here's what I understand so far:
+Here's what I understand:
 
 Feature: {name}
-Type: {type from Round 1}
-Pattern: {pattern choice}
-Access: {who}
+Type: {type}
+Approach: {chosen approach with key details}
+Access: {who uses it}
 Key behaviors:
-- {behavior 1 from answers}
+- {behavior 1}
 - {behavior 2}
 - {behavior 3}
-Reusable code: {components/patterns to leverage}
+Reusable code: {components/patterns to leverage with file paths}
+Implementation mode: {quality | economy | premium}
 ```
 
-Then use AskUserQuestion with a single convergence question:
+Then use AskUserQuestion with a convergence check:
 
 ```
 question: "Is this understanding complete? Ready to write the spec?"
 header: "Status"
 options:
-  - "Yes, write the spec (Recommended)" — Proceed to requirements
-  - "I need to add more details" — Ask what's missing, then another round
-  - "Something needs to change" — Ask what to change, then update understanding
+  - "Yes, write the spec (Recommended)" — Proceed to Step 7
+  - "I need to add more details" — Continue exploring
+  - "Something needs to change" — Revisit a decision
 ```
 
-**If "add more":** Ask the user what's missing (free text), then ask 1-3 targeted follow-up questions with AskUserQuestion based on their response. Return to convergence check.
+**If "add more":** Ask what's missing (one question). Then ask targeted follow-up questions (one at a time) until they're satisfied. Return to convergence check.
 
-**If "change":** Ask what needs changing (free text), update understanding, return to convergence check.
+**If "change":** Ask what needs changing (one question). Update understanding. Return to convergence check.
 
 **If "yes":** Proceed to Step 7.
-
-**Maximum 5 rounds total** (including Round 1 and 2). If 5 rounds reached without convergence, present current understanding and proceed anyway with a note: "Proceeding with current understanding. Use `/bee:new-spec --amend` later to refine."
 
 ### Step 7: Visual Analysis
 
@@ -251,7 +307,7 @@ Write `requirements.md` to the spec folder using the Write tool. Populate it wit
   - Existing Code to Reference: Components, patterns, files from `$RESEARCH` with exact file paths
   - Follow-up Questions: Any rounds beyond Round 2
 - **Visual Assets:** Analysis from Step 7 (or "No visual assets provided")
-- **Implementation Mode:** `$IMPLEMENTATION_MODE` (quality or economy)
+- **Implementation Mode:** `$IMPLEMENTATION_MODE` (quality, economy, or premium)
 - **Requirements Summary:**
   - Functional Requirements: Concrete, testable requirements derived from the discovery conversation
   - Non-Functional Requirements: Performance, security, accessibility if discussed
@@ -263,7 +319,13 @@ Display to user: "Requirements written to `{spec_folder}/requirements.md`"
 
 ### Step 9: Spawn spec-writer Agent
 
-Spawn the `spec-writer` agent as a subagent with `model: "sonnet"` (structured template-filling from gathered requirements). Provide the following context:
+Read `config.implementation_mode` from config.json (defaults to `"quality"` if absent).
+
+**Premium mode** (`implementation_mode: "premium"`): Omit the model parameter (inherit parent model) -- premium uses the strongest model for all work.
+
+**Economy or Quality mode** (default): Pass `model: "sonnet"` -- scanning/planning work is structured and does not require deep reasoning.
+
+Spawn the `spec-writer` agent as a subagent with the model determined above. Provide the following context:
 
 - The spec folder path
 - Instruction: "Read requirements.md from the spec folder, then write spec.md and phases.md following the templates in skills/core/templates/"
@@ -276,9 +338,65 @@ The spec-writer agent will:
 
 This step is NOT interactive -- the spec-writer works from the gathered requirements without additional user input. Wait for it to complete.
 
-After the spec-writer finishes, proceed to **Step 9.5: Write Implementation Mode to Config**.
+After the spec-writer finishes, proceed to **Step 9.5: Spec Review Loop**.
 
-### Step 9.5: Write Implementation Mode to Config
+### Step 9.5: Spec Review Loop
+
+After the spec-writer completes, validate the generated spec for completeness and quality before presenting it to the user.
+
+#### 9.5.1: Spawn spec-reviewer
+
+Read `config.implementation_mode` from config.json (defaults to `"quality"` if absent).
+
+**Premium mode** (`implementation_mode: "premium"`): Omit the model parameter (inherit parent model) -- premium uses the strongest model for all work.
+
+**Economy or Quality mode** (default): Pass `model: "sonnet"` -- scanning/planning work is structured and does not require deep reasoning.
+
+Spawn the `spec-reviewer` agent via Task tool with the model determined above. Provide the following context:
+
+```
+Task(
+  subagent_type="bee:spec-reviewer",
+  description="Review spec: {spec name}",
+  prompt="
+    Review this spec for completeness, consistency, and clarity.
+
+    Spec file: {spec_folder}/spec.md
+    Requirements file: {spec_folder}/requirements.md
+
+    Read both files completely, then check for: completeness (TODOs, placeholders, incomplete sections), coverage (missing edge cases, error handling), consistency (contradictions), clarity (ambiguous requirements), YAGNI (unrequested features), scope (focused for phased planning), architecture (clear unit boundaries).
+  "
+)
+```
+
+#### 9.5.2: Handle review result
+
+Parse the reviewer's output for the `## Spec Review` section:
+
+**If Status is "Approved":**
+- Display: "Spec review: approved"
+- Proceed to Step 9.7 (Write Implementation Mode to Config)
+
+**If Status is "Issues Found":**
+- Read the issues list from the reviewer's output
+- Fix each issue directly in `spec.md` (and `phases.md` if affected) using Edit tool
+- After fixing, re-spawn the spec-reviewer with the same context (fresh read of the updated files)
+- Repeat until Status is "Approved"
+
+#### 9.5.3: Iteration limit
+
+Track the review iteration count. If 5 iterations are reached without approval, stop the loop and present the remaining issues to the user:
+
+"Spec review found persistent issues after 5 iterations:
+{remaining issues}
+
+You can fix these manually in `{spec_folder}/spec.md` and run `/bee:new-spec --amend` later."
+
+Proceed to Step 9.7 regardless (don't block the workflow).
+
+Display spec review summary: "Spec review: {approved | X issues fixed in Y iterations | issues surfaced after 5 iterations}"
+
+### Step 9.7: Write Implementation Mode to Config (was Step 9.5)
 
 This step runs only for the new spec flow. Skip this step entirely if running the amend flow (Step 10).
 
@@ -286,7 +404,7 @@ Write the user's implementation mode choice to `.bee/config.json` using a Read-M
 
 1. Read the current `.bee/config.json` using the Read tool
 2. Parse the JSON content
-3. Set (or update) the `implementation_mode` field to the value of `$IMPLEMENTATION_MODE` (either `"quality"` or `"economy"`)
+3. Set (or update) the `implementation_mode` field to the value of `$IMPLEMENTATION_MODE` (`"quality"`, `"economy"`, or `"premium"`)
 4. Write the updated JSON back to `.bee/config.json` using the Write tool, preserving all other existing fields
 
 After writing, proceed to **Step 11: Update STATE.md**.
@@ -371,11 +489,13 @@ Next step:
 
 **Design Notes (do not display to user):**
 
-- The discovery conversation runs IN MAIN CONTEXT (not delegated to a subagent). This is the architectural reason: AskUserQuestion only works in main context, enabling structured options the user can click.
-- The researcher agent (sonnet) does the codebase scan. Its findings inform the discovery questions. This replaces the spec-shaper's codebase scan for new specs.
-- The spec-shaper agent is ONLY used for `--amend` mode. For new specs, the command itself handles discovery. Amend mode is different (review existing → ask what changed) and the agent relay pattern works fine there.
-- AskUserQuestion questions MUST reference specific codebase findings (file paths, component names) when relevant. Generic questions without codebase context are lazy and unhelpful.
-- The convergence check prevents both premature spec writing (too few rounds) and interview fatigue (too many). 2-5 rounds is the sweet spot.
-- requirements.md is written by the command directly (it has all the Q&A data). No need to relay to an agent.
-- The requirements.md template and spec-writer agent are unchanged -- the output format is the same, only the gathering method changed.
-- `$ARGUMENTS` can now contain a feature description directly (e.g., `/bee:new-spec user management with roles`) which skips the "what feature?" prompt and goes straight to folder creation.
+- The discovery conversation runs IN MAIN CONTEXT (not delegated to a subagent). AskUserQuestion only works in main context, enabling structured options the user can click.
+- The brainstorming-style adaptive flow replaces the old fixed 2-5 round structure. Key principles ported from the superpowers brainstorming skill: one question per message, multiple choice preferred, no fixed round limit, decomposition check for multi-subsystem features, 2-3 approaches with trade-offs and recommendation, YAGNI principle.
+- The self-check every 3 questions prevents both premature convergence and interview fatigue without imposing a hard limit.
+- The decomposition check (Phase 2) catches multi-subsystem features early, preventing oversized specs that should be separate specs with their own lifecycle.
+- The approaches phase (Phase 4) uses research findings to present concrete options with codebase-informed trade-offs and a recommendation, not generic alternatives.
+- The spec review loop (Step 9.5) dispatches a spec-reviewer agent after spec-writer completes. This catches completeness, consistency, clarity, YAGNI, and scope issues before the user sees the spec. Issues are auto-fixed and re-reviewed (max 5 iterations). This pattern is adapted from the superpowers brainstorming skill's spec-document-reviewer loop.
+- The researcher agent (sonnet) does the codebase scan. Its findings inform the discovery questions.
+- The spec-shaper agent is ONLY used for `--amend` mode. For new specs, the command itself handles discovery.
+- requirements.md is written by the command directly (it has all the Q&A data).
+- `$ARGUMENTS` can now contain a feature description directly (e.g., `/bee:new-spec user management with roles`).

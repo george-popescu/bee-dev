@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // Test: quick-implementer.md agent has correct structure, frontmatter, and TDD enforcement.
-// Verifies T6.1 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

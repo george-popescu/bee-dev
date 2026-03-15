@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Test: fix-implementation.md command has correct frontmatter, dynamic context,
 // step structure, review file resolution, finding parsing, severity sorting,
-// fix loop, and summary behavior per acceptance criteria for T4.2.
+// fix loop, and summary behavior.
 
 const fs = require('fs');
 const path = require('path');

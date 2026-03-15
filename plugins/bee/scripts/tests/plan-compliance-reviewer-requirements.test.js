@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Test: plan-compliance-reviewer.md agent extended to mark requirements covered
-// after code review phase. Verifies T8.6 acceptance criteria.
+// after code review phase.
 
 const fs = require('fs');
 const path = require('path');

@@ -2,7 +2,6 @@
 // Test: Generic review agents (bug-detector, pattern-reviewer, stack-reviewer)
 // have a "Read Project CLAUDE.md (if present)" step inserted in the correct position,
 // with all subsequent step numbers updated, and no other logic modified.
-// Verifies T3.11 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

@@ -1,9 +1,5 @@
 #!/usr/bin/env node
 // Test: review.md and execute-phase.md have stack-specific agent fallback routing.
-// Verifies T3.15 acceptance criteria:
-// - review.md Step 4.1c checks for stack-specific bug-detector, pattern-reviewer, stack-reviewer
-// - execute-phase.md Step 5b checks for stack-specific implementer
-// - Fallback behavior documented: generic agents remain default
 
 const fs = require('fs');
 const path = require('path');

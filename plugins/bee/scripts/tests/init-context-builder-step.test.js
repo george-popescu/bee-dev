@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Test: init.md command file has Step 11 that spawns context-builder agent
-// after Step 10 (Completion Summary). Verifies T5.6 acceptance criteria.
+// after Step 10 (Completion Summary).
 
 const fs = require('fs');
 const path = require('path');

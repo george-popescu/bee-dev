@@ -150,9 +150,9 @@ Load the stack skill dynamically from config.json and review the planned tasks f
 
 Spawn all four agents via four Task tool calls in a SINGLE message (parallel execution). The model tier for these four review agents depends on `implementation_mode`:
 
-**Economy mode** (`implementation_mode: "economy"`): Pass `model: "sonnet"` for all four agents -- plan review is structured cross-reference comparison work, sonnet is sufficient and reduces cost.
+**Economy mode** (`implementation_mode: "economy"`): Pass `model: "sonnet"` for all agents.
 
-**Quality mode** (default, `implementation_mode: "quality"`): Omit the model parameter for all four agents (they inherit the parent model) -- quality mode uses the stronger model for deeper plan analysis.
+**Quality or Premium mode** (default `"quality"`, or `"premium"`): Omit the model parameter for all agents (they inherit the parent model).
 
 Wait for all four agents to complete.
 
@@ -328,26 +328,31 @@ If 0 issues total, set Status to CLEAN. Otherwise set Status to ISSUES_FOUND.
 
 4. Present options to the user:
    ```
-   What would you like to do?
-   (a) Approve -- accept the plan despite findings and proceed to execution
-   (b) Re-review -- archive this review and re-run the review pipeline
-   (c) Modify -- edit TASKS.md and re-run plan-review
+   {X} issues found. What would you like to do?
+   (a) Fix -- I'll fix these issues in TASKS.md now (Recommended)
+   (b) Accept as-is -- proceed to execution despite findings
+   (c) Fix manually -- I'll edit TASKS.md myself and re-run plan-review
    ```
 
 5. Handle responses:
 
-   - **(a) Approve:** Read STATE.md from disk. Parse the current Plan Review column value for this phase to extract N (e.g., `"Yes (1)"` -> N=1, `"Yes"` -> N=0, empty -> N=0). Always parse and increment -- never use file-count. Write `"Yes ({N+1})"` to the Plan Review column for this phase in STATE.md. Display "Plan approved. Plan Review set to Yes ({N+1}) in STATE.md. Run `/bee:execute-phase {N}` to start." Stop.
+   - **(a) Fix (Recommended):** Apply fixes directly to TASKS.md on disk:
+     - Spec compliance gaps → add missing acceptance criteria or tasks
+     - Bug risks → add edge case handling to acceptance criteria
+     - Pattern issues → update task descriptions to follow established patterns
+     - Stack issues → align task approach with stack conventions
+     Display what was fixed. Then archive the current PLAN-REVIEW.md (use Glob to count existing `PLAN-REVIEW-*.md` files, archive number = count + 1, rename to `PLAN-REVIEW-{archive_number}.md`). Re-run the review pipeline (Steps 3.1 through 3.6) to verify fixes. If the re-review is CLEAN, auto-approve (update STATE.md Plan Review column). If issues remain, re-present Step 4 (loop).
 
-   - **(b) Re-review:** Use Glob to count existing `PLAN-REVIEW-*.md` files in `{phase_directory}` to determine the next archive number (archive number = count of existing PLAN-REVIEW-*.md files + 1; e.g., 0 files -> PLAN-REVIEW-1.md, 1 file -> PLAN-REVIEW-2.md). Rename the current `PLAN-REVIEW.md` to `PLAN-REVIEW-{archive_number}.md`. Then re-run the review pipeline (Steps 3.1 through 3.6) to generate a fresh `PLAN-REVIEW.md`. After the pipeline completes, re-present Step 4 (loop back to present findings and options again).
+   - **(b) Accept as-is:** Read STATE.md from disk. Parse the current Plan Review column value for this phase to extract N (e.g., `"Yes (1)"` -> N=1, `"Yes"` -> N=0, empty -> N=0). Always parse and increment -- never use file-count. Write `"Yes ({N+1})"` to the Plan Review column for this phase in STATE.md. Display "Plan approved with {X} known issues. Plan Review set to Yes ({N+1}) in STATE.md. Run `/bee:execute-phase {N}` to start." Stop.
 
-   - **(c) Modify:** Display "Edit `{phase_directory}/TASKS.md` to address the findings, then re-run `/bee:plan-review {N}`." Stop.
+   - **(c) Fix manually:** Display "Edit `{phase_directory}/TASKS.md` to address the findings, then re-run `/bee:plan-review {N}` for a fresh review." Stop.
 
 ---
 
 **Design Notes (do not display to user):**
 
-- This command does NOT modify TASKS.md. On Approve (including CLEAN auto-approve), it writes the Plan Review column in STATE.md using a Read-Modify-Write pattern: read STATE.md, parse the current Plan Review value to extract N, increment, and write "Yes ({N+1})".
-- Four specialized agents (bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer) review the plan in parallel via four Task tool calls in a single message. Model tier depends on `implementation_mode`: economy mode passes `model: "sonnet"` (structured comparison work, lower cost); quality mode omits model (inherits parent for deeper analysis).
+- This command can modify TASKS.md when the user chooses (a) Fix. The auto-fix applies changes from review findings directly, then re-runs the review pipeline to verify. On Approve or CLEAN auto-approve, it writes the Plan Review column in STATE.md using a Read-Modify-Write pattern: read STATE.md, parse the current Plan Review value to extract N, increment, and write "Yes ({N+1})".
+- Four specialized agents (bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer) review the plan in parallel via four Task tool calls in a single message. Model tier depends on `implementation_mode`: economy mode passes `model: "sonnet"` (structured comparison work, lower cost); quality or premium mode omits model (inherits parent for deeper analysis).
 - The command (not the agents) writes PLAN-REVIEW.md. Agents report findings in their own output formats; the command normalizes, deduplicates, and writes the unified PLAN-REVIEW.md.
 - The plan-compliance-reviewer operates in "plan review mode" (not code review mode). Its output provides the primary PLAN-REVIEW.md structure (Coverage Matrix, Gaps, Partial Coverage, Spec Drift, Over-Engineering). The other three agents' findings are merged as additional sections (Bug Risk, Pattern Concerns, Stack Best Practice Concerns).
 - Deduplication merges findings from different agents when they reference the same requirement or task AND describe the same underlying issue. The most specific finding (longest description) is kept.

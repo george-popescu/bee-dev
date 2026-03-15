@@ -163,6 +163,16 @@
         ]
       },
       {
+        "matcher": "spec-reviewer",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Validate spec-reviewer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains '## Spec Review' heading 2) A '**Status:**' line is present with either 'Approved' or 'Issues Found' 3) If status is 'Issues Found', at least one issue is listed under '**Issues (if any):**' with [Section]: format 4) No files were modified -- this is a read-only agent that must not create or edit any files.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "timeout": 30
+          }
+        ]
+      },
+      {
         "matcher": "discuss-partner",
         "hooks": [
           {

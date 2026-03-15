@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test: T4.4 -- Remove review-project and quick-review commands, update manifest and README
+# Test: Remove review-project and quick-review commands, update manifest and README
 # Validates deletions, README updates, new command rows, and zero stale references.
 
 set -euo pipefail
@@ -20,7 +20,7 @@ assert() {
     fi
 }
 
-echo "=== T4.4: Remove Old Review Commands Tests ==="
+echo "=== Remove Old Review Commands Tests ==="
 echo ""
 
 # --- Test: Command files deleted ---

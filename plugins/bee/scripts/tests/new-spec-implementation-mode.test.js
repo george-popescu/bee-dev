@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Test: new-spec.md command file includes implementation mode discovery
 // during Step 6 and writes it to requirements.md (Step 8) and config.json (Step 9.5).
-// Validates T8.5 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Test: nextjs SKILL.md has all 5 enrichment sections
 // with required content items, and preserves existing content.
-// Verifies T3.9 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

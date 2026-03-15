@@ -1,10 +1,8 @@
 #!/usr/bin/env node
-// Test: plan-phase.md and plan-review.md implement implementation_mode model-tier branching
-// Verifies T8.2 acceptance criteria:
-// - Steps 3,4,5 always use model: "sonnet" regardless of mode
-// - Step 6.2 branches: economy=model: "sonnet", quality=omit model (inherit)
-// - plan-review.md Step 3.2 has same branching
-// - Clear inline comments
+// Test: plan-phase.md and plan-review.md implement implementation_mode model-tier branching.
+// Verifies Steps 3,4,5 always use model: "sonnet" regardless of mode,
+// Step 6.2 branches economy vs quality model selection,
+// plan-review.md Step 3.2 has same branching, and clear inline comments.
 
 const fs = require('fs');
 const path = require('path');

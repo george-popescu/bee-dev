@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // Test: inject-memory.sh case statement includes laravel-inertia-vue agent names
-// Verifies T3.13 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

@@ -2,8 +2,7 @@
 // Test: create-skill.md command file has correct frontmatter, dynamic context,
 // all required steps (NOT_INITIALIZED guard, get skill name, validate protected list,
 // ask target stack, ask sections, ask content per section, write skill file,
-// STATE.md R-M-W update, completion message), and follows command conventions
-// per T10.1 acceptance criteria.
+// STATE.md R-M-W update, completion message), and follows command conventions.
 
 const fs = require('fs');
 const path = require('path');

@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // Test: hooks.json and inject-memory.sh include quick-implementer agent
-// Verifies T6.2 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 // Test: All agent files that read config.json for the stack use the
 // multi-stack-aware pattern (.stacks[0].name with .stack fallback).
-// Verifies T2.1 acceptance criteria: every agent reading the stack
-// field uses the v3 multi-stack pattern with v2 backward compatibility.
 
 const fs = require('fs');
 const path = require('path');

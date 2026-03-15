@@ -31,7 +31,13 @@ Proceed immediately -- do not ask for confirmation or wait for user input.
 
 ### Step 3: Spawn Context-Builder Agent
 
-Use the Task tool to spawn the `context-builder` agent with `model: "sonnet"`. Context-building is structured scanning work -- it reads files, classifies patterns, and writes a single output file. This does not require deep reasoning.
+Read `config.implementation_mode` from config.json (defaults to `"quality"` if absent).
+
+**Premium mode** (`implementation_mode: "premium"`): Omit the model parameter (inherit parent model) -- premium uses the strongest model for all work.
+
+**Economy or Quality mode** (default): Pass `model: "sonnet"` -- scanning/planning work is structured and does not require deep reasoning.
+
+Use the Task tool to spawn the `context-builder` agent with the model determined above. Context-building is structured scanning work -- it reads files, classifies patterns, and writes a single output file.
 
 Provide the following context packet to the agent:
 - The project root directory path
@@ -65,7 +71,7 @@ Write the updated STATE.md back to disk.
 
 **Design Notes (do not display to user):**
 
-- The context-builder agent is spawned with `model: "sonnet"` because it performs structured scanning (Glob/Grep/Read) and template-based output. It does not write production code or make architectural decisions.
+- The context-builder agent is spawned with `model: "sonnet"` for economy/quality mode (structured scanning via Glob/Grep/Read and template-based output). In premium mode, the model parameter is omitted (inherits parent model for maximum quality).
 - No user confirmation is needed because the only side effect is overwriting `.bee/CONTEXT.md`, which is a derived artifact that can always be regenerated.
 - The command does not auto-commit. The user decides when to commit via `/bee:commit`.
 - The `/bee:resume` suggestion is important because resume reads CONTEXT.md and presents it as part of the briefing -- this closes the loop for the user.

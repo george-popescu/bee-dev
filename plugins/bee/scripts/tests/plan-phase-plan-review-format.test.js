@@ -1,9 +1,5 @@
 #!/usr/bin/env node
 // Test: plan-phase.md Step 8 writes "Yes (1)" format in Plan Review column
-// Verifies T9.2 acceptance criteria:
-// - Step 8 item 2: Plan Review column value is "Yes (1)" when result is "reviewed"
-// - Step 9 completion summary: Plan review display shows "Yes (1)" to match
-// - No other Step 8/9 changes break existing behavior
 
 const fs = require('fs');
 const path = require('path');

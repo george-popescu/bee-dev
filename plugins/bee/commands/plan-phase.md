@@ -55,7 +55,13 @@ Check these four guards in order. Stop immediately if any fails:
 
 ### Step 3: Plan What -- Spawn phase-planner Agent (Pass 1)
 
-Spawn the `phase-planner` agent as a subagent with `model: "sonnet"` (structured decomposition work). Provide the following context:
+Read `config.implementation_mode` from config.json (defaults to `"quality"` if absent).
+
+**Premium mode** (`implementation_mode: "premium"`): Omit the model parameter (inherit parent model) -- premium uses the strongest model for all work.
+
+**Economy or Quality mode** (default): Pass `model: "sonnet"` -- scanning/planning work is structured and does not require deep reasoning.
+
+Spawn the `phase-planner` agent as a subagent with the model determined above. Provide the following context:
 
 - The phase directory path (where to write TASKS.md)
 - The phase number being planned
@@ -75,7 +81,13 @@ If TASKS.md was not created, tell the user the planner failed and stop.
 
 ### Step 4: Plan How -- Spawn researcher Agent
 
-After the phase-planner completes, spawn the `researcher` agent as a subagent with `model: "sonnet"` (codebase scanning and doc lookups). Provide the following context:
+Read `config.implementation_mode` from config.json (defaults to `"quality"` if absent).
+
+**Premium mode** (`implementation_mode: "premium"`): Omit the model parameter (inherit parent model) -- premium uses the strongest model for all work.
+
+**Economy or Quality mode** (default): Pass `model: "sonnet"` -- scanning/planning work is structured and does not require deep reasoning.
+
+After the phase-planner completes, spawn the `researcher` agent as a subagent with the model determined above. Provide the following context:
 
 - The phase directory path (where TASKS.md lives)
 - The spec folder path
@@ -90,7 +102,13 @@ If no research notes were added, warn the user but continue (research enrichment
 
 ### Step 5: Plan Who -- Spawn phase-planner Agent (Pass 2)
 
-Re-spawn the `phase-planner` agent as a subagent with `model: "sonnet"` (dependency analysis and wave grouping are mechanical). Provide the following context:
+Read `config.implementation_mode` from config.json (defaults to `"quality"` if absent).
+
+**Premium mode** (`implementation_mode: "premium"`): Omit the model parameter (inherit parent model) -- premium uses the strongest model for all work.
+
+**Economy or Quality mode** (default): Pass `model: "sonnet"` -- scanning/planning work is structured and does not require deep reasoning.
+
+Re-spawn the `phase-planner` agent as a subagent with the model determined above. Provide the following context:
 
 - The phase directory path (where research-enriched TASKS.md lives)
 - Instruction: "This is Pass 2 (Plan Who). Read the research-enriched TASKS.md. Analyze task dependencies, detect file ownership conflicts (no two tasks in the same wave may modify the same file), group tasks into parallel waves, and define context packets per task. Write the final TASKS.md with wave structure, replacing the pre-wave version."
@@ -175,9 +193,9 @@ Read TASKS.md to understand the planned tasks. Load the stack skill dynamically 
 
 Spawn all four agents via four Task tool calls in a SINGLE message (parallel execution). The model tier for these four review agents depends on `implementation_mode`:
 
-**Economy mode** (`implementation_mode: "economy"`): Pass `model: "sonnet"` for all four agents -- plan review is structured cross-reference comparison work, sonnet is sufficient and reduces cost.
+**Economy mode** (`implementation_mode: "economy"`): Pass `model: "sonnet"` for all agents.
 
-**Quality mode** (default, `implementation_mode: "quality"`): Omit the model parameter for all four agents (they inherit the parent model) -- quality mode uses the stronger model for deeper plan analysis.
+**Quality or Premium mode** (default `"quality"`, or `"premium"`): Omit the model parameter for all agents (they inherit the parent model).
 
 Wait for all four agents to complete.
 
@@ -218,22 +236,51 @@ If a category has no issues from its agent, omit that category section entirely.
 
 If NO issues found across all four agents: display "Plan review complete. No changes required." and proceed directly to Step 7 (present plan to user). Set the plan review result to "clean" for use in Step 8.
 
-#### 6.4: Present plan review findings and developer approval
+#### 6.4: Fix issues and re-review (auto-fix loop)
 
-If issues were found, present the categorized plan updates to the developer. Then ask:
+If no issues were found (the "clean" case from 6.3), set plan review result to "reviewed" and proceed directly to Step 7 without prompting. Display: "Plan review clean -- no issues found."
 
-"Plan review found issues. How would you like to proceed?
-(a) **Accept** the plan as-is and proceed (issues noted but no changes)
-(b) **Modify** the plan to address the findings (apply changes to TASKS.md)
-(c) **Skip** the plan review and proceed without changes"
+If issues were found, **fix them automatically** in TASKS.md (this is the default, recommended behavior):
 
-Handle each response:
+Initialize: `$PLAN_REVIEW_ITERATION = 1`. Read `config.review.max_plan_review_iterations` from config.json (default: 3). Store as `$MAX_PLAN_REVIEW_ITERATIONS`.
 
-- **(a) Accept:** Set plan review result to "reviewed". Proceed to Step 7 (present plan).
-- **(b) Modify:** Apply the user's requested changes to TASKS.md on disk. Set plan review result to "reviewed". Proceed to Step 7 (present plan).
-- **(c) Skip:** Set plan review result to "skipped". Proceed to Step 7 (present plan).
+**6.4.1: Present findings and fix**
 
-If no issues were found (the "clean" case from 6.3), set plan review result to "reviewed" and proceed directly to Step 7 without prompting.
+Display the findings clearly to the developer with what you're about to fix:
+
+```
+Plan review (iteration {$PLAN_REVIEW_ITERATION}): {X} issues found.
+
+{For each finding, show:}
+- [{Category}] {description} → Fix: {what you'll change in TASKS.md}
+
+Fixing these in TASKS.md...
+```
+
+Apply all fixes directly to TASKS.md on disk. For each finding:
+- Spec compliance gaps → add missing acceptance criteria or tasks
+- Bug risks → add edge case handling to acceptance criteria
+- Pattern issues → update task descriptions to follow established patterns
+- Stack issues → align task approach with stack conventions
+
+After fixing, display: "Fixed {N} issues. Re-running review..."
+
+**6.4.2: Re-review loop**
+
+After applying fixes:
+1. Increment `$PLAN_REVIEW_ITERATION`
+2. If `$PLAN_REVIEW_ITERATION > $MAX_PLAN_REVIEW_ITERATIONS`: display "Max review iterations ({$MAX_PLAN_REVIEW_ITERATIONS}) reached. Proceeding with current plan." Set plan review result to "reviewed". Proceed to Step 7.
+3. Otherwise: go back to **Step 6.2** (re-spawn all four review agents with the updated TASKS.md). After agents complete, re-run Steps 6.3 and 6.4.
+4. If the re-review finds 0 issues: display "Plan review clean after {$PLAN_REVIEW_ITERATION} iterations." Set plan review result to "reviewed". Proceed to Step 7.
+
+**6.4.3: Developer override (optional)**
+
+After presenting findings but BEFORE auto-fixing, the developer may interrupt with a message. If the developer intervenes:
+- "skip" or "skip review" → set plan review result to "skipped", proceed to Step 7
+- "I'll fix it manually" → display "Edit TASKS.md at `{phase_directory}/TASKS.md`, then re-run `/bee:plan-review {N}` for a fresh review." Stop.
+- Specific instructions → apply the developer's requested changes instead of auto-fix, then re-review
+
+If the developer does NOT intervene (no message), proceed with auto-fix as described above. Auto-fix is the default.
 
 ### Step 7: Present Plan to User for Approval
 
@@ -283,7 +330,7 @@ Phase {N} planned!
 
 Phase: {phase-name}
 Tasks: {X} tasks in {Y} waves
-Plan review: {Yes (1) | skipped | clean -- no issues found}
+Plan review: {Yes (1) | skipped | clean -- no issues found} {(N iterations) if N > 1}
 Path: .bee/specs/{folder}/phases/{NN}-{slug}/TASKS.md
 
 Wave breakdown:

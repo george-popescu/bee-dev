@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 // Test: compact.md command extended to inject CONTEXT.md content into saved context.
-// Verifies T5.3 acceptance criteria:
-// - Step 2 reads .bee/CONTEXT.md if it exists
-// - Step 3 includes ## Codebase Context section in COMPACT-CONTEXT.md when CONTEXT.md exists
-// - Step 4 includes Codebase Context inline in conversation output block
-// - When CONTEXT.md doesn't exist, no change in behavior (no error, no section)
-// - No other behavior changed
+// Verifies Step 2 reads .bee/CONTEXT.md if it exists, Step 3 includes Codebase
+// Context section in COMPACT-CONTEXT.md, Step 4 includes Codebase Context inline
+// in conversation output, and missing CONTEXT.md is handled gracefully.
 
 const fs = require('fs');
 const path = require('path');

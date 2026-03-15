@@ -1,16 +1,6 @@
 #!/usr/bin/env node
 // Test: plan-review.md Step 1 guard 6 non-blocking, Step 4 Approve/Re-review/Modify options,
 // CLEAN auto-approve, STATE.md iteration tracking, archiving
-// Verifies T9.1 acceptance criteria:
-// - Guard 6 informs about existing review, continues without blocking
-// - Step 4 replaced with 3 choices: (a) Approve, (b) Re-review, (c) Modify
-// - CLEAN path: auto-approve, write "Yes (N+1)" to STATE.md, stop. No 3-option menu.
-// - Option (a) Approve: parse Plan Review value from STATE.md, increment N, write "Yes ({N+1})"
-// - Option (b) Re-review: count PLAN-REVIEW-*.md for archive number, rename, re-run 3.1-3.6, re-present Step 4
-// - Option (c) Modify: tell user to edit TASKS.md and re-run, stop
-// - STATE.md R-M-W on Approve
-// - Design note updated: command now writes STATE.md on Approve
-// - Already-reviewed guard no longer blocks
 
 const fs = require('fs');
 const path = require('path');

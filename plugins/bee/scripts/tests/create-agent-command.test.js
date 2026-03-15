@@ -3,7 +3,7 @@
 // all required steps (NOT_INITIALIZED guard, get name, validate protected names,
 // role question, tools question, instructions question, TDD enforcement,
 // write agent file, STATE.md update, completion message),
-// and follows command conventions per T10.2 acceptance criteria.
+// and follows command conventions.
 
 const fs = require('fs');
 const path = require('path');

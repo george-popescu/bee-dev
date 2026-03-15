@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Test: review-implementation.md command has correct frontmatter, all required steps,
 // context-aware mode detection (full spec vs ad-hoc), and four-agent pipeline.
-// Verifies T4.1 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

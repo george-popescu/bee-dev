@@ -108,8 +108,8 @@ Include in each context packet:
 - **TDD instruction:** "Follow TDD cycle: RED (write failing tests first), GREEN (minimal implementation to pass), REFACTOR (clean up with tests as safety net). Write structured Task Notes in your final message under a `## Task Notes` heading."
 
 **Model tier resolution (implementation_mode):** Read `config.implementation_mode` from `.bee/config.json` (defaults to `"quality"` if the field is absent). This determines which model tier the implementer agents receive:
-- **quality** mode: omit the model parameter (agents inherit the parent model) -- full reasoning capability for production code
 - **economy** mode: pass `model: "sonnet"` -- faster and cheaper, suitable when tasks are straightforward or the user opts for speed over depth
+- **quality or premium** mode (default `"quality"`, or `"premium"`): omit the model parameter (agents inherit the parent model) -- full reasoning capability for production code
 
 Store the resolved model tier for use in Step 5b when spawning agents.
 
@@ -128,7 +128,7 @@ Check if `plugins/bee/agents/stacks/{stack.name}/implementer.md` exists. If yes,
 Spawn ALL pending tasks in the current wave simultaneously using the Task tool. Each task becomes one parallel agent invocation:
 
 - Agent: resolved agent name (stack-specific `{stack.name}-implementer` if available, otherwise generic `implementer`)
-- Model: use the resolved model from Step 5a's implementation_mode logic. In quality mode, omit (inherit parent model). In economy mode, pass `model: "sonnet"`.
+- Model: use the resolved model from Step 5a's implementation_mode logic. In economy mode, pass `model: "sonnet"`. In quality or premium mode, omit (inherit parent model).
 - Context: the assembled context packet for that task
 - Each agent runs independently in its own context window
 

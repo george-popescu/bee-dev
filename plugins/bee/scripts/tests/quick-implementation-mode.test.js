@@ -1,11 +1,5 @@
 #!/usr/bin/env node
 // Test: quick.md implementation_mode model-tier support.
-// Verifies T8.3 acceptance criteria:
-// - quick.md reads config.implementation_mode (defaults to "quality")
-// - Step 4b Phase 1 researcher: always model: "sonnet" regardless of mode
-// - Step 4b Phase 2 quick-implementer: economy=model: "sonnet", quality=omit (inherit)
-// - Step 4.5.2 review agents: economy=model: "sonnet", quality=omit (inherit) for all 4
-// - No other logic modified
 
 const fs = require('fs');
 const path = require('path');

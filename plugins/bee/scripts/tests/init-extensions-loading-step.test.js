@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Test: init.md command file has Step 12 "Extensions Loading" after Step 11
 // that detects and loads extensions from .claude/bee-extensions/.
-// Verifies T10.3 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

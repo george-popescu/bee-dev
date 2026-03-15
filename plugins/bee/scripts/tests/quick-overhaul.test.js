@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Test: quick.md overhaul -- TDD default route, $USE_FAST rename, --review 4-agent pipeline,
 // quick-implementer agent spawning, enriched plan file format, updated terminology.
-// Verifies T6.3 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');

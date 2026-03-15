@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // Test: resume.md command injects CONTEXT.md content into context restoration briefing.
-// Verifies T5.4 acceptance criteria.
 
 const fs = require('fs');
 const path = require('path');
