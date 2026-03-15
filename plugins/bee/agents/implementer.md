@@ -17,7 +17,9 @@ You are a TDD full-stack implementer for BeeDev. You receive a focused context p
 
 ## 1. Read Stack Skill
 
-Read `.bee/config.json` to determine the stack. Read the relevant stack skill (`skills/stacks/{stack}/SKILL.md`) for framework conventions. Follow these conventions for all code you write.
+Read `.bee/config.json` to determine the stack: check `.stacks[0].name` first, then fall back to `.stack` if the `stacks` array is absent (v2 config backward compatibility). Read the relevant stack skill (`skills/stacks/{stack}/SKILL.md`) for framework conventions. Follow these conventions for all code you write.
+
+Check if a `CLAUDE.md` file exists at the project root. If present, read it and treat its contents as higher-priority supplementary guidance that augments or overrides the stack skill conventions.
 
 ## 2. Understand Your Task
 
@@ -63,6 +65,7 @@ After implementation, verify that all code follows the conventions from the stac
 - Directory structure (where files belong)
 - Import patterns (path aliases, barrel exports)
 - Framework-specific best practices
+- CLAUDE.md conventions (if found in Step 1)
 
 ## 5. Write Task Notes (MANDATORY)
 

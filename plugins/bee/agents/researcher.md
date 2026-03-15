@@ -26,7 +26,7 @@ This is the number one rule. Violations are unacceptable.
 
 ## Research Workflow
 
-1. Read `.bee/config.json` to determine the stack
+1. Read `.bee/config.json` to determine the stack: check `.stacks[0].name` first, then fall back to `.stack` if the `stacks` array is absent (v2 config backward compatibility)
 2. Read the relevant stack skill (`skills/stacks/{stack}/SKILL.md`) for framework conventions
 3. Read TASKS.md to understand all tasks and their acceptance criteria
 4. For each task, perform focused research (see below)
@@ -54,21 +54,38 @@ Focus scanning on directories relevant to each task's domain. Do NOT recursively
 ## Context7 Integration
 
 1. Check `config.json` for `"context7": true`
-2. If enabled, use the Context7 MCP tools following the context7 skill instructions:
+2. If enabled, determine which stacks to query:
+   - Read `config.stacks` from `config.json`. For each stack entry, resolve its library IDs from the context7 skill's Library IDs Per Stack table.
+   - **Single-stack** (one entry in `config.stacks`, or legacy `config.stack`): query docs for that stack's libraries. Use the unlabeled `Context7:` format in research notes -- behavior is unchanged from single-stack projects.
+   - **Multi-stack** (multiple entries in `config.stacks`): iterate over each stack and query docs for each stack's libraries relevant to the task's domain. Label each result with the stack name using the `Context7 [{stack-name}]:` format in research notes so the implementer knows which stack each finding belongs to.
+3. For each stack, use the Context7 MCP tools following the context7 skill instructions:
    - `mcp__context7__resolve-library-id` with the library name to get the correct ID
    - `mcp__context7__query-docs` with the resolved ID and a specific query relevant to the task
-3. If Context7 MCP tools are not available (tools not found, error returned): log "Context7 not available, using codebase patterns only" and continue with codebase analysis
-4. NEVER hard-fail if Context7 is unavailable -- it enhances research but is not required
+4. If Context7 MCP tools are not available (tools not found, error returned): log "Context7 not available, using codebase patterns only" and continue with codebase analysis
+5. NEVER hard-fail if Context7 is unavailable -- it enhances research but is not required
 
 ## Research Notes Format
 
 Update each task in TASKS.md with a `research:` section:
+
+**Single-stack projects** (one stack configured):
 
 ```
 - research:
     - Pattern: {existing file to follow as pattern, with path}
     - Reuse: {existing code/components to leverage, with paths}
     - Context7: {relevant framework docs fetched, key findings}
+    - Types: {existing types/interfaces to extend or use, with paths}
+```
+
+**Multi-stack projects** (multiple stacks configured -- label each Context7 result with its stack):
+
+```
+- research:
+    - Pattern: {existing file to follow as pattern, with path}
+    - Reuse: {existing code/components to leverage, with paths}
+    - Context7 [{stack-name}]: {findings from this stack's framework docs}
+    - Context7 [{other-stack}]: {findings from this stack's framework docs}
     - Types: {existing types/interfaces to extend or use, with paths}
 ```
 

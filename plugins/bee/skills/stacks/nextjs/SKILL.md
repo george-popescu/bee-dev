@@ -224,6 +224,61 @@ test('renders dashboard page with orders', async () => {
 - **NEVER** nest `'use client'` boundaries unnecessarily -- each boundary adds to the client bundle.
 - **NEVER** use Route Handlers for data fetching that could be done directly in Server Components.
 
+## Must-Haves
+
+- **TypeScript everywhere.** All files use `.ts` / `.tsx` extensions. Strict mode enabled in `tsconfig.json`. No implicit `any`.
+- **Server Components by default.** Every component is a Server Component unless it explicitly requires `'use client'` for hooks, event handlers, or browser APIs.
+- **`loading.tsx` and `error.tsx` per route segment.** Every route segment that fetches data must have a `loading.tsx` for streaming fallback and an `error.tsx` for error boundaries. `error.tsx` must be a Client Component.
+- **Environment variables via `NEXT_PUBLIC_` prefix.** Client-accessible env vars must start with `NEXT_PUBLIC_`. Server-only env vars (secrets, DB URLs) must never use this prefix. Access via `process.env`.
+- **TDD for all features.** Write tests before implementation. Every page, component, Server Action, and Route Handler must have corresponding tests. Follow the Red-Green-Refactor cycle.
+- **`not-found.tsx` for custom 404 pages.** Each route segment that resolves dynamic params should include a `not-found.tsx` to handle missing resources gracefully.
+- **Strict `next/link` for navigation.** All internal navigation must use the `<Link>` component from `next/link`, never `router.push` for standard page transitions.
+- **Zod for runtime validation.** Validate all external input (form data, API payloads, search params) with Zod schemas in Server Actions and Route Handlers.
+
+## Good Practices
+
+- **Data fetching in Server Components.** Fetch data directly in async Server Components using `await`. Co-locate data fetching with the component that renders it. Avoid fetching in Client Components when a Server Component can provide the data as props.
+- **Route Handlers for external APIs only.** Use Route Handlers (`route.ts`) for endpoints consumed by external clients (mobile apps, webhooks). For internal data needs, use Server Components with direct database access or Server Actions for mutations.
+- **`next/image` for all images.** Use the `Image` component from `next/image` for automatic optimization, lazy loading, responsive sizing, and WebP/AVIF format conversion. Never use raw `<img>` tags.
+- **Dynamic imports for heavy client components.** Use `next/dynamic` with `ssr: false` for components that rely on browser APIs or are large and not needed at initial render. This reduces the initial JavaScript bundle.
+- **Metadata API for SEO.** Use the `metadata` export for static metadata and `generateMetadata` for dynamic metadata per route. Include `title`, `description`, and Open Graph tags for all public-facing pages.
+- **Suspense boundaries for streaming.** Wrap slow data fetches in `<Suspense>` with meaningful fallback UI to enable progressive streaming of page content.
+- **Server Actions for mutations.** Use `'use server'` actions for form submissions and data mutations instead of client-side API calls. Pair with `revalidatePath` or `revalidateTag` for cache invalidation.
+- **Parallel data fetching.** When a page needs multiple independent data sources, fetch them in parallel with `Promise.all` rather than sequentially to reduce waterfall latency.
+
+## Common Bugs
+
+- **`useState` in Server Components.** Server Components cannot use React hooks (`useState`, `useEffect`, `useReducer`, `useContext`). Using them causes a build error. Move stateful logic to a Client Component with `'use client'`.
+- **Missing `'use client'` directive.** Forgetting to add `'use client'` at the top of a component that uses hooks or event handlers results in cryptic server-side errors. The directive must be the very first line of the file (before imports).
+- **Cache invalidation confusion.** Forgetting to call `revalidatePath` or `revalidateTag` after mutations causes stale data to persist. Every Server Action that writes data must explicitly invalidate the relevant cache. Conversely, over-revalidating with `revalidatePath('/')` busts the entire cache unnecessarily.
+- **Hydration mismatch errors.** Server-rendered HTML must match the initial client render exactly. Common causes: using `Date.now()`, `Math.random()`, or browser-only globals (`window`, `localStorage`) during initial render. Guard with `useEffect` or conditional checks.
+- **Accessing `cookies()` or `headers()` outside Server Components or Server Actions.** The `cookies()` and `headers()` functions from `next/headers` only work in Server Components, Server Actions, Route Handlers, and middleware. Calling them in Client Components or shared utility modules throws a runtime error.
+- **Async Server Component not awaited.** Forgetting to `await` the result of a Server Component when composing in JSX causes the Promise object to render instead of the component output.
+- **Dynamic params type changes in Next.js 15.** In Next.js 15, `params` is now a Promise and must be awaited: `const { id } = await params`. Forgetting to await causes undefined values and subtle bugs.
+- **Incorrect `revalidate` export type.** The `revalidate` route segment config must be a number (seconds) or `false`. Passing a string like `'60'` silently fails to enable ISR.
+
+## Anti-Patterns
+
+- **Fetching in Client Components when Server Components can.** Avoid `useEffect` + `fetch` patterns in Client Components for data that could be fetched in a parent Server Component and passed as props. This eliminates client-side loading states and reduces bundle size.
+- **Mixing Pages Router with App Router.** Do not use `pages/` directory alongside `app/` directory for the same routes. Choose App Router for all new development. Having both creates confusing routing conflicts and duplicated middleware behavior.
+- **Using `getServerSideProps` or `getStaticProps` in App Router.** These are Pages Router APIs and do not work in the `app/` directory. Use async Server Components for data fetching and `generateStaticParams` for static path generation instead.
+- **Using `any` type in TypeScript.** Never use `any` as a type annotation. Define proper interfaces, types, and Zod schemas for all data shapes. Use `unknown` with type narrowing when the type is genuinely unknown.
+- **Prop drilling through layouts.** Do not pass data through multiple layout levels via props. Use React Context (in a Client Component provider), parallel data fetching in each layout, or shared data fetching utilities to avoid deep prop chains.
+- **Creating API routes for internal data fetching.** Do not create Route Handlers (`/api/*`) just to fetch data for your own pages. Server Components can query the database directly -- an extra HTTP hop adds latency and complexity.
+- **Giant `'use client'` boundaries.** Do not mark an entire page or large component tree as `'use client'`. Extract only the interactive parts into small Client Components and keep the parent as a Server Component.
+- **Storing derived state in `useState`.** Do not duplicate server-fetched data into client state. If the data comes from the server, render it directly. Use `useState` only for genuinely client-side interactive state.
+
+## Standards
+
+- **Lowercase kebab-case for route directories.** All folders in `app/` use lowercase kebab-case: `app/user-settings/`, `app/order-history/`, never `app/UserSettings/` or `app/orderHistory/`.
+- **PascalCase for component files.** Non-route component files use PascalCase: `OrderCard.tsx`, `DashboardSidebar.tsx`, `UserAvatar.tsx`. These live in `components/` or co-located with their route.
+- **Reserved file names for route segments.** Use only the Next.js convention names for route files: `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`, `route.ts`, `template.tsx`, `default.tsx`. Do not invent custom conventions for these roles.
+- **Route groups for logical organization.** Use `(groupName)` folders to organize routes without affecting the URL structure: `app/(auth)/login/page.tsx`, `app/(dashboard)/settings/page.tsx`. Route groups keep related routes together while maintaining clean URLs.
+- **Parallel routes for simultaneous rendering.** Use `@slotName` folders for parallel routes that render multiple page segments simultaneously: `app/@modal/login/page.tsx`, `app/layout.tsx` receives `modal` as a prop. Use for modals, split views, and conditional rendering of independent sections.
+- **Colocation of related files.** Keep components, utilities, types, and tests close to the route that uses them. A route folder can contain non-route files (e.g., `utils.ts`, `types.ts`, `components/`) without affecting routing.
+- **Server-only and client-only boundaries.** Use the `server-only` and `client-only` packages to enforce import boundaries. Mark modules that must never cross the server/client boundary to get build-time errors instead of runtime failures.
+- **Consistent import aliases.** Configure `@/` as an alias for the project root (usually `src/`) in `tsconfig.json`. All imports use the alias: `import { Button } from '@/components/ui/Button'`, never relative paths like `../../../components/ui/Button`.
+
 ## Context7 Instructions
 
 When looking up framework documentation, use these Context7 library identifiers:

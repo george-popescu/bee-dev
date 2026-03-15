@@ -20,11 +20,17 @@ Review the provided plan or implementation against patterns already established 
 
 Read `.bee/false-positives.md` if it exists. Note all documented false positives. You MUST exclude any finding that matches a documented false positive (same file, same issue pattern). If the file does not exist, skip this step.
 
-### Step 2: Identify What's Being Reviewed
+### Step 2: Read Project CLAUDE.md (if present)
+
+Read the project `CLAUDE.md` file at the project root if it exists. CLAUDE.md contains project-specific rules, patterns, and conventions that take precedence over general conventions. Use CLAUDE.md patterns as additional reference when comparing code against established patterns -- deviations from documented CLAUDE.md patterns are findings.
+
+If `CLAUDE.md` does not exist, skip this step.
+
+### Step 3: Identify What's Being Reviewed
 
 Understand what type of code is being reviewed. Do not assume a fixed set of categories -- the code could be anything: a controller, model, service, component, page, test, configuration, migration, agent definition, script, or any other file type relevant to the project's stack.
 
-### Step 3: Find Similar Existing Code
+### Step 4: Find Similar Existing Code
 
 Search for 2-3 similar existing implementations in the codebase. Use a combination of tools to locate them:
 
@@ -35,7 +41,7 @@ Search for 2-3 similar existing implementations in the codebase. Use a combinati
 
 Do NOT hardcode file type categories. This process works for any file type in any stack.
 
-### Step 4: Extract Patterns
+### Step 5: Extract Patterns
 
 From the similar existing files, identify:
 - File structure and organization
@@ -45,7 +51,7 @@ From the similar existing files, identify:
 - Error handling patterns
 - Comment/documentation patterns
 
-### Step 5: Compare
+### Step 6: Compare
 
 Compare the reviewed code against these established patterns. Cross-reference each potential finding against documented false positives from Step 1 before including it.
 

@@ -41,7 +41,7 @@
     ],
     "SubagentStart": [
       {
-        "matcher": "implementer|fixer|researcher|spec-writer|phase-planner|plan-reviewer|spec-shaper|finding-validator|integrity-auditor|test-auditor|test-planner|bug-detector|pattern-reviewer|plan-compliance-reviewer|stack-reviewer",
+        "matcher": ".*",
         "hooks": [
           {
             "type": "command",
@@ -53,7 +53,7 @@
     ],
     "SubagentStop": [
       {
-        "matcher": "implementer",
+        "matcher": "^implementer$",
         "hooks": [
           {
             "type": "prompt",
@@ -83,7 +83,7 @@
         ]
       },
       {
-        "matcher": "bug-detector",
+        "matcher": "^bug-detector$",
         "hooks": [
           {
             "type": "prompt",
@@ -93,7 +93,7 @@
         ]
       },
       {
-        "matcher": "pattern-reviewer",
+        "matcher": "^pattern-reviewer$",
         "hooks": [
           {
             "type": "prompt",
@@ -118,6 +118,56 @@
           {
             "type": "prompt",
             "prompt": "Validate stack-reviewer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains '## Stack Best Practice Violations' heading with violations listed, OR 'No stack best practice violations found.' message, OR 'no stack skill loaded, skipping' early exit message 2) If violations are present, each violation references a specific stack rule category from the skill file 3) file:line references are present in backtick format for each violation 4) A total count is present (e.g. '**Total: X violations**') or one of the no-findings/skip messages was used 5) No code modifications were made -- this is a read-only agent that must not create or edit any files.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "laravel-inertia-vue-bug-detector",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Validate laravel-inertia-vue-bug-detector agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains a findings section with '## Bugs Detected' heading with severity-grouped subsections (### Critical, ### High, ### Medium), OR the 'No bugs detected.' message 2) Each finding has a file:line reference in backtick format (e.g. `file:line`) 3) A total count summary is present (e.g. '**Total: X critical, Y high, Z medium**') or 'No bugs detected.' was used 4) Only HIGH confidence findings are reported (no speculative or low-confidence issues) 5) No code modifications were made -- this is a read-only agent that must not create or edit any files.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "laravel-inertia-vue-pattern-reviewer",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Validate laravel-inertia-vue-pattern-reviewer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains '## Project Pattern Deviations' heading OR the 'No project pattern deviations found.' message 2) Each deviation shows an existing pattern vs current code comparison with '**Existing pattern:**' and '**This code:**' sub-items 3) file:line references are present in backtick format for each deviation 4) A total count is present (e.g. '**Total: X deviations**') or 'No project pattern deviations found.' was used 5) No code modifications were made -- this is a read-only agent that must not create or edit any files.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "laravel-inertia-vue-implementer",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Validate laravel-inertia-vue-implementer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Test files created BEFORE implementation (TDD compliance) 2) Tests run and passing 3) Structured task notes written (files created, patterns used, decisions) 4) Task reported complete, not abandoned.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "quick-implementer",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Validate quick-implementer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Test files created BEFORE implementation (TDD compliance) 2) Tests run and passing 3) Structured task notes written (files created, patterns used, decisions) 4) Task reported complete with the exact signal: 'Task complete. [X] tests passing.'\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "discuss-partner",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Validate discuss-partner agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and determine which mode the agent ran in by checking which completion signal is present, then validate accordingly:\n\n**Write-notes mode** (signal: 'Discussion notes written: {path}'): 1) The completion signal 'Discussion notes written:' is present with a file path 2) Required headings are present in the notes (required headings present: ## Topic, ## Discussion Summary, ## Notes for Spec Creation) 3) No code was generated -- discussion notes contain prose analysis, no code blocks or implementation\n\n**Scan mode** (signal: '## Relevant Files' and '## Existing Patterns'): 1) Output contains '## Relevant Files' heading with file paths listed 2) Output contains '## Existing Patterns' heading with pattern descriptions 3) No files written -- scan mode is read-only, the agent must not create or modify any files\n\nExactly one mode must be detected. If neither signal is found, validation fails.\n\nRespond {\"ok\": true} if ALL checks for the detected mode pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
             "timeout": 30
           }
         ]

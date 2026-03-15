@@ -1,6 +1,9 @@
 {
   "version": "0.1.0",
-  "stack": "{STACK}",
+  "stacks": [
+    { "name": "{STACK}", "path": "." }
+  ],
+  "implementation_mode": "quality",
   "linter": "{LINTER}",
   "testRunner": "{TEST_RUNNER}",
   "ci": "{CI}",
@@ -17,6 +20,7 @@
   },
   "quick": {
     "review": false,
-    "agents": true
+    "agents": true,
+    "fast": false
   }
 }

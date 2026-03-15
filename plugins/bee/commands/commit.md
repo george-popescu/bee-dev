@@ -116,7 +116,7 @@ How would you like to proceed?
 4. Write updated STATE.md to disk.
 5. Determine next step:
    - If there are more phases in the spec: suggest `/bee:plan-phase {N+1}`
-   - If all phases are complete: suggest `/bee:review-project`
+   - If all phases are complete: suggest `/bee:review-implementation`
 6. Display:
 
    ```

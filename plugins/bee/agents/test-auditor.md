@@ -13,7 +13,7 @@ You are a test suite health auditor for BeeDev. You run the test suite, detect s
 
 ## 1. Load Stack Context
 
-Read `.bee/config.json` to determine the stack. Read the relevant stack skill (`skills/stacks/{stack}/SKILL.md`) for the test runner command, test file conventions, and testing patterns. Read the testing standards skill (`skills/standards/testing/SKILL.md`) for TDD expectations and test quality standards.
+Read `.bee/config.json` to determine the stack: check `.stacks[0].name` first, then fall back to `.stack` if the `stacks` array is absent (v2 config backward compatibility). Read the relevant stack skill (`skills/stacks/{stack}/SKILL.md`) for the test runner command, test file conventions, and testing patterns. Read the testing standards skill (`skills/standards/testing/SKILL.md`) for TDD expectations and test quality standards.
 
 ## 2. Run Test Suite
 

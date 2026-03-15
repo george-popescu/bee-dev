@@ -172,6 +172,57 @@ test('filters orders by search term', async () => {
 - **NEVER** fetch data in useEffect without an abort controller -- always handle cleanup to prevent state updates on unmounted components.
 - **NEVER** create inline objects or arrays in JSX props -- they create new references on every render, causing unnecessary child re-renders.
 
+## Must-Haves
+
+- **TypeScript everywhere.** All components, hooks, utilities, and tests are written in TypeScript with strict mode enabled. No `.js` or `.jsx` files in the source tree.
+- **Function components only.** Every React component is a plain function with a typed props interface. No class components under any circumstances.
+- **Custom hooks for stateful logic.** Extract reusable stateful logic into custom hooks (`use*` prefix). Components should orchestrate hooks, not contain raw state management code.
+- **TDD with Vitest.** All features are developed test-first using Vitest and React Testing Library. Tests exist before implementation code.
+- **Stable key props on lists.** Every element rendered in a loop must have a stable, unique `key` prop derived from domain data -- never from array index in lists that reorder, filter, or mutate.
+- **Explicit return types on public APIs.** Exported functions, hooks, and component props interfaces must have explicit TypeScript types -- do not rely on inference for public surfaces.
+- **Cleanup in useEffect.** Every `useEffect` that creates subscriptions, timers, or async operations must return a cleanup function to prevent memory leaks and state updates on unmounted components.
+
+## Good Practices
+
+- **Composition over prop drilling.** Pass components as children or render props instead of threading data through multiple intermediate layers. Use context only when composition does not solve the problem.
+- **React.memo for expensive children.** Wrap child components in `React.memo` when they receive stable props but their parent re-renders frequently due to unrelated state changes.
+- **useCallback for stable references.** Wrap callback functions passed to memoized children or effect dependency arrays in `useCallback` to prevent unnecessary re-renders and effect re-runs.
+- **Split components at responsibility boundaries.** When a component handles more than one concern (layout + data fetching, form state + validation display), split it into focused sub-components.
+- **Colocate state with its consumers.** Keep `useState` and `useReducer` in the lowest common ancestor of the components that read or write the state. Avoid lifting state higher than necessary.
+- **Prefer useMemo for derived data.** Compute derived values with `useMemo` rather than storing them in separate state -- this avoids synchronization bugs and unnecessary re-renders.
+- **Use error boundaries for resilience.** Wrap feature sections in error boundaries so a failure in one part of the UI does not crash the entire application.
+- **Lazy load heavy routes.** Use `React.lazy` and `Suspense` for route-level code splitting to reduce initial bundle size.
+
+## Common Bugs
+
+- **Stale closure in useEffect.** Referencing state or props inside a `useEffect` callback without including them in the dependency array captures outdated values. The effect runs with a snapshot from a previous render.
+- **Missing dependency array entries.** Omitting dependencies from `useEffect`, `useMemo`, or `useCallback` leads to stale data, skipped updates, or effects that do not re-run when they should. Always include every reactive value used inside the hook.
+- **Mutating state directly.** Modifying a state object or array in-place (e.g., `state.items.push(item)`) does not trigger a re-render because React compares references. Always create a new object or array via spread or immutable helpers.
+- **Missing key prop in lists.** Rendering a list without a `key` or with an unstable key (like `Math.random()`) causes React to destroy and re-create DOM nodes unnecessarily, losing component state and causing visual glitches.
+- **Async state update after unmount.** An async operation (fetch, timeout) that completes after the component unmounts attempts to call `setState` on a dead component. Use an abort controller or a cleanup flag to prevent this.
+- **Dependency array with object/array literals.** Passing `[{ id }]` or `[items.filter(...)]` as dependencies creates a new reference every render, causing infinite effect loops. Stabilize with `useMemo` or extract to a variable.
+- **Forgetting to handle loading and error states.** Async data fetching without explicit loading/error handling leaves the UI in an inconsistent state when requests are in-flight or fail.
+
+## Anti-Patterns
+
+- **Class components.** Class components add unnecessary complexity, cannot use hooks, and are not supported by modern React patterns. Always use function components.
+- **Using `any` type.** The `any` type disables TypeScript's type checking and hides bugs. Define proper interfaces, use generics, or use `unknown` with type narrowing when the type is truly dynamic.
+- **Inline object creation in JSX props.** Writing `style={{ color: 'red' }}` or `options={{ sort: true }}` directly in JSX creates a new object reference on every render, defeating `React.memo` and causing unnecessary child re-renders.
+- **Mixing concerns in components.** A single component that handles API calls, state management, business logic, and presentation becomes untestable and unmaintainable. Separate data-fetching logic into hooks and keep components focused on rendering.
+- **useEffect for derived state.** Using `useEffect` to watch one state variable and set another is an anti-pattern that causes extra renders and synchronization bugs. Use `useMemo` to derive values directly from source state.
+- **Prop drilling through many layers.** Passing props through 3+ intermediate components that do not use them creates tight coupling. Refactor with composition, context, or a state management library.
+- **Giant monolithic components.** Components exceeding 200 lines are a signal to extract sub-components or custom hooks. Large components are hard to test, review, and reason about.
+
+## Standards
+
+- **PascalCase for component files.** Component files use PascalCase matching the component name: `OrderList.tsx`, `UserProfile.tsx`, `AuthProvider.tsx`. Non-component utilities use camelCase: `formatDate.ts`, `apiClient.ts`.
+- **camelCase hooks with `use` prefix.** Custom hook files and function names follow `use` + camelCase: `useAuth.ts`, `usePagination.ts`, `useDebounce.ts`. The `use` prefix is mandatory for React to enforce Rules of Hooks.
+- **Barrel exports via index.ts.** Feature directories export their public API through an `index.ts` file. Internal implementation details are not re-exported. Import from the barrel: `import { OrderList } from '@/features/orders'`.
+- **Colocate tests with source files.** Test files live next to the code they test: `OrderList.tsx` and `OrderList.test.tsx` in the same directory. This makes it easy to find tests and keeps related files together.
+- **Props interfaces named with `Props` suffix.** Component prop types follow the pattern `{ComponentName}Props`: `CardProps`, `OrderListProps`, `ModalProps`. Export props interfaces when components are consumed externally.
+- **One component per file.** Each file exports a single component. Helper sub-components used only within that file may be defined in the same file but must not be exported.
+- **Absolute imports via path alias.** Use the `@/` path alias for all imports from `src/`. Never use relative paths that climb more than one level (`../../`). Configure via `vite.config.ts` and `tsconfig.json`.
+
 ## Context7 Instructions
 
 When looking up framework documentation, use these Context7 library identifiers:

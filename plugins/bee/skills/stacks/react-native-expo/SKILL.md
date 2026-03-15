@@ -235,6 +235,56 @@ describe('OrderCard', () => {
 - **NEVER** forget to handle both iOS and Android in platform-specific code -- test and verify on both platforms.
 - **NEVER** use `userEvent` from RNTL -- React Native Testing Library uses `fireEvent`, not `userEvent`.
 
+## Must-Haves
+
+- **TypeScript everywhere.** All files use `.ts` / `.tsx` extensions. Define typed props interfaces for every component. No untyped code.
+- **Function components only.** All React components are plain functions with typed props. Class components are forbidden.
+- **TDD with Jest and Expo.** Write tests before implementation using Jest with `jest-expo` preset and React Native Testing Library. Follow Red-Green-Refactor.
+- **`Platform.select` for platform-specific values.** Use `Platform.select({ ios: value, android: value, default: value })` instead of ternary expressions with `Platform.OS`.
+- **Typed navigation with Expo Router.** Define navigation parameter types for all routes. Use `useLocalSearchParams<{ id: string }>()` and typed `router.push()` calls for type-safe navigation.
+- **Strict null checks.** Enable `strict` mode in `tsconfig.json`. Handle nullable values explicitly -- no implicit `undefined` access.
+- **Permission handling before native API access.** Always call `requestPermissionsAsync()` and handle the denied case before accessing camera, location, notifications, or media library.
+
+## Good Practices
+
+- **`StyleSheet.create()` for all styles.** Define styles outside the component body. This avoids creating new style objects on every render and enables style validation.
+- **`FlatList` for all list rendering.** Use `FlatList` with `keyExtractor` and `renderItem` for virtualized, performant scrolling. Reserve `ScrollView` for non-list scrollable content.
+- **`useMemo` for expensive computations.** Memoize filtered lists, sorted data, and complex derived values to avoid recalculating on every render.
+- **Error boundaries for graceful crash recovery.** Wrap screen-level components in error boundaries to catch rendering errors and show a fallback UI instead of a white screen crash.
+- **Expo SDK APIs over third-party alternatives.** Prefer `expo-camera`, `expo-location`, `expo-image-picker`, `expo-file-system`, `expo-haptics`, `expo-notifications` and other Expo SDK modules. They are tested against the managed workflow and upgrade cleanly with the SDK.
+- **`useCallback` for stable callback references.** Wrap event handlers passed to child components or `FlatList` `renderItem` with `useCallback` to prevent unnecessary re-renders.
+- **Skeleton screens over spinners.** Show content-shaped placeholders while data loads to reduce perceived loading time and avoid layout shifts.
+
+## Common Bugs
+
+- **Missing `KeyboardAvoidingView` on form screens.** The keyboard covers input fields on iOS. Wrap form screens in `KeyboardAvoidingView` with `behavior="padding"` on iOS and `behavior="height"` on Android.
+- **AsyncStorage operations not awaited.** `AsyncStorage.getItem()` and `setItem()` return promises. Forgetting to `await` these calls leads to reading `undefined` instead of stored values and silently dropping writes.
+- **Android hardware back button not handled.** Android users expect the back button to navigate or close modals. Use `BackHandler.addEventListener('hardwareBackPress', handler)` in `useEffect` with cleanup, or handle via Expo Router's back behavior.
+- **Missing `GestureHandlerRootView` at app root.** Gesture-based components (swipeable rows, bottom sheets, drawer navigation) silently fail without `GestureHandlerRootView` wrapping the app root. Add it in the root `_layout.tsx`.
+- **Shadow props not working cross-platform.** iOS uses `shadowColor`, `shadowOffset`, `shadowOpacity`, `shadowRadius`. Android ignores these and uses `elevation` instead. Always provide both via `Platform.select` or the shadow styles will be invisible on one platform.
+- **Stale closures in `useEffect` and event handlers.** Referencing state variables inside callbacks without listing them in the dependency array causes handlers to capture outdated values. Always include dependencies or use `useRef` for mutable values.
+- **Images not loading on Android with HTTP URLs.** Android blocks cleartext HTTP by default. Use HTTPS URLs or configure `android:usesCleartextTraffic` in `app.json` network security config.
+
+## Anti-Patterns
+
+- **Class components.** Never use `class extends React.Component`. All components must be function components with hooks. Class components are incompatible with modern React patterns and Expo conventions.
+- **Using `any` type.** Never use `any` as a type annotation. Define explicit interfaces, union types, or generics. `any` disables TypeScript checking and hides bugs at compile time.
+- **Storing sensitive data in AsyncStorage unencrypted.** AsyncStorage is plaintext storage. Never store auth tokens, API keys, passwords, or secrets in AsyncStorage. Use `expo-secure-store` for all sensitive data.
+- **Blocking the JS thread with synchronous operations.** Never run heavy computation, large JSON parsing, or synchronous file I/O on the main JavaScript thread. Use `InteractionManager.runAfterInteractions()`, web workers, or move work to native modules.
+- **Ignoring platform differences in UI and behavior.** Never assume iOS and Android behave identically. Test on both platforms. Handle differences in status bar, navigation gestures, keyboard behavior, permissions flow, and date/time pickers.
+- **Inline style objects in JSX.** Never write `style={{ marginTop: 10 }}` in JSX. Inline objects are re-created on every render, causing unnecessary re-renders of child components. Use `StyleSheet.create()`.
+- **Using `index` as `key` in dynamic lists.** Never use array index as the `key` prop for lists where items can be reordered, inserted, or deleted. Use a stable unique identifier from the data.
+
+## Standards
+
+- **PascalCase for components and screens.** Component files and directories use PascalCase: `OrderCard.tsx`, `ProfileScreen.tsx`. Hooks use camelCase with `use` prefix: `useAuth.ts`.
+- **`app/` directory for Expo Router file-based routing.** All screens and layouts live in the `app/` directory. File names map directly to URL paths. Use `_layout.tsx` for navigation structure.
+- **`components/` directory for shared UI components.** Reusable components live in a top-level `components/` directory (or `src/components/`), organized by feature or domain.
+- **`snake_case` API responses mapped to `camelCase` in the app.** Backend APIs typically return `snake_case` keys. Transform them to `camelCase` at the API boundary (in the fetch/axios layer) so all app code uses consistent camelCase naming.
+- **`hooks/` directory for custom hooks.** Extract reusable logic into custom hooks stored in `hooks/` (or `src/hooks/`). Each hook file exports a single `use*` function.
+- **`constants/` directory for app-wide constants.** Colors, spacing values, API endpoints, and configuration constants live in a `constants/` directory, not scattered across components.
+- **One component per file.** Each component gets its own file. Co-locate the component's styles at the bottom of the same file using `StyleSheet.create()`.
+
 ## Context7 Instructions
 
 When looking up framework documentation, use these Context7 library identifiers:

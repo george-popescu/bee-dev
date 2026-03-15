@@ -8,6 +8,7 @@ argument-hint: ""
 Read these files using the Read tool:
 - `.bee/STATE.md` — if not found: NOT_INITIALIZED
 - `.bee/config.json` — if not found: use `{}`
+- If a spec path exists in STATE.md (Current Spec > Path is not "(none)"), also read `{spec path}/requirements.md` — if not found or file does not exist, note: no requirements file
 
 ## Instructions
 
@@ -39,6 +40,23 @@ Re-render the Phases table from STATE.md with status indicators for scannability
 
 If the Phases table is empty, note: "No phases planned yet."
 
+**2.5. Requirements Coverage:**
+
+If requirements.md was loaded from the spec path, count all `- [ ]` (unchecked) and `- [x]` (checked) checkbox items. Compute coverage as:
+- Total = count of `- [ ]` + count of `- [x]`
+- Covered = count of `- [x]`
+- Percentage = (Covered / Total) * 100, rounded to nearest integer
+
+Display:
+```
+Requirements: {covered}/{total} covered ({percentage}%)
+```
+
+If no requirements.md exists, the spec path is "(none)", or the file contains no checkboxes (total = 0):
+```
+Requirements: No requirements tracking
+```
+
 **3. Quick Tasks (if any):**
 
 If STATE.md has a Quick Tasks section with entries, show a summary line:
@@ -48,12 +66,22 @@ Quick tasks: {count} completed
 
 If there are uncommitted changes in the working directory (run `git diff --stat` via Bash), add:
 ```
-Uncommitted changes detected. Run /bee:quick-review for a lightweight code review.
+Uncommitted changes detected. Run /bee:review-implementation for a code review.
 ```
 
-**4. Last Action:**
+**4. Lifecycle Status and Last Action:**
 
-Show the Last Action section from STATE.md (command, timestamp, result).
+Display the spec lifecycle state with contextual messaging. The status field from STATE.md maps to these lifecycle states:
+
+| Status | Message |
+|--------|---------|
+| NO_SPEC | "No active spec. Start a new feature with /bee:new-spec." |
+| SPEC_CREATED | "Spec created. Plan the first phase to begin implementation." |
+| IN_PROGRESS | "Implementation in progress." (show current phase info) |
+| COMPLETED | "All phases complete. Archive the spec or start a new one." |
+| ARCHIVED | "Spec archived. Start a new feature with /bee:new-spec." |
+
+Then show the Last Action section from STATE.md (command, timestamp, result).
 
 ### Suggest Next Command
 
@@ -61,14 +89,15 @@ Based on the current state, suggest exactly one next command. Use this logic:
 
 | Current State | Suggested Command |
 |--------------|-------------------|
-| No spec but uncommitted changes exist | `/bee:quick-review` -- "Uncommitted changes found. Review them before committing." |
+| No spec but uncommitted changes exist | `/bee:review-implementation` -- "Uncommitted changes found. Review them before committing." |
 | Status is `NO_SPEC` (no spec exists, no uncommitted changes) | `/bee:new-spec` -- "Start by defining what you want to build." |
-| Spec exists but no phases are planned | `/bee:plan-phase 1` -- "Your spec is ready. Plan the first phase." |
-| A phase is planned but not yet executed | `/bee:execute-phase N` -- "Phase N is planned and ready to execute." |
-| A phase is executed but not reviewed | `/bee:review` -- "Phase N is implemented. Time to review." |
-| A phase is reviewed but not tested | `/bee:test` -- "Review is done. Generate test scenarios." |
-| A phase is tested but not committed | `/bee:commit` -- "Tests pass. Ready to commit this phase." |
-| All phases are complete | `/bee:review-project` -- "All phases complete. Run a final project review." |
+| Status is `SPEC_CREATED` (spec exists but no phases planned) | `/bee:plan-phase 1` -- "Your spec is ready. Plan the first phase." |
+| Status is `IN_PROGRESS`, a phase is planned but not yet executed | `/bee:execute-phase N` -- "Phase N is planned and ready to execute." |
+| Status is `IN_PROGRESS`, a phase is executed but not reviewed | `/bee:review` -- "Phase N is implemented. Time to review." |
+| Status is `IN_PROGRESS`, a phase is reviewed but not tested | `/bee:test` -- "Review is done. Generate test scenarios." |
+| Status is `IN_PROGRESS`, a phase is tested but not committed | `/bee:commit` -- "Tests pass. Ready to commit this phase." |
+| Status is `COMPLETED` (all phases committed + reviewed) | `/bee:archive-spec` -- "All phases complete. Archive the spec or start a new feature." |
+| Status is `ARCHIVED` | `/bee:new-spec` -- "Spec archived. Start a new feature." |
 
 Present the suggestion clearly:
 

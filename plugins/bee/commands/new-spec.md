@@ -1,6 +1,6 @@
 ---
 description: Create a new feature specification through conversational discovery
-argument-hint: "[--amend] [feature description]"
+argument-hint: "[--amend] [--from-discussion PATH] [feature description]"
 ---
 
 ## Current State (load before proceeding)
@@ -22,9 +22,26 @@ If the dynamic context above contains "NOT_INITIALIZED" (meaning `.bee/STATE.md`
 
 Do NOT proceed with any further steps.
 
-### Step 2: Check for --amend Flag
+### Step 2: Check for --amend and --from-discussion Flags
 
-Check if `$ARGUMENTS` contains `--amend`. If it does, skip to **Step 10: Amend Flow**. Otherwise, continue with the standard new spec flow below.
+First, check if `$ARGUMENTS` contains `--from-discussion {path}`. If it does:
+1. Extract the path immediately following `--from-discussion` and store it as `$DISCUSSION_PATH`
+2. Set `$USE_DISCUSSION = true`
+3. Strip `--from-discussion {path}` (both the flag and its path argument) from `$ARGUMENTS` so that Step 3 derives the spec name from the remaining text only
+
+Then, check the (potentially stripped) `$ARGUMENTS` for `--amend`. If it contains `--amend`, skip to **Step 10: Amend Flow**. Otherwise, continue with the standard new spec flow below.
+
+### Step 2.5: Load Discussion Notes
+
+When `$USE_DISCUSSION` is true, read the discussion notes file at `$DISCUSSION_PATH` using the Read tool. Store its content as `$DISCUSSION_NOTES`.
+
+If the file is not found or does not exist, stop immediately with a clear message:
+
+"Discussion notes file not found at {$DISCUSSION_PATH}. Check the path and try again."
+
+Do NOT proceed with any further steps if the file cannot be read.
+
+If `$USE_DISCUSSION` is not set, skip this step entirely.
 
 ### Step 3: Get Spec Name
 
@@ -94,6 +111,12 @@ Task(
 )
 ```
 
+When `$USE_DISCUSSION` is true, add the following line to the researcher's prompt (inside the context packet, after the stack line):
+
+```
+Discussion notes are available as a starting point -- use them to inform your research focus: {$DISCUSSION_NOTES}
+```
+
 Store the researcher's output as `$RESEARCH`. Display a brief summary to the user:
 
 ```
@@ -112,6 +135,19 @@ This is the core of the command. Use `AskUserQuestion` to run a multi-round conv
 Store all questions and answers in `$DISCOVERY_LOG` (accumulate across rounds).
 
 #### Round 1: Feature Shape
+
+**When `$USE_DISCUSSION` is true:** Before asking any questions, present a summary of the discussion notes to the user:
+
+"I found discussion notes for this topic. Here's what was already explored:"
+
+Then display the `## Discussion Summary` and `## Notes for Spec Creation` sections from `$DISCUSSION_NOTES`.
+
+Use AskUserQuestion to ask: "Should we start from these conclusions?" with 3 options:
+- "Yes, use these as our starting point (Recommended)" -- Round 1 questions are pre-answered using the discussion notes conclusions; proceed by asking only clarifying or gap-filling questions that the discussion notes did not already resolve
+- "Review and adjust first" -- Present the conclusions one by one and let the user modify each before continuing with targeted follow-up questions
+- "Start fresh (ignore discussion notes)" -- Discard the discussion notes and proceed with the standard Round 1 flow below as if `$USE_DISCUSSION` were false
+
+**Standard Round 1 flow (or when `$USE_DISCUSSION` is false):**
 
 Use AskUserQuestion to ask 2-4 questions about the high-level feature shape. Each question MUST have 2-4 options. Reference specific codebase findings from `$RESEARCH` when relevant.
 
@@ -142,6 +178,18 @@ Based on Round 1 answers, use AskUserQuestion to ask 2-3 more specific questions
 - **Data relationships** — If entities are involved, ask about relationships to existing models
 
 Adapt questions to what's relevant based on Round 1 answers. Skip questions that are already answered or not applicable.
+
+**Mandatory question for Round 2 (or Round 3+ if Round 2 is full):**
+
+Use AskUserQuestion to ask about implementation mode. Store the user's choice as `$IMPLEMENTATION_MODE` (lowercase: `quality` or `economy`).
+
+```
+question: "How should this feature be implemented?"
+header: "Implementation Mode"
+options:
+  - "Quality mode -- heavier model for all agents (default, recommended for critical features)" → $IMPLEMENTATION_MODE = "quality"
+  - "Economy mode -- lighter model for scanning/planning, heavier model only for implementation (faster, lower cost)" → $IMPLEMENTATION_MODE = "economy"
+```
 
 #### Round 3+: Convergence
 
@@ -203,6 +251,7 @@ Write `requirements.md` to the spec folder using the Write tool. Populate it wit
   - Existing Code to Reference: Components, patterns, files from `$RESEARCH` with exact file paths
   - Follow-up Questions: Any rounds beyond Round 2
 - **Visual Assets:** Analysis from Step 7 (or "No visual assets provided")
+- **Implementation Mode:** `$IMPLEMENTATION_MODE` (quality or economy)
 - **Requirements Summary:**
   - Functional Requirements: Concrete, testable requirements derived from the discovery conversation
   - Non-Functional Requirements: Performance, security, accessibility if discussed
@@ -227,7 +276,20 @@ The spec-writer agent will:
 
 This step is NOT interactive -- the spec-writer works from the gathered requirements without additional user input. Wait for it to complete.
 
-After the spec-writer finishes, proceed to **Step 11: Update STATE.md**.
+After the spec-writer finishes, proceed to **Step 9.5: Write Implementation Mode to Config**.
+
+### Step 9.5: Write Implementation Mode to Config
+
+This step runs only for the new spec flow. Skip this step entirely if running the amend flow (Step 10).
+
+Write the user's implementation mode choice to `.bee/config.json` using a Read-Modify-Write pattern:
+
+1. Read the current `.bee/config.json` using the Read tool
+2. Parse the JSON content
+3. Set (or update) the `implementation_mode` field to the value of `$IMPLEMENTATION_MODE` (either `"quality"` or `"economy"`)
+4. Write the updated JSON back to `.bee/config.json` using the Write tool, preserving all other existing fields
+
+After writing, proceed to **Step 11: Update STATE.md**.
 
 ### Step 10: Amend Flow
 

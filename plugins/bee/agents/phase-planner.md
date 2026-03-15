@@ -23,7 +23,7 @@ The parent command indicates which pass to perform. Detect the mode from the ins
 
 ## Pass 1: Plan What (Task Decomposition)
 
-1. Read `.bee/config.json` to determine the stack
+1. Read `.bee/config.json` to determine the stack: check `.stacks[0].name` first, then fall back to `.stack` if the `stacks` array is absent (v2 config backward compatibility)
 2. Read the relevant stack skill (`skills/stacks/{stack}/SKILL.md`) for framework conventions
 3. Read `spec.md` to understand the overall feature
 4. Read `phases.md` to identify the specific phase being planned

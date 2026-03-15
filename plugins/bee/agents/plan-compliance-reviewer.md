@@ -1,7 +1,7 @@
 ---
 name: plan-compliance-reviewer
 description: Reviews code against spec and acceptance criteria, or reviews planned tasks against spec requirements with coverage matrix
-tools: Read, Glob, Grep
+tools: Read, Glob, Grep, Write
 color: yellow
 model: inherit
 skills:
@@ -97,6 +97,16 @@ Output your findings in your final message using this format:
 ```
 
 If no findings in any category: "Plan compliance review complete. No findings -- implementation matches spec."
+
+### Step 7c: Mark Covered Requirements
+
+If the parent command provided a requirements.md path in the context packet, update requirement checkboxes to reflect coverage. If requirements.md does not exist or no path was provided, skip this step with a note: "No requirements.md found -- skipping requirement marking."
+
+1. **Read** requirements.md from the path provided by the parent command.
+2. **Identify covered requirements:** For each `- [ ]` checkbox item in requirements.md, check whether the implementation you reviewed in Steps 4c-5c satisfies that requirement. A requirement is covered if you found code that implements its described behavior during your spec compliance checks.
+3. **Mark covered items:** Replace `- [ ]` with `- [x]` for each requirement that is fully covered by the reviewed implementation. Do NOT mark requirements that are only partially covered or not covered at all.
+4. **Write** the modified content back to requirements.md using the Write tool. Always re-read requirements.md immediately before writing to avoid stale overwrites (Read-Modify-Write pattern).
+5. **Output summary:** After writing, output: "Requirements marked covered: {list of marked requirements}. Requirements still unchecked: {count}."
 
 ---
 
@@ -218,9 +228,11 @@ Output your findings in your final message using this format:
 
 **Code review mode:** End your final message with:
 
-"Plan compliance review complete. Found X spec gaps, Y cross-phase issues, Z over-scope findings."
+"Plan compliance review complete. Found X spec gaps, Y cross-phase issues, Z over-scope findings. Requirements: {marked} marked covered, {unchecked} still unchecked."
 
-If no findings: "Plan compliance review complete. No findings -- implementation matches spec."
+If no findings: "Plan compliance review complete. No findings -- implementation matches spec. Requirements: {marked} marked covered, {unchecked} still unchecked."
+
+If requirements.md was not found: omit the requirements counts and append "Requirements: skipped (no requirements.md)."
 
 **Plan review mode:** End your final message with:
 
@@ -230,7 +242,7 @@ If the plan is clean: "Plan compliance review complete. {N} requirements checked
 
 ---
 
-IMPORTANT: You do NOT modify code or plan files. You are read-only. Report findings only.
+IMPORTANT: You modify ONLY requirements.md (marking covered checkboxes in code review mode). You do NOT modify code, plan files, or any other files. Report findings only.
 
 IMPORTANT: Only report findings you have HIGH confidence in. When in doubt, leave it out.
 

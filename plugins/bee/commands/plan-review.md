@@ -47,9 +47,9 @@ Check these guards in order. Stop immediately if any fails:
    "Phase {N} is not yet planned. Run `/bee:plan-phase {N}` first."
    Do NOT proceed.
 
-6. **Already reviewed guard:** Use Glob or Read to check if `{phase_directory}/PLAN-REVIEW.md` already exists. If yes, warn the user:
-   "Phase {N} plan already has a review. Re-running will overwrite it. Continue?"
-   Wait for explicit user confirmation before proceeding. If the user declines, stop.
+6. **Already reviewed guard:** Use Glob or Read to check if `{phase_directory}/PLAN-REVIEW.md` already exists. If yes, inform the user:
+   "Note: Phase {N} already has a plan review. The existing review will be archived if you choose Re-review. A new review will be generated."
+   Continue without blocking -- do NOT wait for confirmation.
 
 ### Step 2: Load Phase Context
 
@@ -68,6 +68,8 @@ Check these guards in order. Stop immediately if any fails:
 
 ### Step 3: Spawn Four Specialized Agents in Parallel
 
+Read `config.implementation_mode` from config.json (defaults to `"quality"` if absent). This determines the model tier for the four review agents spawned in Step 3.2.
+
 #### 3.1: Build context packets
 
 Build a shared context base for all four agents:
@@ -80,7 +82,7 @@ Build a shared context base for all four agents:
 
 Then build four agent-specific context packets:
 
-**Agent 1: Bug Detector** (`bee:bug-detector`, `model: "sonnet"`)
+**Agent 1: Bug Detector** (`bee:bug-detector`) -- model set in 3.2 by implementation_mode
 ```
 You are reviewing the plan for Phase {N} in PLAN REVIEW MODE.
 
@@ -96,7 +98,7 @@ Read spec.md for feature behavior and acceptance criteria. Read requirements.md 
 Review the planned tasks for potential bug risks: tasks that are likely to introduce logic errors, race conditions, edge case failures, null handling issues, or security vulnerabilities based on their described scope and acceptance criteria. Report only HIGH confidence concerns in your standard output format.
 ```
 
-**Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`, `model: "sonnet"`)
+**Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`) -- model set in 3.2 by implementation_mode
 ```
 You are reviewing the plan for Phase {N} in PLAN REVIEW MODE.
 
@@ -112,7 +114,7 @@ Read spec.md for feature behavior and acceptance criteria. Read requirements.md 
 Review the planned tasks for pattern concerns: tasks whose described approach deviates from established project patterns, uses inconsistent naming or structure, or does not reference the correct existing patterns to follow. Find similar existing files in the codebase and compare against planned approaches. Report only HIGH confidence deviations in your standard output format.
 ```
 
-**Agent 3: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`, `model: "sonnet"`)
+**Agent 3: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`) -- model set in 3.2 by implementation_mode
 ```
 You are reviewing the plan for Phase {N} in PLAN REVIEW MODE (not code review mode).
 
@@ -128,7 +130,7 @@ Review mode: plan review. Read spec.md for feature behavior and acceptance crite
 Build a coverage matrix mapping every spec requirement to planned tasks. Identify gaps (requirements not covered), partial coverage, spec drift (tasks misaligned with spec), and over-engineering (tasks beyond spec scope). Report findings in your standard plan review mode output format with Coverage Matrix, Gaps, Partial Coverage, Spec Drift, and Over-Engineering sections.
 ```
 
-**Agent 4: Stack Reviewer** (`bee:stack-reviewer`, `model: "sonnet"`)
+**Agent 4: Stack Reviewer** (`bee:stack-reviewer`) -- model set in 3.2 by implementation_mode
 ```
 You are reviewing the plan for Phase {N} in PLAN REVIEW MODE.
 
@@ -146,7 +148,11 @@ Load the stack skill dynamically from config.json and review the planned tasks f
 
 #### 3.2: Spawn all four agents in parallel
 
-Spawn all four agents via four Task tool calls in a SINGLE message (parallel execution). Use `model: "sonnet"` for all four agents -- they perform structured cross-reference comparison work.
+Spawn all four agents via four Task tool calls in a SINGLE message (parallel execution). The model tier for these four review agents depends on `implementation_mode`:
+
+**Economy mode** (`implementation_mode: "economy"`): Pass `model: "sonnet"` for all four agents -- plan review is structured cross-reference comparison work, sonnet is sufficient and reduces cost.
+
+**Quality mode** (default, `implementation_mode: "quality"`): Omit the model parameter for all four agents (they inherit the parent model) -- quality mode uses the stronger model for deeper plan analysis.
 
 Wait for all four agents to complete.
 
@@ -279,19 +285,25 @@ Count total issues across all sections: gaps + partial + drift + over-engineerin
 
 If 0 issues total, set Status to CLEAN. Otherwise set Status to ISSUES_FOUND.
 
-### Step 4: Present Findings
+### Step 4: Present Findings and Options
 
 1. Parse PLAN-REVIEW.md summary counts and additional section counts from all four agents' consolidated output.
 
-2. If status is CLEAN (0 gaps, 0 partial, 0 drift, 0 over-engineering, 0 bug risks, 0 pattern concerns, 0 stack concerns):
+2. **CLEAN path (0 findings):** If status is CLEAN (0 gaps, 0 partial, 0 drift, 0 over-engineering, 0 bug risks, 0 pattern concerns, 0 stack concerns), auto-approve:
+   - Read STATE.md from disk. Parse the current Plan Review column value for this phase:
+     - `"Yes (1)"` -> N=1, `"Yes (2)"` -> N=2, etc.
+     - `"Yes"` -> N=0
+     - Empty or missing -> N=0
+   - Increment: write `"Yes ({N+1})"` to the Plan Review column for this phase in STATE.md.
    - Display:
      ```
      Plan review complete -- plan fully covers the spec!
      No gaps or discrepancies found across all four reviewers.
+     Plan automatically approved. Plan Review set to Yes ({N+1}) in STATE.md.
 
      Proceed with `/bee:execute-phase {N}` when ready.
      ```
-   - Stop.
+   - Stop. Do NOT present the 3-option menu below.
 
 3. If issues found, display a formatted summary:
    ```
@@ -317,24 +329,28 @@ If 0 issues total, set Status to CLEAN. Otherwise set Status to ISSUES_FOUND.
 4. Present options to the user:
    ```
    What would you like to do?
-   (a) Approve plan as-is -- proceed to execution despite findings
-   (b) Revise plan -- re-run /bee:plan-phase {N} to address the gaps
-   (c) Add missing requirements -- expand the plan to cover gaps
+   (a) Approve -- accept the plan despite findings and proceed to execution
+   (b) Re-review -- archive this review and re-run the review pipeline
+   (c) Modify -- edit TASKS.md and re-run plan-review
    ```
 
 5. Handle responses:
-   - **(a) Approve:** Display "Plan approved. Run `/bee:execute-phase {N}` to start." Stop.
-   - **(b) Revise:** Display "Re-run `/bee:plan-phase {N}` to create a revised plan. The PLAN-REVIEW.md will be available for the planner to reference." Stop. Do NOT auto-run plan-phase -- let the user do it in a fresh context.
-   - **(c) Add missing:** For each gap in PLAN-REVIEW.md, ask the user which gaps to add. Then display: "To add these requirements, re-run `/bee:plan-phase {N}` and mention these gaps. The planner will read PLAN-REVIEW.md for context." Stop.
+
+   - **(a) Approve:** Read STATE.md from disk. Parse the current Plan Review column value for this phase to extract N (e.g., `"Yes (1)"` -> N=1, `"Yes"` -> N=0, empty -> N=0). Always parse and increment -- never use file-count. Write `"Yes ({N+1})"` to the Plan Review column for this phase in STATE.md. Display "Plan approved. Plan Review set to Yes ({N+1}) in STATE.md. Run `/bee:execute-phase {N}` to start." Stop.
+
+   - **(b) Re-review:** Use Glob to count existing `PLAN-REVIEW-*.md` files in `{phase_directory}` to determine the next archive number (archive number = count of existing PLAN-REVIEW-*.md files + 1; e.g., 0 files -> PLAN-REVIEW-1.md, 1 file -> PLAN-REVIEW-2.md). Rename the current `PLAN-REVIEW.md` to `PLAN-REVIEW-{archive_number}.md`. Then re-run the review pipeline (Steps 3.1 through 3.6) to generate a fresh `PLAN-REVIEW.md`. After the pipeline completes, re-present Step 4 (loop back to present findings and options again).
+
+   - **(c) Modify:** Display "Edit `{phase_directory}/TASKS.md` to address the findings, then re-run `/bee:plan-review {N}`." Stop.
 
 ---
 
 **Design Notes (do not display to user):**
 
-- This command does NOT modify TASKS.md or STATE.md. It is a read-analyze-report command.
-- Four specialized agents (bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer) review the plan in parallel via four Task tool calls in a single message. All use `model: "sonnet"` (structured cross-reference comparison work).
+- This command does NOT modify TASKS.md. On Approve (including CLEAN auto-approve), it writes the Plan Review column in STATE.md using a Read-Modify-Write pattern: read STATE.md, parse the current Plan Review value to extract N, increment, and write "Yes ({N+1})".
+- Four specialized agents (bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer) review the plan in parallel via four Task tool calls in a single message. Model tier depends on `implementation_mode`: economy mode passes `model: "sonnet"` (structured comparison work, lower cost); quality mode omits model (inherits parent for deeper analysis).
 - The command (not the agents) writes PLAN-REVIEW.md. Agents report findings in their own output formats; the command normalizes, deduplicates, and writes the unified PLAN-REVIEW.md.
 - The plan-compliance-reviewer operates in "plan review mode" (not code review mode). Its output provides the primary PLAN-REVIEW.md structure (Coverage Matrix, Gaps, Partial Coverage, Spec Drift, Over-Engineering). The other three agents' findings are merged as additional sections (Bug Risk, Pattern Concerns, Stack Best Practice Concerns).
 - Deduplication merges findings from different agents when they reference the same requirement or task AND describe the same underlying issue. The most specific finding (longest description) is kept.
 - The command does not auto-chain into plan-phase. It presents findings and lets the user decide next steps in a fresh context window.
 - Always re-read files from disk, never rely on cached dynamic context for file contents.
+- Always parse the current STATE.md Plan Review value and increment by 1. plan-phase writes 'Yes (1)' as the baseline. Each standalone plan-review Approve writes 'Yes (N+1)' where N is parsed from the current value. Example: plan-phase writes 'Yes (1)', first standalone approve writes 'Yes (2)', second writes 'Yes (3)'.

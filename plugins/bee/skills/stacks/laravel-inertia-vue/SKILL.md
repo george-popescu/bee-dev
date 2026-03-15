@@ -945,6 +945,64 @@ routes/web.php
 lang/{en,ro}/models.php
 ```
 
+## Must-Haves
+
+These are non-negotiable requirements. Every implementation MUST satisfy all of them.
+
+1. **`Gate::authorize()` for authorization** -- NEVER use `$request->user()->can()` + `abort(403)` or `auth()->user()->can()`. Always `Gate::authorize('ability', $model)`.
+2. **FormRequest for validation** -- Every `store()` and `update()` action MUST use a FormRequest class (or the base controller's `validateStore()`/`validateUpdate()` methods). Never validate inline in controllers.
+3. **`scopeWithSearch()` on every listed model** -- Any model that appears in an index/list view MUST define `scopeWithSearch()`. Missing this scope breaks the search bar silently.
+4. **`WithSortableScope` trait from the correct namespace** -- Always `use App\Models\Traits\WithSortableScope`. The trait provides `scopeWithSorting()` for backend sort support.
+5. **Scheduling in `bootstrap/app.php`** -- ALL scheduled jobs and commands MUST be registered via the `withSchedule()` callback in `bootstrap/app.php`. NEVER use `routes/console.php` for scheduling (causes duplicate execution).
+6. **`<script setup lang="ts">` on every Vue component** -- All components use Composition API with `<script setup>` and TypeScript. No exceptions.
+7. **TDD** -- Write tests BEFORE implementation. Follow the Red-Green-Refactor cycle. Run `php artisan test --parallel` (never `composer test`). Pre-commit gate: Pint + PHPStan + tests must all pass.
+
+## Good Practices
+
+These are strongly recommended patterns that lead to maintainable, performant code.
+
+1. **Thin controllers** -- Controllers accept a request, delegate to a service, and return a response. All business logic lives in dedicated service classes (e.g., `OrderService`, `PaymentService`).
+2. **DI rules for controllers** -- If a service is used in 2+ methods, inject via constructor (`protected` property). If used in 1 method, inject as a method parameter. If the method must match a parent signature, use constructor injection even for 1 method. Listeners and Observers always use constructor injection (their method signatures are fixed by Laravel). Traits may use `app()` inline (no constructor available).
+3. **Events and listeners with auto-discovery** -- Dispatch events from services (not controllers) for side effects (emails, notifications, audit logs). Laravel 12 auto-discovers listeners in `app/Listeners/` via `handle(Event $event)` type-hint. Verify with `php artisan event:list`.
+4. **Partial reloads** -- Use `router.reload({ only: ['prop'] })` to refresh specific props without full page data transfer. Reduces bandwidth and improves perceived performance for paginated data, search results, and filtered lists.
+5. **Wayfinder for route URLs** -- Generate type-safe route URLs with `php artisan wayfinder:generate` after any route change. Import actions: `import { edit } from '@/actions/App/Http/Controllers/ResourceController'`. Use `edit.url({ resource: id })` instead of hardcoded strings.
+6. **Eager loading** -- Always use `with()` to prevent N+1 query problems. Never lazy-load relationships in loops.
+7. **Composables for reusable logic** -- Extract shared reactive logic into `use*` composables in `resources/js/Composables/`. A composable returns reactive state and functions as a self-contained unit.
+
+## Common Bugs
+
+Known pitfalls that have caused production issues or wasted significant debugging time.
+
+1. **Notify race condition** -- NEVER query `$user->notifications()->latest()->first()` after `$user->notify()`. Under concurrent load, another notification may be inserted between the two calls. Build broadcast data directly with `Str::uuid()->toString()` for the notification ID.
+2. **`Event::listen()` duplicates** -- NEVER register listeners via `Event::listen()` in `AppServiceProvider`. Laravel 12 auto-discovers listeners, so manual registration causes duplicate execution. Verify with `php artisan event:list --event=App\\Events\\YourEvent` (should show exactly ONE listener).
+3. **Wrong trait namespace** -- The sortable trait lives at `App\Models\Traits\WithSortableScope`, NOT `App\Traits\WithSortableScope`. Using the wrong namespace causes a class-not-found error that is easy to overlook in large diffs.
+4. **Missing `getRoutePrefix()` override** -- Multi-word resource controllers (e.g., `StorageUnitController`) MUST override `getRoutePrefix()` to return the kebab-case route prefix (e.g., `'storage-units'`). Without this, route generation and redirects break silently.
+5. **`colSpan:2` ignored in grid layout** -- The form grid does not honor `colSpan:2`. To control row alignment, use a `spacer` field type with the same condition as the related fields.
+6. **`singleRowAction` endpoint must be a function** -- When `singleRowAction: true`, the `endpoint` property MUST be a function: `endpoint: (item) => actionFn.url({ model: item.id })`. A string endpoint causes the action to fire against the wrong URL or fail entirely.
+7. **Sort empty string vs missing param** -- `$request->validated('sort')` returns `null` for BOTH missing AND empty string values. Use `$request->has('sort')` to distinguish: empty string (`?sort=`) means user explicitly cleared sorting (no sort applied), while missing param means use the backend default sort.
+
+## Anti-Patterns
+
+Code patterns that are explicitly banned in this stack. Reject any PR that introduces them.
+
+1. **Options API** -- NEVER use `export default { data(), methods: {} }`. All components must use `<script setup>` with Composition API.
+2. **Business logic in controllers** -- Controllers orchestrate; services implement. If a controller contains conditional logic, calculations, or multi-step workflows, extract to a service class.
+3. **Direct prop mutation** -- NEVER mutate props in Vue components. Emit events to the parent or use `defineModel()` for two-way binding. Direct mutation causes silent failures and hard-to-trace bugs.
+4. **`@apply` for component styling** -- NEVER use `@apply` in CSS/SCSS. It defeats TailwindCSS utility-first design. Extract repeated utility strings into Vue components instead. The only acceptable use is base styles for elements that cannot have classes (e.g., prose content).
+5. **Nested pagination format** -- NEVER use `{ data: [...], links: {...}, meta: {...} }`. Always use the FLAT pagination format: `{ data: [...], current_page, last_page, per_page, total, from, to }`.
+6. **`any` type in TypeScript** -- NEVER use `any` as a type annotation. Define proper interfaces and types for all data structures. The only exception is catch block parameters (`catch (e: any)`).
+7. **`Show.vue` pages** -- NEVER create `Show.vue` pages. The `Edit.vue` page serves as a read-only view when the user lacks update permission. Use `computed(() => can('resource', 'canUpdateAny'))` to toggle edit controls.
+
+## Standards
+
+Naming conventions, file organization, and structural rules for consistency.
+
+1. **PascalCase components** -- All Vue component files use PascalCase: `OrderList.vue`, `PaymentForm.vue`. Page directories mirror route structure: `resources/js/Pages/Orders/Index.vue`.
+2. **`snake_case` database columns** -- All database columns and model attributes use `snake_case`. Laravel serializes props as `snake_case`: use `props.item.main_container` not `props.item.mainContainer`.
+3. **Resource routes** -- Use `Route::resource()` for CRUD operations. Simple CRUD: `->only(['index', 'store', 'update', 'destroy'])`. Complex (tabbed): `->except(['create'])`. Sub-resources: `Route::apiResource('parents.children', ChildController::class)->except(['show'])`.
+4. **Lang file structure** -- Translations live in `lang/{en,ro}/models.php`. Backend uses `:variable` placeholders with `__('key', ['var' => $v])`. Frontend uses `{variable}` placeholders with `t('key', { var: v })`. Single-row actions use `success_single` keys; bulk actions use `success` with a count param.
+5. **Abilities split by context** -- In `.ts` column files (outside Vue component context), use utility functions: `import { can, canAny } from '@/utils/abilities'`. In Vue components (layouts, pages), use the composable: `import { useAbilities } from '@/composables/useAbilities'`. Never mix the two contexts.
+
 ## Context7 Instructions
 
 When looking up framework documentation, use these Context7 library identifiers:

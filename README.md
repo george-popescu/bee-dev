@@ -34,8 +34,7 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 /bee:test            # Generate test scenarios, verify with developer
 /bee:commit          # Guided commit with diff summary
 /bee:quick           # Fast-track: describe, execute, commit (no spec needed)
-/bee:quick-review    # Lightweight review for uncommitted changes
-/bee:autopilot       # Run all phases hands-off (plan → execute → review loop)
+/bee:review-implementation  # Context-aware review (spec or ad-hoc)
 ```
 
 ## Commands
@@ -50,18 +49,16 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 | `/bee:test` | Manual testing handoff with scenario generation and fix loop |
 | `/bee:commit` | Show diff summary, suggest commit message, require confirmation |
 | `/bee:quick` | Fast-track task: describe, execute, commit. Agents mode is default; `--fast` for direct mode, `--amend` to modify existing plan, `--review` for post-review |
-| `/bee:quick-review` | Lightweight code review for uncommitted changes (no spec required) |
+| `/bee:review-implementation` | Context-aware review -- full spec mode (4 agents) or ad-hoc mode (3 agents, no spec required) |
+| `/bee:fix-implementation` | Standalone fix command -- reads review output and fixes confirmed findings sequentially |
 | `/bee:plan-review N` | Review a phase plan (TASKS.md) against the spec before execution |
 | `/bee:add-phase` | Append a new phase to the current spec |
-| `/bee:autopilot` | Run all spec phases automatically -- plan, execute, review loop with auto-compacting |
 | `/bee:memory` | View accumulated agent memories for the current project |
 | `/bee:compact` | Smart compact -- preserve bee context, then compress conversation |
 | `/bee:progress` | Show current project state and suggest next action |
 | `/bee:resume` | Restore full context after a break |
 | `/bee:eod` | End-of-day audit with 4 parallel checks |
-| `/bee:review-project` | Full project compliance review against original spec |
-| `/bee:parallel-phases` | Execute multiple independent phases simultaneously using agent teams |
-| `/bee:parallel-review` | **Deprecated** -- redirects to `/bee:review` |
+| `/bee:archive-spec` | Archive completed spec, reset STATE.md, bump plugin version |
 
 ## Workflow
 
@@ -81,14 +78,14 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
     │                                                                            │
    ...                                                                          ...
     │
-/bee:review-project  (optional: full spec compliance check)
+/bee:review-implementation  (optional: full spec compliance check)
     │
-/bee:eod             (optional: end-of-day audit)
+/bee:archive-spec          (archive spec, reset state)
+    │
+/bee:eod                   (optional: end-of-day audit)
 ```
 
 Each phase goes through the full pipeline before the next one starts. Review gates ensure quality between steps.
-
-**Alternative: Autopilot** -- After `/bee:new-spec`, run `/bee:autopilot` to execute all phases hands-off (plan, execute, review loop with fresh context per step). Review the final diff, then `/bee:commit`.
 
 ## Supported Stacks
 
@@ -119,7 +116,7 @@ your-project/
     │       └── phases.md        # Phase breakdown
     ├── quick/              # Persisted quick task plans ({NNN}-{slug}.md)
     ├── memory/             # Agent memory (shared.md + per-agent .md files)
-    ├── quick-reviews/      # Lightweight review reports from /bee:quick-review
+    ├── reviews/            # Review reports from /bee:review-implementation
     └── eod-reports/        # End-of-day audit reports
 ```
 
@@ -155,7 +152,7 @@ For small changes that don't need the full pipeline. Quick tasks are tracked in 
 /bee:quick --fast fix the button color        # Direct execution, no agents
 /bee:quick --amend 3                          # Modify existing quick task plan #3
 /bee:quick --review update the footer links   # Execute + lightweight review before commit
-/bee:quick-review                             # Standalone review of uncommitted changes
+/bee:review-implementation                    # Standalone review of any changes (auto-detects mode)
 ```
 
 ## Statusline

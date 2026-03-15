@@ -13,10 +13,14 @@ AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty')
 
 # Only inject memory for known bee agents
 case "$AGENT_TYPE" in
-  implementer|fixer|researcher|reviewer|spec-writer|phase-planner|plan-reviewer|spec-shaper|finding-validator|integrity-auditor|test-auditor|test-planner|project-reviewer)
+  implementer|fixer|researcher|reviewer|spec-writer|phase-planner|plan-reviewer|spec-shaper|finding-validator|integrity-auditor|test-auditor|test-planner|project-reviewer|context-builder|laravel-inertia-vue-bug-detector|laravel-inertia-vue-pattern-reviewer|laravel-inertia-vue-implementer|quick-implementer|discuss-partner|bug-detector|pattern-reviewer|stack-reviewer|plan-compliance-reviewer)
     ;;
   *)
-    exit 0
+    if [ -f "$CLAUDE_PROJECT_DIR/.claude/bee-extensions/agents/${AGENT_TYPE}.md" ]; then
+      :
+    else
+      exit 0
+    fi
     ;;
 esac
 

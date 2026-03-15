@@ -28,13 +28,19 @@ Use Context7 especially for:
 
 ## 1. Read Stack Context
 
-Read `.bee/config.json` to determine the stack. Read the relevant stack skill (`skills/stacks/{stack}/SKILL.md`) for framework-specific conventions and patterns. Use these conventions to inform stack-aware bug detection -- issues that violate stack conventions or miss framework-provided safety mechanisms are findings.
+Read `.bee/config.json` to determine the stack: check `.stacks[0].name` first, then fall back to `.stack` if the `stacks` array is absent (v2 config backward compatibility). Read the relevant stack skill (`skills/stacks/{stack}/SKILL.md`) for framework-specific conventions and patterns. Use these conventions to inform stack-aware bug detection -- issues that violate stack conventions or miss framework-provided safety mechanisms are findings.
 
-## 2. Read False Positives
+## 2. Read Project CLAUDE.md (if present)
+
+Read the project `CLAUDE.md` file at the project root if it exists. CLAUDE.md contains project-specific rules, patterns, and conventions that take precedence over general stack skill conventions. When a CLAUDE.md rule conflicts with a stack skill convention, the CLAUDE.md rule is higher-priority and overrides. Use CLAUDE.md patterns as additional bug detection rules -- code that violates documented CLAUDE.md patterns is a finding.
+
+If `CLAUDE.md` does not exist, skip this step and rely solely on the stack skill.
+
+## 3. Read False Positives
 
 Read `.bee/false-positives.md` if it exists. Note all documented false positives. You MUST exclude any finding that matches a documented false positive (same file, same issue pattern, and the reason still applies to the current code). If the file does not exist, skip this step.
 
-## 3. Review for Bugs
+## 4. Review for Bugs
 
 Review the provided plan or implementation looking for potential bugs.
 

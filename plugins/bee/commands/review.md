@@ -123,22 +123,43 @@ Before spawning review agents, extract documented false positives so each agent 
 3. If the file does not exist, set the false-positives list to: `"No documented false positives."`
 4. This formatted list is included verbatim in each agent's context packet in Step 4.
 
-### Step 4: STEP 1 -- REVIEW (spawn four specialized agents in parallel)
+### Step 4: STEP 1 -- REVIEW (spawn specialized agents)
 
-Spawn four specialized review agents in parallel. Each agent focuses on a distinct review domain. The command (not the agents) writes REVIEW.md after consolidating all findings.
+Spawn specialized review agents. In a multi-stack project, bug-detector, pattern-reviewer, and stack-reviewer are spawned once per stack (3 per-stack agents), while plan-compliance-reviewer is spawned ONCE globally (stack-agnostic). Total agents: `(3 x N) + 1` where N = number of stacks. For single-stack projects, N = 1 so exactly 4 agents are spawned (identical to original behavior). The command (not the agents) writes REVIEW.md after consolidating all findings from all stacks.
 
-#### 4.1: Build context packets
+#### 4.1: Determine stacks and build context packets
 
-Build a shared context base for all four agents:
+**4.1a: Read stacks from config**
+
+Read `config.stacks` from `config.json`. Build the stack list:
+- If `config.stacks` exists and is an array: use it as-is. Each entry has `name` and `path`.
+- If `config.stacks` is absent but `config.stack` exists (legacy v2 config): create a single-entry list: `[{ name: config.stack, path: "." }]`.
+- If neither exists: stop with error "No stack configured in config.json."
+
+Also read `config.implementation_mode` (defaults to `"quality"` if absent).
+
+**4.1b: Build shared context base**
+
+Build a shared context base for all agents:
 - Spec path: `{spec.md path}`
 - TASKS.md path: `{TASKS.md path}`
 - Phase directory: `{phase_directory}`
 - Phase number: `{N}`
 - False positives list: the formatted list from Step 3.9
 
-Then build four agent-specific context packets:
+**4.1c: Build per-stack context packets**
 
-**Agent 1: Bug Detector** (`bee:bug-detector`, `model: "sonnet"`)
+For each stack in the stacks list, build three agent-specific context packets. When the project has a single stack, this loop runs once and behavior is identical to the original four-agent approach.
+
+**Agent resolution (stack-specific fallback):** For each per-stack agent, check if a stack-specific variant exists before using the generic agent. For each stack in the stacks list, resolve agents as follows:
+
+- **Bug Detector:** Check if `plugins/bee/agents/stacks/{stack.name}/bug-detector.md` exists. If yes, use `{stack.name}-bug-detector` as the agent name. If no, fallback to generic `bee:bug-detector`.
+- **Pattern Reviewer:** Check if `plugins/bee/agents/stacks/{stack.name}/pattern-reviewer.md` exists. If yes, use `{stack.name}-pattern-reviewer` as the agent name. If no, fallback to generic `bee:pattern-reviewer`.
+- **Stack Reviewer:** Check if `plugins/bee/agents/stacks/{stack.name}/stack-reviewer.md` exists. If yes, use `{stack.name}-stack-reviewer` as the agent name. If no, fallback to generic `bee:stack-reviewer`.
+
+Generic agents remain the default for any stack that does not have dedicated stack-specific agents in `plugins/bee/agents/stacks/{stack.name}/`.
+
+**Per-stack Agent: Bug Detector** (resolved agent name -- see agent resolution above) -- model set in 4.2 by implementation_mode -- one per stack
 ```
 You are reviewing Phase {N} implementation for bugs and security issues.
 
@@ -146,13 +167,14 @@ Spec: {spec.md path}
 TASKS.md: {TASKS.md path}
 Phase directory: {phase_directory}
 Phase number: {N}
+Stack: {stack.name}
 
 {false-positives list from Step 3.9}
 
-Read TASKS.md to find the files created/modified by this phase. Review those files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). Report only HIGH confidence findings in your standard output format.
+Read TASKS.md to find the files created/modified by this phase. Scope your file search to files within the `{stack.path}` directory. Review those files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). Report only HIGH confidence findings in your standard output format.
 ```
 
-**Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`, `model: "sonnet"`)
+**Per-stack Agent: Pattern Reviewer** (resolved agent name -- see agent resolution above) -- model set in 4.2 by implementation_mode -- one per stack
 ```
 You are reviewing Phase {N} implementation for pattern deviations.
 
@@ -160,27 +182,14 @@ Spec: {spec.md path}
 TASKS.md: {TASKS.md path}
 Phase directory: {phase_directory}
 Phase number: {N}
+Stack: {stack.name}
 
 {false-positives list from Step 3.9}
 
-Read TASKS.md to find the files created/modified by this phase. For each file, find 2-3 similar existing files in the codebase, extract their patterns, and compare. Report only HIGH confidence deviations in your standard output format.
+Read TASKS.md to find the files created/modified by this phase. Scope your file search to files within the `{stack.path}` directory. For each file, find 2-3 similar existing files in the codebase, extract their patterns, and compare. Report only HIGH confidence deviations in your standard output format.
 ```
 
-**Agent 3: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`, `model: "sonnet"`)
-```
-You are reviewing Phase {N} implementation in CODE REVIEW MODE (not plan review mode).
-
-Spec: {spec.md path}
-TASKS.md: {TASKS.md path}
-Phase directory: {phase_directory}
-Phase number: {N}
-
-{false-positives list from Step 3.9}
-
-Review mode: code review. Check implemented code against spec requirements and acceptance criteria. Verify every acceptance criterion in TASKS.md has corresponding implementation. Check for missing features, incorrect behavior, and over-scope additions. If phase > 1, also check cross-phase integration (imports, data contracts, workflow connections, shared state). Report findings in your standard code review mode output format.
-```
-
-**Agent 4: Stack Reviewer** (`bee:stack-reviewer`, `model: "sonnet"`)
+**Per-stack Agent: Stack Reviewer** (resolved agent name -- see agent resolution above) -- model set in 4.2 by implementation_mode -- one per stack
 ```
 You are reviewing Phase {N} implementation for stack best practice violations.
 
@@ -191,18 +200,47 @@ Phase number: {N}
 
 {false-positives list from Step 3.9}
 
-Read TASKS.md to find the files created/modified by this phase. Load the stack skill dynamically from config.json and check all code against the stack's conventions. Use Context7 to verify framework best practices. Report only HIGH confidence violations in your standard output format.
+The stack for this review pass is `{stack.name}`. Load the stack skill at `skills/stacks/{stack.name}/SKILL.md` and check all code within the `{stack.path}` directory against that stack's conventions. Use Context7 to verify framework best practices. Report only HIGH confidence violations in your standard output format.
 ```
 
-#### 4.2: Spawn all four agents in parallel
+**4.1d: Build global context packet (spawned ONCE, not per-stack)**
 
-Spawn all four agents via four Task tool calls in a SINGLE message (parallel execution). Use `model: "sonnet"` for all four agents -- they perform focused scope scanning and classification work.
+Before building the packet, check if `{spec-path}/requirements.md` exists on disk. Set the requirements line:
+- If found: `Requirements: {spec-path}/requirements.md`
+- If not found: `Requirements: (not found -- skip requirement tracking)`
 
-Wait for all four agents to complete.
+**Global Agent: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`) -- model set in 4.2 by implementation_mode -- spawned ONCE globally
+```
+You are reviewing Phase {N} implementation in CODE REVIEW MODE (not plan review mode).
+
+Spec: {spec.md path}
+TASKS.md: {TASKS.md path}
+Requirements: {spec-path}/requirements.md OR (not found -- skip requirement tracking)
+Phase directory: {phase_directory}
+Phase number: {N}
+
+{false-positives list from Step 3.9}
+
+Review mode: code review. Check implemented code against spec requirements and acceptance criteria. Verify every acceptance criterion in TASKS.md has corresponding implementation. Check for missing features, incorrect behavior, and over-scope additions. If phase > 1, also check cross-phase integration (imports, data contracts, workflow connections, shared state). Report findings in your standard code review mode output format.
+```
+
+#### 4.2: Spawn agents
+
+The total number of agents is `(3 x N) + 1` where N is the number of stacks. For a single-stack project this is exactly 4.
+
+**Quality mode** (default, `implementation_mode: "quality"`): Spawn ALL agents (all per-stack agents + the global plan-compliance-reviewer) via Task tool calls in a SINGLE message (parallel execution). Omit the model parameter for all agents (they inherit the parent model) -- quality mode uses the stronger model for deeper, more thorough review analysis. Wait for all agents to complete.
+
+**Economy mode** (`implementation_mode: "economy"`): To reduce token usage, pass `model: "sonnet"` for all agents and spawn agents sequentially per stack:
+1. Spawn the global plan-compliance-reviewer first (single Task tool call, `model: "sonnet"`). Wait for it to complete.
+2. For each stack in order: spawn that stack's 3 per-stack agents (bug-detector, pattern-reviewer, stack-reviewer) via three Task tool calls in a single message (parallel within the stack, all `model: "sonnet"`). Wait for all three to complete before proceeding to the next stack.
+
+In economy mode with a single stack, this results in the same 4 agents but spawned in two sequential batches instead of one parallel batch.
+
+Wait for all agents to complete before proceeding.
 
 #### 4.3: Parse findings from each agent
 
-After all four agents complete, parse findings from each agent's final message. Each agent has a distinct output format -- normalize all findings into a unified list:
+After all agents complete, parse findings from each agent's final message. Each agent has a distinct output format -- normalize all findings into a unified list. Findings from all stacks are combined into a single consolidated list:
 
 **Bug Detector** findings (from `## Bugs Detected` section):
 - Each `- **[Bug type]:** [Description] - \`file:line\`` entry becomes one finding
@@ -258,7 +296,7 @@ For each pair of findings from different agents, check if they reference the sam
    - Display: "Review complete -- clean code! No findings (iteration {iteration_counter}). Next step: Run `/bee:test` to test this phase."
    - Stop here.
 
-3. Display findings summary: "{N} findings from 4 reviewers: {critical} critical, {high} high, {medium} medium"
+3. Display findings summary: "{N} findings from {agent_count} reviewers ({stack_count} stacks): {critical} critical, {high} high, {medium} medium" (for single-stack, omit the stacks part: "{N} findings from 4 reviewers: {critical} critical, {high} high, {medium} medium")
 
 4. If more than 10 findings: present the list to user before proceeding:
    "The review found {N} findings (above typical range). Review the list in REVIEW.md and confirm you want to proceed with validation."
@@ -315,7 +353,8 @@ For each pair of findings from different agents, check if they reference the sam
    - Update the Counts table with classification breakdown
 5. Handle FALSE POSITIVE findings (including those reclassified by specialist escalation):
    - If `.bee/false-positives.md` does not exist, create it with a `# False Positives` header
-   - For each FALSE POSITIVE finding, append an entry:
+   - Read `.bee/false-positives.md`, count the number of existing `## FP-` headings, set the next FP number to count + 1
+   - For each FALSE POSITIVE finding, append an entry (incrementing the FP number for each):
      ```
      ## FP-{NNN}: {one-line summary}
      - **Finding:** {original finding description from REVIEW.md}
@@ -350,7 +389,7 @@ For each pair of findings from different agents, check if they reference the sam
    - Build fixer context packet:
      - Finding details: ID, summary, severity, category, file path, line range, description, suggested fix
      - Validation classification: REAL BUG or STYLISTIC (user-approved)
-     - Stack info: stack name from config.json for the fixer to load the stack skill
+     - Stack info: resolve the correct stack for the finding's file path using path-overlap logic (compare the finding's file path against each stack's `path` in config.stacks -- a file matches a stack if the file path starts with or is within the stack's path; `"."` matches everything). Pass the resolved stack name explicitly: "Stack: {resolved-stack-name}. Load the stack skill at skills/stacks/{resolved-stack-name}/SKILL.md." If only one stack is configured, use it directly.
    - Spawn `fixer` agent via Task tool with the context packet. Use the parent model (omit model parameter) -- fixers write production code and need full reasoning.
    - WAIT for the fixer to complete before spawning the next fixer
    - Read the fixer's fix report from its final message (## Fix Report section)
@@ -389,16 +428,14 @@ Re-run the Step 3.9 false-positive extraction. The `.bee/false-positives.md` fil
 2. If the file exists, build the updated formatted false-positives list (same format as Step 3.9)
 3. If the file does not exist, set the false-positives list to: `"No documented false positives."`
 
-#### 7.3: Spawn four review agents in parallel
+#### 7.3: Spawn review agents (same multi-stack logic as Step 4)
 
-Spawn the same four specialized agents as Step 4, with updated context. The agents review the updated code (including all fixes applied in previous iterations) and the updated false-positives list. Build context packets identical to Step 4.1 but with the refreshed false-positives list from Step 7.2:
+Apply the same multi-stack spawning logic as Step 4. Rebuild context packets using Step 4.1 (same stacks list, same per-stack and global agent structure) but with the refreshed false-positives list from Step 7.2. The agents review the updated code (including all fixes applied in previous iterations).
 
-- **Agent 1: Bug Detector** (`bee:bug-detector`, `model: "sonnet"`) -- same context packet as Step 4.1
-- **Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`, `model: "sonnet"`) -- same context packet as Step 4.1
-- **Agent 3: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`, `model: "sonnet"`) -- same context packet as Step 4.1
-- **Agent 4: Stack Reviewer** (`bee:stack-reviewer`, `model: "sonnet"`) -- same context packet as Step 4.1
+- **Per-stack agents** (bug-detector, pattern-reviewer, stack-reviewer): one set per stack, same context packets as Step 4.1c with updated false-positives
+- **Global agent** (plan-compliance-reviewer): spawned ONCE, same context packet as Step 4.1d with updated false-positives
 
-Spawn all four agents via four Task tool calls in a SINGLE message (parallel execution). Wait for all four to complete.
+Spawn using the same quality/economy mode logic as Step 4.2. Wait for all agents to complete.
 
 #### 7.4: Parse, deduplicate, and write new REVIEW.md
 
@@ -451,7 +488,7 @@ Next step:
 **Design Notes (do not display to user):**
 
 - The command auto-detects the phase to review (first EXECUTED or REVIEWED phase). Re-reviewing an already-reviewed phase is allowed -- the previous REVIEW.md is archived as REVIEW-{N}.md where N is the previous iteration number, and the iteration counter increments.
-- Four specialized agents (bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer) replace the single reviewer agent. All four run in parallel via four Task tool calls in a single message. All use `model: "sonnet"` (focused scope scanning/classification work).
+- In multi-stack projects, bug-detector, pattern-reviewer, and stack-reviewer are spawned once per stack (3 per-stack agents) while plan-compliance-reviewer is spawned ONCE globally (stack-agnostic). Total: `(3 x N) + 1` agents where N = number of stacks. For single-stack projects this is exactly 4 agents, identical to the original behavior. Model tier depends on `implementation_mode`: quality mode omits model (inherits parent for deeper analysis); economy mode passes `model: "sonnet"` and spawns agents sequentially per stack to reduce token usage.
 - The command (not the agents) writes REVIEW.md. Agents report findings in their own output formats; the command normalizes, deduplicates, and writes the unified REVIEW.md.
 - Step 3.9 extracts false positives BEFORE spawning agents. Each agent receives the formatted false-positives list in its context packet so it can self-filter. The command does NOT need to post-filter.
 - The plan-compliance-reviewer operates in "code review mode" (not plan review mode). The context packet explicitly states this.
@@ -461,8 +498,9 @@ Next step:
 - Specialist escalation for MEDIUM confidence findings happens AFTER batch validation completes (not inline during validation batching). Flow: (1) batch validate up to 5 findings, (2) collect all classifications, (3) for MEDIUM confidence ones, spawn the source specialist sequentially for a second opinion, (4) then proceed to update REVIEW.md with final classifications. Escalation uses `bee:{source_agent}` (e.g., `bee:bug-detector`) with `model: "sonnet"`. HIGH confidence classifications proceed unchanged -- only MEDIUM triggers escalation.
 - The command handles user interaction for STYLISTIC findings. Commands handle interaction, agents handle work.
 - `.bee/false-positives.md` is created on first use when the first false positive is documented. If no false positives exist yet, the file does not exist.
-- Loop mode is opt-in: `--loop` flag or `config.review.loop`. Capped at `max_loop_iterations` (default 3). Re-review (Step 7) re-extracts false positives (Step 7.2), re-spawns all four agents in parallel (Step 7.3), and applies the same parse/deduplicate/consolidate pipeline (Step 7.4) before evaluating findings. The re-review agents see the updated code (post-fix) and updated false-positives list.
+- Loop mode is opt-in: `--loop` flag or `config.review.loop`. Capped at `max_loop_iterations` (default 3). Re-review (Step 7) re-extracts false positives (Step 7.2), re-spawns all review agents in parallel (Step 7.3), and applies the same parse/deduplicate/consolidate pipeline (Step 7.4) before evaluating findings. The re-review agents see the updated code (post-fix) and updated false-positives list.
 - Always re-read STATE.md from disk before each update (Read-Modify-Write pattern) to ensure latest state.
-- The four review agents, finding-validator, and fixer are spawned via Task tool as foreground subagents. The SubagentStop hook in hooks.json fires for implementer agents only (matcher: "implementer") -- it does NOT fire for review pipeline agents.
+- The review agents, finding-validator, and fixer are spawned via Task tool as foreground subagents. The SubagentStop hook in hooks.json fires for implementer agents only (matcher: "implementer") -- it does NOT fire for review pipeline agents.
 - If the session ends mid-review (context limit, crash, user stops), re-running `/bee:review` detects the REVIEWING status and offers to resume. REVIEW.md on disk reflects the pipeline state at the time of interruption.
-- Token usage is approximately 4x that of the previous single-reviewer approach due to four parallel sessions. The tradeoff is more focused, higher-quality findings from domain specialists.
+- Token usage is approximately `(3N + 1)x` that of the previous single-reviewer approach due to per-stack parallel sessions (where N = number of stacks). For single-stack projects this is 4x. The tradeoff is more focused, higher-quality findings from domain specialists. Economy mode reduces peak token usage by serializing per-stack batches.
+- Per-stack agents (bug-detector, pattern-reviewer, stack-reviewer) support stack-specific variants. If `plugins/bee/agents/stacks/{stack.name}/{role}.md` exists, the stack-specific agent is used (e.g., `laravel-inertia-vue-bug-detector`); otherwise the generic `bee:{role}` agent is the fallback. This allows stacks to override review agents with domain-specific instructions while generic agents remain the default for stacks without dedicated agents.

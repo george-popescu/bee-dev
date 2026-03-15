@@ -29,7 +29,7 @@ if [ -f "$BEE_DIR/STATE.md" ]; then
 fi
 
 if [ -f "$BEE_DIR/config.json" ]; then
-  STACK=$(jq -r '.stack // "unknown"' "$BEE_DIR/config.json" 2>/dev/null || echo "unknown")
+  STACK=$(jq -r '.stacks[0].name // .stack // "unknown"' "$BEE_DIR/config.json" 2>/dev/null || echo "unknown")
   echo "## Bee Config"
   echo "Stack: $STACK"
   echo ""

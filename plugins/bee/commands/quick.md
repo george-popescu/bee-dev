@@ -10,6 +10,8 @@ Read these files using the Read tool:
 - `.bee/config.json` — if not found: use `{}`
 - `.bee/PROJECT.md` — if not found: skip (project index not available)
 
+Read `config.implementation_mode` and store as `$IMPL_MODE`. If not set, defaults to `"quality"`. Valid values: `"quality"` (use best models for reasoning-heavy work) or `"economy"` (use sonnet for all agent work to reduce cost).
+
 ## Instructions
 
 You are running `/bee:quick` -- the fast-track command for small tasks that don't need the full spec > plan > execute > review pipeline. Think bug fixes, config tweaks, small refactors, dependency updates. Follow these steps in order.
@@ -26,13 +28,13 @@ No spec is required for quick tasks. No phase is required.
 
 Check `$ARGUMENTS` for flags and task description.
 
-1. **Check for `--fast` flag.** If present, store `$USE_AGENTS = false` and remove the flag from the remaining text.
+1. **Check for `--fast` flag.** If present, store `$USE_FAST = true` and remove the flag from the remaining text.
 2. **Check for `--amend` flag.** If present, store `$AMEND = true` and remove the flag from the remaining text. Check if the next token is a number -- if so, store it as `$AMEND_NUMBER` and remove it from the remaining text. If no number follows `--amend`, set `$AMEND_NUMBER = null` (will resolve to latest quick task).
 3. **Check for `--review` flag.** If present, store `$USE_REVIEW = true` and remove the flag from the remaining text. Otherwise `$USE_REVIEW = false`. Also check `config.json` for `quick.review` setting -- if true, set `$USE_REVIEW = true` regardless of flag.
-4. **Determine `$USE_AGENTS` (if not already set by `--fast`):**
-   - If `--fast` was present, `$USE_AGENTS = false` (already set above).
-   - Otherwise, check `config.json` for `quick.agents` setting -- if `false`, set `$USE_AGENTS = false`. If `true` or not set, set `$USE_AGENTS = true`.
-   - Default when no flag and no config: `$USE_AGENTS = true`.
+4. **Determine `$USE_FAST` (if not already set by `--fast`):**
+   - If `--fast` was present, `$USE_FAST = true` (already set above).
+   - Otherwise, check `config.json` for `quick.fast` setting -- if `true`, set `$USE_FAST = true`. If `false` or not set, set `$USE_FAST = false`.
+   - Default when no flag and no config: `$USE_FAST = false` (TDD path is default).
 5. **If `$AMEND` is true**, jump to Step 2a (Amend Flow) below.
 6. **Get task description.** Use the remaining text after flag removal as `$DESCRIPTION`.
 7. If `$DESCRIPTION` is empty, ask the user:
@@ -64,7 +66,7 @@ What would you like to change?
 
 5. Wait for the user's response. Update the plan file with the requested changes.
 6. Set `$DESCRIPTION` from the plan file's title (the `# Quick Task {N}: {DESCRIPTION}` heading).
-7. Set `$USE_AGENTS` and `$USE_REVIEW` from the plan file's metadata (Mode and Review fields).
+7. Set `$USE_FAST` and `$USE_REVIEW` from the plan file's metadata (Mode and Review fields). Mode `tdd` maps to `$USE_FAST = false`; Mode `fast` maps to `$USE_FAST = true`.
 8. Proceed to Step 4 (Execute), using the amended plan file as context for the implementer.
 9. After execution completes, update the plan file's `## Execution Notes` section and set Status to EXECUTED.
 10. In Step 6 (Update STATE.md), the single-row replacement handles this naturally — the amended task becomes the latest entry.
@@ -77,11 +79,11 @@ Present the task back to the user:
 
 ```
 Quick task: {DESCRIPTION}
-Mode: {USE_AGENTS ? "agents (researcher + implementer)" : "fast (direct, no plan)"}
+Mode: {!$USE_FAST ? "tdd (implementer agent with Red-Green-Refactor)" : "fast (direct, no tests)"}
 Review: {USE_REVIEW ? "yes (lightweight review before commit)" : "no"}
 
 This will:
-1. Implement the changes {USE_AGENTS ? "using specialized agents" : "directly"}
+1. Implement the changes {!$USE_FAST ? "using TDD implementer agent" : "directly"}
 {USE_REVIEW ? "2. Review changes for bugs and standards" : ""}
 {USE_REVIEW ? "3" : "2"}. Commit the result
 {USE_REVIEW ? "4" : "3"}. Track it in STATE.md
@@ -91,12 +93,12 @@ Proceed? (yes/no)
 
 If the user says no, stop. If yes, continue.
 
-### Step 3.5: Persist Plan (agents mode only)
+### Step 3.5: Persist Plan (TDD mode only)
 
-**Skip this step entirely if `$USE_AGENTS` is false (fast mode).** Fast mode produces no plan artifacts.
+**Skip this step entirely if `$USE_FAST` is true (fast mode).** Fast mode produces no plan artifacts.
 
 1. Create `.bee/quick/` directory if it doesn't exist.
-2. Read `.bee/STATE.md` and count existing quick task rows in the `## Quick Tasks` table to determine next number `$N`.
+2. Read `.bee/STATE.md` and parse the `#` column value from the existing single data row in the `## Quick Tasks` table. If a row exists, set `$N` to that number + 1. If no data rows exist, set `$N` to 1.
 3. Slugify the description: lowercase, replace spaces with hyphens, strip all characters except `a-z`, `0-9`, and hyphens, collapse consecutive hyphens, trim leading/trailing hyphens, truncate to 50 characters.
 4. Write plan file to `.bee/quick/{NNN}-{slug}.md` (3-digit zero-padded number) with this content:
 
@@ -104,12 +106,21 @@ If the user says no, stop. If yes, continue.
 # Quick Task {N}: {DESCRIPTION}
 
 - Date: {YYYY-MM-DD}
-- Mode: {agents|fast}
+- Mode: {tdd|fast}
 - Review: {yes|no}
 - Status: PLANNED
 
 ## Description
 {DESCRIPTION}
+
+## Acceptance Criteria
+{Derive 3-8 testable acceptance criteria from the task description. Each criterion should be a concrete, verifiable statement that the implementer can write a test for. Format as a numbered list.}
+
+## Test File Targets
+{Based on the description and project structure, list the test file path(s) the implementer should create. Use existing test directory conventions from the project.}
+
+## Pattern References
+{List 2-4 existing files in the codebase that the implementer should read as pattern references before writing code. Prioritize files that are structurally similar to what will be created or modified.}
 
 ## Research
 {To be filled by researcher agent}
@@ -122,9 +133,9 @@ If the user says no, stop. If yes, continue.
 
 ### Step 4: Execute
 
-**If `$USE_AGENTS` is false (fast mode):** execute directly in main context.
+**If `$USE_FAST` is true (fast mode):** execute directly in main context.
 
-**If `$USE_AGENTS` is true (default):** use the agent pipeline described in Step 4b below.
+**If `$USE_FAST` is false (default TDD mode):** use the agent pipeline described in Step 4b below.
 
 ---
 
@@ -151,9 +162,9 @@ If `$USE_REVIEW` is true, continue to Step 4.5. Otherwise skip to Step 5.
 
 ---
 
-#### Step 4b: Agent Execution (default)
+#### Step 4b: Agent Execution (default TDD mode)
 
-Use the Task tool to spawn specialized agents. This is useful when the task benefits from deeper research or parallel work.
+Use the Task tool to spawn specialized agents. The TDD implementer enforces Red-Green-Refactor with tests written before production code.
 
 **Phase 1: Research**
 
@@ -189,38 +200,40 @@ Store the research output as `$RESEARCH`.
 
 **Persist research to plan file:** After the researcher returns, read `$PLAN_FILE` and update the `## Research` section with `$RESEARCH` content. Write the updated plan file to disk.
 
-**Phase 2: Implementation**
+**Phase 2: Implementation (TDD)**
 
-Spawn an implementer agent with the research context and plan file reference:
+Spawn the `quick-implementer` agent with the research context, plan file path, and enriched plan content. The quick-implementer enforces TDD: it reads acceptance criteria from the plan file, writes failing tests first, then implements the minimal code to make tests pass.
+
+**Model selection:** If `$IMPL_MODE` is `"economy"`, pass `model: "sonnet"`. If `$IMPL_MODE` is `"quality"`, omit the model parameter (inherit parent model).
 
 ```
 Task(
-  subagent_type="general-purpose",
-  description="Implement: {DESCRIPTION}",
+  subagent_type="bee:quick-implementer",
+  {$IMPL_MODE == "economy" ? 'model="sonnet",' : ''}
+  description="Implement (TDD): {DESCRIPTION}",
   prompt="
-    Implement this task: {DESCRIPTION}
+    Implement this task using TDD (Red-Green-Refactor): {DESCRIPTION}
 
     Project stack: {stack from config.json}
     Linter: {linter from config.json}
     Test runner: {testRunner from config.json}
 
-    Plan file with research context: {$PLAN_FILE}
-    Read this file for detailed research findings before starting implementation.
+    Plan file: {$PLAN_FILE}
+    Read this file for acceptance criteria, test file targets, pattern references,
+    and research findings before starting implementation.
 
-    Research context:
-    {$RESEARCH}
+    The plan file contains:
+    - ## Acceptance Criteria -- drive your test writing from these
+    - ## Test File Targets -- create tests at these paths
+    - ## Pattern References -- read these files as code patterns to follow
+    - ## Research -- context about the codebase area
 
-    Rules:
-    1. Read files before modifying them
-    2. Follow existing patterns and conventions found in research
-    3. Run the linter on modified files after implementation
-    4. Run relevant tests to verify nothing broke
-    5. If tests fail, fix the issues before reporting done
+    Follow the TDD cycle:
+    1. RED: Write failing tests based on acceptance criteria
+    2. GREEN: Write minimal code to make tests pass
+    3. REFACTOR: Clean up with passing tests as safety net
 
-    When done, report:
-    - Files created/modified (with brief description of each change)
-    - Tests run and their results
-    - Any decisions made during implementation
+    When done, end with: Task complete. [X] tests passing.
   "
 )
 ```
@@ -245,7 +258,7 @@ If the implementer reported failures or issues, present them and ask the user ho
 
 **Skip this step entirely if `$USE_REVIEW` is false.** Proceed directly to Step 5.
 
-If `$USE_REVIEW` is true, run a lightweight review before committing:
+If `$USE_REVIEW` is true, run a review before committing. The review pipeline uses 4 agents when a plan file exists (TDD mode) or 3 agents when no plan file exists (fast mode).
 
 **Build check:** If `package.json` has a `build` script, run `npm run build`. If it fails, display the error and ask: "(a) Fix first (b) Continue anyway". If no build script, skip.
 
@@ -275,11 +288,13 @@ Before spawning review agents, extract documented false positives so each agent 
 3. If the file does not exist, set the false-positives list to: `"No documented false positives."`
 4. This formatted list is included verbatim in each agent's context packet in Step 4.5.2.
 
-#### 4.5.2: Build context packets and spawn three agents in parallel
+#### 4.5.2: Build context packets and spawn four agents in parallel
 
-Build three agent-specific context packets. Each includes the changed files list, "quick review mode" instruction, and the false-positives list from Step 4.5.1. The plan-compliance-reviewer is excluded because quick tasks have no spec or plan context.
+Build four agent-specific context packets. Each includes the changed files list, review mode instruction, and the false-positives list from Step 4.5.1.
 
-**Agent 1: Bug Detector** (`bee:bug-detector`, `model: "sonnet"`)
+**Model selection for review agents:** If `$IMPL_MODE` is `"economy"`, pass `model: "sonnet"` for all review agents. If `$IMPL_MODE` is `"quality"`, omit the model parameter (inherit parent model) for all review agents.
+
+**Agent 1: Bug Detector** (`bee:bug-detector`, economy: `model: "sonnet"`, quality: omit)
 ```
 QUICK REVIEW MODE -- No spec, no TASKS.md, no phase context.
 
@@ -301,7 +316,7 @@ Review these files for bugs, logic errors, null handling issues, race conditions
 Target 1-3 findings. Only report issues you have HIGH confidence in.
 ```
 
-**Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`, `model: "sonnet"`)
+**Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`, economy: `model: "sonnet"`, quality: omit)
 ```
 QUICK REVIEW MODE -- No spec, no TASKS.md, no phase context.
 
@@ -317,7 +332,7 @@ Compare changed files against existing codebase patterns only. There is no spec 
 Target 1-3 findings. Only report deviations you have HIGH confidence in.
 ```
 
-**Agent 3: Stack Reviewer** (`bee:stack-reviewer`, `model: "sonnet"`)
+**Agent 3: Stack Reviewer** (`bee:stack-reviewer`, economy: `model: "sonnet"`, quality: omit)
 ```
 QUICK REVIEW MODE -- No spec, no TASKS.md, no phase context.
 
@@ -335,13 +350,37 @@ Check changed files against stack conventions only. Load the stack skill from co
 Target 1-3 findings. Only report violations you have HIGH confidence in.
 ```
 
-Spawn all three agents via three Task tool calls in a SINGLE message (parallel execution). Use `model: "sonnet"` for all three agents -- they perform focused scope scanning and classification work.
+**Agent 4: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`, economy: `model: "sonnet"`, quality: omit) -- **TDD mode only (skip if `$USE_FAST` is true)**
 
-Wait for all three agents to complete.
+This agent is spawned only when a plan file exists (TDD mode). It checks the implementation against the plan file's acceptance criteria.
+
+```
+You are reviewing a quick task implementation in CODE REVIEW MODE against the plan file's acceptance criteria.
+
+Plan file: {$PLAN_FILE}
+Read this file and extract the ## Acceptance Criteria section.
+
+Review ONLY these changed files:
+{$REVIEW_FILES -- one per line}
+
+Project stack: {stack from config.json}
+
+{false-positives list from Step 4.5.1}
+
+Check implemented code against the plan file's acceptance criteria. For each acceptance criterion, verify it has corresponding implementation. Check for missing features, incorrect behavior, and over-scope additions.
+
+Report findings in your standard CODE REVIEW MODE output format.
+
+Target 1-3 findings. Only report issues you have HIGH confidence in.
+```
+
+Spawn all agents via Task tool calls in a SINGLE message (parallel execution). In TDD mode, spawn all 4 agents. In fast mode, spawn only the first 3 agents (no plan-compliance-reviewer -- no plan file exists). Apply model selection per `$IMPL_MODE`: economy = `model: "sonnet"` for all agents, quality = omit model parameter (inherit) for all agents.
+
+Wait for all agents to complete.
 
 #### 4.5.3: Parse findings from each agent
 
-After all three agents complete, parse findings from each agent's final message. Each agent has a distinct output format -- normalize all findings into a unified list:
+After all agents complete, parse findings from each agent's final message. Each agent has a distinct output format -- normalize all findings into a unified list:
 
 **Bug Detector** findings (from `## Bugs Detected` section):
 - Each `- **[Bug type]:** [Description] - \`file:line\`` entry becomes one finding
@@ -357,6 +396,11 @@ After all three agents complete, parse findings from each agent's final message.
 - Each `- **[Rule category]:** [Violation description] - \`file:line\`` entry becomes one finding
 - Severity: Medium (stack violations default to Medium)
 - Category: "Standards"
+
+**Plan Compliance Reviewer** findings (TDD mode only, from `## Plan Compliance Findings` section):
+- SG-NNN entries (Spec Gap) -> Category: "Spec Gap", severity from the entry
+- CI-NNN entries (Cross-Phase Integration) -> Category: "Spec Gap", severity from the entry
+- OS-NNN entries (Over-Scope) -> Category: "Spec Gap", severity: Medium
 
 If an agent reports no findings (e.g., "No bugs detected.", "No project pattern deviations found.", "No stack best practice violations found."), it contributes zero findings.
 
@@ -383,11 +427,20 @@ For each pair of findings from different agents, check if they reference the sam
 
 1. If 0 findings after consolidation: display "Quick review: clean!" and proceed to Step 5.
 
-2. Display findings summary: "{N} findings from 3 reviewers: {critical} critical, {high} high, {medium} medium"
+2. Display findings summary: "{N} findings from {agent_count} reviewers: {critical} critical, {high} high, {medium} medium"
 
 3. For each finding, spawn `finding-validator` agent with `model: "sonnet"` (single-finding classification) -- up to 5 in parallel -- to classify as REAL BUG / FALSE POSITIVE / STYLISTIC.
 
-4. Present confirmed findings (REAL BUG + STYLISTIC) to the user. Note: In quick-review mode, STYLISTIC findings are auto-included as confirmed without per-issue user choice (unlike full `/bee:review` which asks for each). This is intentional -- the quick gate prioritizes speed over granular control:
+4. Handle FALSE POSITIVE findings: if any findings were classified as FALSE POSITIVE, persist them to `.bee/false-positives.md`. If the file does not exist, create it with a `# False Positives` header. Read `.bee/false-positives.md`, count the number of existing `## FP-` headings, set the next FP number to count + 1. For each FALSE POSITIVE finding, append an entry (incrementing the FP number for each):
+     ```
+     ## FP-{NNN}: {one-line summary}
+     - **Finding:** {original finding description}
+     - **Reason:** {validator's reason for FALSE POSITIVE classification}
+     - **Phase:** Quick Task
+     - **Date:** {current ISO 8601 date}
+     ```
+
+5. Present confirmed findings (REAL BUG + STYLISTIC) to the user. Note: In ad-hoc review mode, STYLISTIC findings are auto-included as confirmed without per-issue user choice (unlike full `/bee:review` which asks for each). This is intentional -- the quick gate prioritizes speed over granular control:
 
 ```
 Quick review found {N} confirmed issue(s):
@@ -395,13 +448,33 @@ Quick review found {N} confirmed issue(s):
 
 Options:
 (a) Fix before commit -- spawn fixers for confirmed issues
-(b) Commit anyway -- acknowledge and proceed
+(b) Commit as-is -- acknowledge and proceed
 (c) Cancel -- stop here
 ```
 
-5. Handle user choice:
-   - **(a) Fix:** For each confirmed finding, spawn `fixer` agent SEQUENTIALLY (one at a time). After all fixes, proceed to Step 5.
-   - **(b) Commit anyway:** Proceed to Step 5.
+6. Handle user choice:
+   - **(a) Fix:** Sort confirmed findings by priority before spawning fixers:
+     - Priority 1: Critical severity
+     - Priority 2: High severity
+     - Priority 3: Standards category (Medium)
+     - Priority 4: Dead Code category (Medium)
+     - Priority 5: Other Medium severity
+
+     Display the sorted fix order:
+     ```
+     Fix order:
+     1. F-{NNN}: {summary} (Critical)
+     2. F-{NNN}: {summary} (High)
+     ...
+     ```
+
+     Then for each finding in sorted priority order, spawn `fixer` agent SEQUENTIALLY (one at a time):
+     1. Display: "Fixing F-{NNN}: {summary}..."
+     2. Spawn fixer and WAIT for completion.
+     3. Read the fixer's Fix Report status from its final message.
+     4. If the fixer reports "Reverted" or "Failed": display "Fix for F-{NNN} failed -- changes reverted. Skipping." and continue to the next finding.
+     5. After all findings processed, display: "{fixed} fixed, {skipped} skipped out of {total}." then proceed to Step 5.
+   - **(b) Commit as-is:** Proceed to Step 5.
    - **(c) Cancel:** Display "Cancelled. Changes remain unstaged." Stop.
 
 ### Step 5: Commit
@@ -441,7 +514,7 @@ Commit? (yes / edit message / cancel)
 |---|-------------|------|--------|
 ```
 
-3. Count existing quick task rows to determine the next number `{N}`. Get the commit hash: `git rev-parse --short HEAD`.
+3. Parse the `#` column value from the existing single data row to determine the next number `{N}`. If a row exists (e.g., `| 5 | ... |`), extract the number from the first column and set `{N}` to that number + 1. If no data rows exist, set `{N}` to 1. Get the commit hash: `git rev-parse --short HEAD`.
 4. **Replace** all existing data rows in the Quick Tasks table with a SINGLE row for the current task. The table always shows only the latest quick task (old entries are removed — the commit history is the audit trail):
 
 ```markdown
@@ -469,7 +542,7 @@ Display:
 Quick task {N} complete: {DESCRIPTION}
 Commit: {commit_hash}
 {If $USE_REVIEW was false: "Tip: Use --review flag for a lightweight code review before commit."}
-{If $USE_AGENTS was false: "Tip: Agents mode is the default. Omit --fast for researcher + implementer pipeline."}
+{If $USE_FAST was true: "Tip: TDD mode is the default. Omit --fast for implementer agent with Red-Green-Refactor."}
 
 Next: /bee:progress to see project state, or /bee:quick for another task.
 ```
@@ -484,14 +557,16 @@ Next: /bee:progress to see project state, or /bee:quick for another task.
 - NEVER use `git add -A`, `git add .`, or destructive git operations.
 - If the task seems too large (>5 files, complex architecture changes), recommend `/bee:new-spec` instead.
 - The quick task table uses a simple incrementing number (1, 2, 3...) separate from phase numbering. Only the LATEST quick task is shown in the table (old rows are replaced). The incrementing number and commit history serve as the audit trail.
-- **Default mode is agents** (researcher on sonnet + implementer on inherit). `--fast` flag switches to direct execution in main context. The `quick.agents` config option controls the default: `true` (default) = agents mode, `false` = fast mode. The `--fast` flag always forces fast mode regardless of config.
-- Agent mode research uses the `bee:researcher` agent which runs on sonnet for speed. Implementation uses `general-purpose` which inherits parent model for code quality.
-- `--review` flag enables a lightweight review gate before commit. Can also be set permanently via `config.quick.review: true`.
-- Review gate uses three specialized agents (bug-detector, pattern-reviewer, stack-reviewer) in quick-review mode (no spec/TDD checks, focus on bugs/standards/security). All three run in parallel via three Task tool calls in a single message. All use `model: "sonnet"` (focused scope scanning/classification work).
-- The plan-compliance-reviewer is excluded because quick tasks have no spec or plan context to evaluate.
+- **Default mode is TDD** (researcher on sonnet + quick-implementer with Red-Green-Refactor on inherit). `--fast` flag switches to direct execution in main context. The `quick.fast` config option controls the override: `true` = fast mode, `false` or not set = TDD mode (default). The `--fast` flag always forces fast mode regardless of config.
+- TDD mode research uses the `bee:researcher` agent which always runs on sonnet for speed (regardless of `implementation_mode`). Implementation uses `bee:quick-implementer` which in `"quality"` mode inherits parent model for code quality, and in `"economy"` mode uses sonnet to reduce cost. Both modes enforce the TDD cycle (Red-Green-Refactor).
+- `--review` flag enables a review gate before commit. Can also be set permanently via `config.quick.review: true`.
+- Review gate uses four specialized agents in TDD mode (bug-detector, pattern-reviewer, stack-reviewer, plan-compliance-reviewer) or three agents in fast mode (no plan-compliance-reviewer -- no plan file exists). The plan-compliance-reviewer operates in CODE REVIEW MODE, checking implementation against the plan file's acceptance criteria.
+- All review agents run in parallel via Task tool calls in a single message. Model selection follows `$IMPL_MODE`: `"economy"` = all agents use `model: "sonnet"`, `"quality"` = model parameter omitted (inherit parent model).
 - Before spawning agents, documented false positives are extracted and included in each agent's context packet so known non-issues are excluded.
 - Each agent targets 1-3 findings; combined target is 3-8 findings. Findings are consolidated, deduplicated (same file + line ranges within 5 lines merged), and written to `.bee/quick-reviews/`.
-- The standalone `/bee:quick-review` command shares the same three-agent parallel pattern and can also be used to review quick task changes independently.
-- Even in agent mode, commit confirmation is always done in the main context (never auto-committed by agents).
-- **Plan persistence:** In agents mode, a plan file is written to `.bee/quick/{NNN}-{slug}.md` before execution. The plan captures the task description, research findings, and execution notes. This enables `--amend` and provides an audit trail. Fast mode (`--fast`) skips plan creation entirely -- no `.bee/quick/` artifacts.
-- **`--amend` flow:** Allows re-executing a previous quick task with modifications. Reads the existing plan file, lets the user modify it, then re-executes. Only works for tasks that have plan files (agents mode tasks). Fast mode tasks cannot be amended.
+- The standalone `/bee:review-implementation` command (in ad-hoc mode) shares the same agent parallel pattern and can also be used to review quick task changes independently.
+- Even in TDD mode, commit confirmation is always done in the main context (never auto-committed by agents).
+- **Plan persistence:** In TDD mode, a plan file is written to `.bee/quick/{NNN}-{slug}.md` before execution. The plan captures the task description, acceptance criteria, test file targets, pattern references, research findings, and execution notes. This enables `--amend` and provides an audit trail. Fast mode (`--fast`) skips plan creation entirely -- no `.bee/quick/` artifacts.
+- **Plan enrichment:** The plan file in TDD mode includes three enriched sections beyond the basic template: `## Acceptance Criteria` (testable criteria derived from the description), `## Test File Targets` (test file paths for the implementer), and `## Pattern References` (existing files to use as code patterns). These sections are consumed by the `bee:quick-implementer` agent.
+- **`--amend` flow:** Allows re-executing a previous quick task with modifications. Reads the existing plan file, lets the user modify it, then re-executes. Only works for tasks that have plan files (TDD mode tasks). Fast mode tasks cannot be amended.
+- **User choice gate:** The review gate presents three options: (a) Fix -- spawns fixer agents sequentially for confirmed issues, (b) Commit as-is -- proceeds to commit, (c) Cancel -- stops. The sequential fixer loop follows the same pattern as `/bee:fix-implementation`.

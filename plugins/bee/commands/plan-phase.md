@@ -106,6 +106,8 @@ If no wave sections were added, tell the user the wave assignment failed and sto
 
 After wave assignment completes, run a mandatory plan review. Four specialized agents review the plan against the spec to catch coverage gaps, pattern deviations, potential bugs, and stack best practice issues before the developer sees the plan.
 
+Read `config.implementation_mode` from config.json (defaults to `"quality"` if absent). This determines the model tier for the four review agents spawned in Step 6.2.
+
 #### 6.1: Build context packets
 
 Build a shared context base for all four agents:
@@ -117,7 +119,7 @@ Build a shared context base for all four agents:
 
 Then build four agent-specific context packets:
 
-**Agent 1: Bug Detector** (`bee:bug-detector`, `model: "sonnet"`)
+**Agent 1: Bug Detector** (`bee:bug-detector`) -- model set in 6.2 by implementation_mode
 ```
 This is a PLAN REVIEW (not code review). Review the planned tasks against the spec requirements for potential bugs and logic errors.
 
@@ -130,7 +132,7 @@ Phase number: {N}
 Read TASKS.md to understand the planned tasks, their acceptance criteria, and wave assignments. Read spec.md and phases.md to understand what the feature should do. Look for potential bugs in the plan: tasks that could introduce logic errors, missing error handling, security vulnerabilities, race conditions, or edge cases that the plan does not account for. Report only HIGH confidence findings in your standard output format.
 ```
 
-**Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`, `model: "sonnet"`)
+**Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`) -- model set in 6.2 by implementation_mode
 ```
 This is a PLAN REVIEW (not code review). Review the planned tasks against established project patterns.
 
@@ -143,7 +145,7 @@ Phase number: {N}
 Read TASKS.md to understand the planned tasks. Search the codebase for similar existing implementations. Check whether the planned approach follows established project patterns or deviates from them. Report only HIGH confidence deviations in your standard output format.
 ```
 
-**Agent 3: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`, `model: "sonnet"`)
+**Agent 3: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`) -- model set in 6.2 by implementation_mode
 ```
 This is a PLAN REVIEW (not code review). You are operating in PLAN REVIEW MODE.
 
@@ -156,7 +158,7 @@ Phase number: {N}
 Review mode: plan review. Follow your Plan Review Mode steps (Steps 3p-7p). Extract all spec requirements, extract all plan tasks, build the coverage matrix, and identify gaps, partial coverage, spec drift, and over-engineering. Report findings in your standard plan review mode output format.
 ```
 
-**Agent 4: Stack Reviewer** (`bee:stack-reviewer`, `model: "sonnet"`)
+**Agent 4: Stack Reviewer** (`bee:stack-reviewer`) -- model set in 6.2 by implementation_mode
 ```
 This is a PLAN REVIEW (not code review). Review the planned tasks against stack best practices.
 
@@ -171,7 +173,11 @@ Read TASKS.md to understand the planned tasks. Load the stack skill dynamically 
 
 #### 6.2: Spawn all four agents in parallel
 
-Spawn all four agents via four Task tool calls in a SINGLE message (parallel execution). Use `model: "sonnet"` for all four agents -- plan review is structured cross-reference comparison work.
+Spawn all four agents via four Task tool calls in a SINGLE message (parallel execution). The model tier for these four review agents depends on `implementation_mode`:
+
+**Economy mode** (`implementation_mode: "economy"`): Pass `model: "sonnet"` for all four agents -- plan review is structured cross-reference comparison work, sonnet is sufficient and reduces cost.
+
+**Quality mode** (default, `implementation_mode: "quality"`): Omit the model parameter for all four agents (they inherit the parent model) -- quality mode uses the stronger model for deeper plan analysis.
 
 Wait for all four agents to complete.
 
@@ -258,7 +264,7 @@ After the user approves the plan, update `.bee/STATE.md`:
 
 1. Set the phase row's **Plan** column to `Yes`
 2. Set the phase row's **Plan Review** column based on the plan review result from Step 6:
-   - If plan review result is "reviewed" (developer accepted, modified, or no issues found): set to `Yes`
+   - If plan review result is "reviewed" (developer accepted, modified, or no issues found): set to `Yes (1)`
    - If plan review result is "skipped" (developer chose to skip): set to `Skipped`
 3. Set the phase row's **Status** based on the plan review result from Step 6:
    - If plan review result is "reviewed" (developer accepted, modified, or no issues found): set to `PLAN_REVIEWED`
@@ -277,7 +283,7 @@ Phase {N} planned!
 
 Phase: {phase-name}
 Tasks: {X} tasks in {Y} waves
-Plan review: {reviewed | skipped | clean -- no issues found}
+Plan review: {Yes (1) | skipped | clean -- no issues found}
 Path: .bee/specs/{folder}/phases/{NN}-{slug}/TASKS.md
 
 Wave breakdown:

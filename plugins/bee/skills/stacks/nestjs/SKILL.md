@@ -237,6 +237,56 @@ describe('OrdersService', () => {
 - **NEVER** expose entity/ORM objects in API responses -- always map to response DTOs.
 - **NEVER** forget to register modules in `AppModule` imports -- unregistered modules are invisible to the app.
 
+## Must-Haves
+
+- **`@Injectable()` on every service and provider.** All classes participating in dependency injection must be decorated with `@Injectable()`. Missing it causes a runtime DI error that is not caught at compile time.
+- **`ValidationPipe` applied globally.** Register `ValidationPipe` with `whitelist: true` and `transform: true` in `main.ts` via `app.useGlobalPipes()`. Every POST/PUT/PATCH endpoint relies on this for input sanitization.
+- **Response DTOs for all API responses.** Never return raw entities from controllers. Map entity data into dedicated response DTO classes to control the API surface and avoid leaking database internals.
+- **Feature modules for every domain.** Each domain concern (users, orders, payments) gets its own module. The module groups its controller, service, and providers. Register all feature modules in `AppModule.imports`.
+- **Constructor injection for all dependencies.** Declare dependencies as `private readonly` constructor parameters. Never use `ModuleRef.get()` or service locator patterns for standard dependencies.
+- **`@Module()` exports array for shared providers.** If a module's service is consumed by other modules, it must appear in the `exports` array. Importing a module without the provider exported results in a silent injection failure.
+- **TypeORM entity registration per feature module.** Use `TypeOrmModule.forFeature([Entity])` in each feature module that needs repository access. Forgetting this causes "No repository was found" errors.
+
+## Good Practices
+
+- **Separate DTOs for create, update, and response.** `CreateOrderDto`, `UpdateOrderDto` (via `PartialType(CreateOrderDto)`), and `OrderResponseDto` keep validation and serialization concerns isolated.
+- **Use `PartialType()` and `PickType()` for update DTOs.** Inherit from the create DTO with `PartialType()` to make all fields optional. Use `PickType()` when only specific fields should be updatable.
+- **Apply guards at the controller level.** Use `@UseGuards(AuthGuard)` on the controller class rather than individual routes when all routes require authentication. Route-level guards for fine-grained access (e.g., `@Roles('admin')`).
+- **Register exception filters globally or per controller.** Use `@Catch()` exception filters to standardize error responses. A global `AllExceptionsFilter` catches unhandled errors and formats them consistently.
+- **Repository pattern for data access.** Abstract database operations behind repository classes or TypeORM's `Repository<Entity>`. Services call repository methods, not raw query builders or entity managers directly.
+- **Custom pipes for parameter transformation.** Use `ParseUUIDPipe`, `ParseIntPipe`, or custom pipes for route parameters. This validates and transforms params before they reach the handler.
+- **Health check endpoint.** Register `@nestjs/terminus` with a health controller at `/health` for container orchestration and monitoring readiness probes.
+
+## Common Bugs
+
+- **Forgetting to add providers to `exports` in shared modules.** A service registered in Module A but not exported cannot be injected in Module B, even if Module B imports Module A. The error message mentions the missing provider but does not point to the missing export.
+- **Injecting a request-scoped provider into a singleton service.** Singleton services are instantiated once; request-scoped providers are created per request. Injecting a request-scoped provider into a singleton silently uses a stale instance or throws at runtime. Use `@Inject(INQUIRER)` or scope the consumer to `Scope.REQUEST` as well.
+- **Async operations in interceptors without proper RxJS handling.** Interceptors must return an `Observable`. When performing async work (e.g., logging, caching), use `switchMap()`, `tap()`, or `from()` to wrap promises. Forgetting this causes the interceptor to swallow the response.
+- **Missing `TypeOrmModule.forFeature()` import in feature modules.** Without registering the entity in the feature module, `@InjectRepository(Entity)` throws "Nest could not find Repository<Entity>". The fix is adding `TypeOrmModule.forFeature([Entity])` to the module's `imports`.
+- **Unhandled promises in lifecycle hooks and event handlers.** `onModuleInit()`, `onApplicationBootstrap()`, and event listener methods that perform async work must be awaited or return the promise. Unhandled rejections crash the process silently in production.
+- **Circular dependency between modules.** Two modules importing each other causes a runtime error. Resolve with `forwardRef(() => OtherModule)` in the `imports` array and `@Inject(forwardRef(() => OtherService))` for the provider.
+- **Applying `@Body()` without a DTO class.** Using `@Body() body: any` bypasses the `ValidationPipe` entirely. Always type the body parameter with a DTO class decorated with class-validator decorators.
+
+## Anti-Patterns
+
+- **Business logic in controllers.** Controllers should only parse the request, call a service method, and return the response. Conditional logic, database queries, and data transformations belong in services. Violating this makes controllers untestable and couples HTTP concerns with domain logic.
+- **Raw SQL queries instead of repository methods.** Using `query()` or `createQueryRunner().query()` with hand-written SQL bypasses TypeORM's type safety, migration tracking, and relation handling. Use repository methods, query builder, or Prisma client instead.
+- **Exposing ORM entities directly in API responses.** Returning TypeORM entities or Prisma models from controllers leaks database columns, relations, and internal fields (passwords, soft-delete flags). Always map to response DTOs.
+- **Synchronous file I/O in request handlers.** Using `fs.readFileSync()`, `fs.writeFileSync()`, or other sync I/O in controllers or services blocks the event loop and degrades throughput. Use `fs/promises` or streaming APIs.
+- **Skipping validation on mutation endpoints.** POST, PUT, and PATCH handlers without `ValidationPipe` and DTO classes accept arbitrary payloads. This leads to data corruption and injection vulnerabilities.
+- **God modules that import everything.** A single module importing all providers and controllers defeats the purpose of modular architecture. Split into focused feature modules with clear boundaries.
+- **Hardcoding configuration values.** Database URLs, API keys, and feature flags embedded in code prevent environment-specific deployments. Use `@nestjs/config` with `.env` files and `ConfigService`.
+
+## Standards
+
+- **Plural route prefixes.** Controllers use plural nouns: `@Controller('orders')`, `@Controller('users')`, `@Controller('payments')`. Singular prefixes are inconsistent with REST conventions.
+- **File naming: `*.module.ts`, `*.controller.ts`, `*.service.ts`.** Every NestJS building block follows the pattern `{feature}.{type}.ts`: `orders.module.ts`, `orders.controller.ts`, `orders.service.ts`, `orders.entity.ts`.
+- **DTO directory per feature module.** DTOs live in a `dto/` subdirectory within the feature folder: `src/orders/dto/create-order.dto.ts`, `src/orders/dto/order-response.dto.ts`. DTO files follow `{action}-{entity}.dto.ts` naming.
+- **E2E tests in the `test/` directory.** End-to-end tests using `supertest` live in the project root `test/` folder with `.e2e-spec.ts` suffix: `test/orders.e2e-spec.ts`. E2E tests bootstrap the full app module.
+- **Unit tests colocated with source files.** Unit test files live next to the source file they test with `.spec.ts` suffix: `orders.service.spec.ts` sits alongside `orders.service.ts`.
+- **Feature folder structure.** Each feature module is a directory: `src/orders/`, `src/users/`, `src/payments/`. The directory contains the module, controller, service, entity, DTOs, and guards specific to that feature.
+- **Consistent naming for guards, pipes, interceptors, and filters.** Follow `{name}.guard.ts`, `{name}.pipe.ts`, `{name}.interceptor.ts`, `{name}.filter.ts` conventions. Class names use PascalCase: `RolesGuard`, `LoggingInterceptor`, `HttpExceptionFilter`.
+
 ## Context7 Instructions
 
 When looking up framework documentation, use these Context7 library identifiers:

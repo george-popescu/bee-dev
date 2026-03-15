@@ -36,6 +36,11 @@ Read and extract the following from the files above:
 - Stack name
 - Any custom settings (review preferences, etc.)
 
+**From `.bee/CONTEXT.md` (if it exists):**
+- Read the full contents of `.bee/CONTEXT.md` using the Read tool
+- If the file does not exist or the read fails, skip this -- do not error, do not include a Codebase Context section later
+- If found, store the content for use in Steps 3 and 4
+
 **From git (run via Bash):**
 - `git diff --stat` -- count of uncommitted files
 - `git branch --show-current` -- current branch
@@ -79,6 +84,10 @@ Format:
 {If decisions log has entries, list each as "- {decision}"}
 {If none: "No decisions logged"}
 
+## Codebase Context
+{If CONTEXT.md was found in Step 2, include its content here verbatim}
+{If CONTEXT.md was not present, omit this entire section -- do not include the heading}
+
 ## Next Step
 `/bee:{suggested command}` -- {reason}
 ```
@@ -109,6 +118,10 @@ Quick tasks: {count} completed, last: "{description}"
 Key decisions:
 - {decision 1}
 - {decision 2}
+
+{If CONTEXT.md was found in Step 2:}
+Codebase Context:
+{Insert CONTEXT.md content here}
 
 Next step: /bee:{suggested command} -- {reason}
 --- END BEE CONTEXT ---

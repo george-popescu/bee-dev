@@ -22,7 +22,7 @@ Read the file at the specified path. Focus on the line range mentioned in the fi
 
 If the finding involves a framework-specific pattern (e.g., "unused import" that might be a framework facade, "missing type" that might be a reactive ref, "unconventional naming" that might be framework convention):
 
-- Read `.bee/config.json` to determine the stack
+- Read `.bee/config.json` to determine the stack: check `.stacks[0].name` first, then fall back to `.stack` if the `stacks` array is absent (v2 config backward compatibility)
 - Read the stack skill (`skills/stacks/{stack}/SKILL.md`) for framework patterns
 - Check whether the flagged code follows a recognized framework convention
 

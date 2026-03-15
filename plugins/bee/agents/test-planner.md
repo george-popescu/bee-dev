@@ -17,7 +17,7 @@ You are a manual test scenario generator for BeeDev. You read the implemented co
 
 ## 1. Load Stack Context
 
-Read `.bee/config.json` to determine the stack. Read the relevant stack skill (`skills/stacks/{stack}/SKILL.md`) for framework-specific patterns and edge cases. Also read the testing standards skill (`skills/standards/testing/SKILL.md`) for TDD-informed scenario design.
+Read `.bee/config.json` to determine the stack: check `.stacks[0].name` first, then fall back to `.stack` if the `stacks` array is absent (v2 config backward compatibility). Read the relevant stack skill (`skills/stacks/{stack}/SKILL.md`) for framework-specific patterns and edge cases. Also read the testing standards skill (`skills/standards/testing/SKILL.md`) for TDD-informed scenario design.
 
 Stack-specific edge cases to consider:
 - **Laravel+Inertia+Vue:** back button after form submit, shared data reactivity, Inertia visit vs redirect, flash message persistence, form preservation on validation failure

@@ -9,6 +9,7 @@ Read these files using the Read tool:
 - `.bee/STATE.md` — if not found: NOT_INITIALIZED
 - `.bee/config.json` — if not found: use `{}`
 - `.bee/COMPACT-CONTEXT.md` — if not found: try `.bee/SESSION-CONTEXT.md` — if neither found: NO_SESSION_CONTEXT
+- `.bee/CONTEXT.md` — if not found: NO_CONTEXT
 
 ## Instructions
 
@@ -76,7 +77,30 @@ Suggest the specific next command based on state analysis. Use the same logic as
 | Phase executed, not reviewed | `/bee:review` | "Phase N is implemented. Review it to catch issues before moving on." |
 | Phase reviewed, not tested | `/bee:test` | "Review is complete. Generate test scenarios to verify the implementation." |
 | Phase tested, not committed | `/bee:commit` | "Everything looks good. Commit this phase's work." |
-| All phases done | `/bee:review-project` | "All phases are complete. A final project review will check overall quality." |
+| All phases done | `/bee:review-implementation` | "All phases are complete. A final implementation review will check overall quality." |
+
+**6. Codebase Context**
+
+If `NO_CONTEXT` does NOT appear in the injected context (meaning `.bee/CONTEXT.md` was found), present the content under the heading "Codebase Context (from .bee/CONTEXT.md)". This gives the developer a quick reminder of the project's architecture, key patterns, and conventions.
+
+If `NO_CONTEXT` appears, note: "No codebase context extracted yet. Run `/bee:refresh-context` to extract it." and skip this section.
+
+**7. Extensions**
+
+Use the Glob tool to scan for local extensions:
+- Glob for `.claude/bee-extensions/agents/*.md`
+- Glob for `.claude/bee-extensions/skills/*.md`
+
+If neither glob returns any files, display: "No local extensions."
+
+If files are found, read each file and extract the frontmatter `name:` field. List them by that name:
+
+- Under "Custom Agents:" list each agent found in `.claude/bee-extensions/agents/`
+- Under "Custom Skills:" list each skill found in `.claude/bee-extensions/skills/`
+
+Only show the heading that has results (e.g., if there are agents but no skills, only show "Custom Agents:").
+
+After the list, add the note: "These extensions are available for use in this session."
 
 ### Output Format
 

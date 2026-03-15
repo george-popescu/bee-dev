@@ -26,17 +26,20 @@
 ## Requirements Summary
 
 ### Functional Requirements
-- {Core functionality the feature must deliver}
+- [ ] {Core functionality the feature must deliver}
 
 ### Non-Functional Requirements
-- {Performance, security, accessibility considerations if discussed}
+- [ ] {Performance, security, accessibility considerations if discussed}
 
 ### Reusability Opportunities
 - {Existing components and patterns to leverage, with file paths}
 
 ### Scope Boundaries
-**In Scope:** {What will be built}
-**Out of Scope:** {What will not be built}
+**In Scope:**
+- [ ] {What will be built}
+
+**Out of Scope:**
+- {What will not be built}
 
 ### Technical Considerations
 - {Integration points, constraints, dependencies noted during discussion}

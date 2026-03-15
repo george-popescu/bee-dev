@@ -31,7 +31,9 @@ Use Context7 especially for:
 
 ## 1. Read Stack Skill
 
-Read `.bee/config.json` to determine the stack. Read the relevant stack skill (`skills/stacks/{stack}/SKILL.md`) for framework patterns to use in the fix.
+If a specific stack name was provided in your context (e.g., "Stack: X"), use that stack name. Otherwise, read `.bee/config.json` to determine the stack: check `.stacks[0].name` first, then fall back to `.stack` if the `stacks` array is absent (v2 config backward compatibility). Read the relevant stack skill (`skills/stacks/{stack}/SKILL.md`) for framework patterns to use in the fix.
+
+Check if a `CLAUDE.md` file exists at the project root. If present, read it and treat its contents as higher-priority supplementary guidance that augments or overrides the stack skill conventions.
 
 ## 2. Understand the Finding
 

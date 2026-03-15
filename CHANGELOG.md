@@ -28,7 +28,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `--amend` flag for `/bee:quick` to modify existing quick task plans
 - Plan persistence for quick tasks in `.bee/quick/{NNN}-{slug}.md`
 - PreToolUse hook for pre-commit validation (linter + test gates)
-- Autopilot script (`scripts/autopilot.sh`) for unattended spec execution
 - Plan review step in `/bee:plan-phase` with 4 parallel review agents
 - "Plan Review" column in STATE.md phases table
 - `quick.agents` config option (agents mode default for quick tasks)
@@ -40,7 +39,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `/bee:quick-review` -- upgraded to 4 specialized agents
 - `/bee:plan-review` -- upgraded to 4 parallel agents
 - `/bee:quick` -- agents mode is now default (`--fast` for direct mode), removed `--agents` flag
-- `/bee:parallel-review` -- deprecated, redirects to `/bee:review`
 - finding-validator agent -- added specialist escalation for uncertain findings
 - fixer agent -- added Context7 tools
 - STATE.md template -- added Quick Tasks section, Plan Review column, iteration tracking
@@ -49,14 +47,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Removed
 - `reviewer` agent (replaced by 4 specialists)
 - `project-reviewer` agent (replaced by 4 specialists)
-
-## [1.6.1] - 2026-03-05
-
-- Autopilot command routing improvements
-
-## [1.6.0] - 2026-03-05
-
-- Autopilot command documentation
 
 ## [1.5.0] - 2026-03-04
 

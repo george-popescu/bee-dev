@@ -1,7 +1,7 @@
 {
   "name": "bee",
   "version": "2.1.0",
-  "description": "Spec-driven development workflow with TDD enforcement, parallel agent execution, persistent agent memory, review gates, and autonomous autopilot mode",
+  "description": "Spec-driven development workflow with TDD enforcement, parallel agent execution, persistent agent memory, and review gates",
   "author": {
     "name": "Beecoded",
     "url": "https://github.com/beecoded"
@@ -15,8 +15,6 @@
     "workflow",
     "phase-planning",
     "agent-memory",
-    "parallel-execution",
-    "multi-agent",
-    "autopilot"
+    "multi-agent"
   ]
 }
