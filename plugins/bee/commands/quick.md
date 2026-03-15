@@ -432,7 +432,7 @@ For each pair of findings from different agents, check if they reference the sam
 
 2. Display findings summary: "{N} findings from {agent_count} reviewers: {critical} critical, {high} high, {medium} medium"
 
-3. For each finding, spawn `finding-validator` agent with `model: "sonnet"` (single-finding classification) -- up to 5 in parallel -- to classify as REAL BUG / FALSE POSITIVE / STYLISTIC.
+3. For each finding, spawn `finding-validator` agent -- up to 5 in parallel -- to classify as REAL BUG / FALSE POSITIVE / STYLISTIC. Model selection: **economy** mode passes `model: "sonnet"`, **quality or premium** mode omits model (inherit parent).
 
 4. Handle FALSE POSITIVE findings: if any findings were classified as FALSE POSITIVE, persist them to `.bee/false-positives.md`. If the file does not exist, create it with a `# False Positives` header. Read `.bee/false-positives.md`, count the number of existing `## FP-` headings, set the next FP number to count + 1. For each FALSE POSITIVE finding, append an entry (incrementing the FP number for each):
      ```

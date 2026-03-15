@@ -152,7 +152,7 @@ Stack: {stack.name}
 
 {false-positives list from Step 3.5}
 
-For EACH executed phase, read its TASKS.md to find the files created/modified. Scope your file search to files within the `{stack.path}` directory. Review those files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). Report only HIGH confidence findings in your standard output format.
+For EACH executed phase, read its TASKS.md to find the files created/modified. Scope your file search to files within the `{stack.path}` directory. Review those files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides (CLAUDE.md takes precedence over stack skill for project-specific conventions). Report only HIGH confidence findings in your standard output format.
 ```
 
 For ad-hoc mode:
@@ -172,7 +172,7 @@ SKIP these categories (no spec/phase context to evaluate):
 - Spec Compliance (no spec exists)
 - TDD Compliance (no acceptance criteria to check)
 
-Review these files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). Report only HIGH confidence findings in your standard output format.
+Review these files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides. Report only HIGH confidence findings in your standard output format.
 
 Target 1-3 findings. Only report issues you have HIGH confidence in.
 ```
@@ -192,7 +192,7 @@ Stack: {stack.name}
 
 {false-positives list from Step 3.5}
 
-For EACH executed phase, read its TASKS.md to find the files created/modified. Scope your file search to files within the `{stack.path}` directory. For each file, find 2-3 similar existing files in the codebase, extract their patterns, and compare. Report only HIGH confidence deviations in your standard output format.
+For EACH executed phase, read its TASKS.md to find the files created/modified. Scope your file search to files within the `{stack.path}` directory. For each file, find 2-3 similar existing files in the codebase, extract their patterns, and compare. If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides. Report only HIGH confidence deviations in your standard output format.
 ```
 
 For ad-hoc mode:
@@ -225,7 +225,7 @@ Executed phases:
 
 {false-positives list from Step 3.5}
 
-The stack for this review pass is `{stack.name}`. For EACH executed phase, read its TASKS.md to find the files created/modified. Load the stack skill at `skills/stacks/{stack.name}/SKILL.md` and check all code within the `{stack.path}` directory against that stack's conventions. Use Context7 to verify framework best practices. Report only HIGH confidence violations in your standard output format.
+The stack for this review pass is `{stack.name}`. For EACH executed phase, read its TASKS.md to find the files created/modified. Load the stack skill at `skills/stacks/{stack.name}/SKILL.md` and check all code within the `{stack.path}` directory against that stack's conventions. If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides (CLAUDE.md takes precedence over stack skill). Use Context7 to verify framework best practices. Report only HIGH confidence violations in your standard output format.
 ```
 
 For ad-hoc mode:
@@ -266,7 +266,7 @@ Executed phases:
 
 {false-positives list from Step 3.5}
 
-Review mode: code review. Check implemented code against spec requirements and acceptance criteria across ALL executed phases. For EACH phase, read its TASKS.md and verify every acceptance criterion has corresponding implementation. Check for missing features, incorrect behavior, and over-scope additions. CRITICAL: Check cross-phase integration across ALL executed phases (not just adjacent phases) -- verify imports, data contracts, workflow connections, and shared state consistency between every pair of phases. Report findings in your standard code review mode output format.
+Review mode: code review. Check implemented code against spec requirements and acceptance criteria across ALL executed phases. For EACH phase, read its TASKS.md and verify every acceptance criterion has corresponding implementation. Check for missing features, incorrect behavior, and over-scope additions. CRITICAL: Check cross-phase integration across ALL executed phases (not just adjacent phases) -- verify imports, data contracts, workflow connections, and shared state consistency between every pair of phases. If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides. Report findings in your standard code review mode output format.
 ```
 
 #### 4.2: Spawn agents
@@ -359,7 +359,7 @@ This step is handled inline in Step 4.3 through 4.5 above. After the output repo
 
 1. For each finding in the output report (parsed from the `### F-NNN` sections):
    - Build validation context: finding ID, summary, severity, category, file path, line range, description, suggested fix, and `source_agent` (the specialist agent that originally produced the finding -- determined by category mapping: Bug/Security -> `bug-detector`, Pattern -> `pattern-reviewer`, Spec Gap -> `plan-compliance-reviewer`, Standards -> `stack-reviewer`)
-   - Spawn `finding-validator` agent via Task tool with `model: "sonnet"` (single-finding classification is structured work) and the finding context
+   - Spawn `finding-validator` agent via Task tool and the finding context. Model selection: **economy** mode passes `model: "sonnet"`, **quality or premium** mode omits model (inherit parent) -- finding validation is critical classification work
    - Multiple validators CAN be spawned in parallel (they are read-only and independent)
    - Batch up to 5 validators at a time to avoid overwhelming the system
 2. Collect classifications from each validator's final message (the `## Classification` section with Finding, Verdict, Confidence, Source Agent, and Reason fields)

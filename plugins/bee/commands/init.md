@@ -34,8 +34,7 @@ If the dynamic context above does NOT contain `NO_EXISTING_CONFIG` (meaning `.be
   1. Read the current `stack` string value (e.g. `"nextjs"`).
   2. Replace the `stack` key with `stacks: [{ "name": "<value>", "path": "." }]`.
   3. Add `"implementation_mode": "quality"` as a top-level field if not already present. Valid values are `"economy"`, `"quality"`, and `"premium"`.
-  4. Add `"agents": true` to the `quick` object if not already present.
-  5. Write the updated config back to `.bee/config.json`.
+  4. Write the updated config back to `.bee/config.json`.
   6. Show the user a migration summary:
      ```
      Migrated config from v2 to v3:
@@ -191,7 +190,6 @@ The `stacks` array contains one entry per each confirmed stack-path pair from St
   },
   "quick": {
     "review": false,
-    "agents": true,
     "fast": false
   }
 }
@@ -222,7 +220,6 @@ The `stacks` array contains one entry per each confirmed stack-path pair from St
   },
   "quick": {
     "review": false,
-    "agents": true,
     "fast": false
   }
 }

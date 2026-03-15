@@ -35,7 +35,7 @@ Wait for the user's response. Normalize to kebab-case and store as `$AGENT_NAME`
 
 ### Step 3: Validate Against Protected Names
 
-Check `$AGENT_NAME` against the following list of 22 protected names. These are reserved for core BeeDev agents and must not be overridden by custom agents:
+Check `$AGENT_NAME` against the following list of 23 protected names. These are reserved for core BeeDev agents and must not be overridden by custom agents:
 
 1. `implementer`
 2. `fixer`
@@ -56,9 +56,10 @@ Check `$AGENT_NAME` against the following list of 22 protected names. These are 
 17. `pattern-reviewer`
 18. `stack-reviewer`
 19. `plan-compliance-reviewer`
-20. `laravel-inertia-vue-bug-detector`
-21. `laravel-inertia-vue-pattern-reviewer`
-22. `laravel-inertia-vue-implementer`
+20. `spec-reviewer`
+21. `laravel-inertia-vue-bug-detector`
+22. `laravel-inertia-vue-pattern-reviewer`
+23. `laravel-inertia-vue-implementer`
 
 If `$AGENT_NAME` matches any protected name, tell the user:
 
@@ -213,7 +214,7 @@ Run `/bee:init` or `/bee:resume` to load the extension.
 **Design Notes (do not display to user):**
 
 - This command runs entirely in main context using AskUserQuestion for each wizard step. No subagents are spawned.
-- The protected names list (22 names) covers all core BeeDev agents from `agents/` directory plus registered names in `inject-memory.sh` that do not have their own file. This prevents users from accidentally overriding core functionality.
+- The protected names list (23 names) covers all core BeeDev agents from `agents/` directory plus registered names in `inject-memory.sh` that do not have their own file. This prevents users from accidentally overriding core functionality.
 - The output directory `.claude/bee-extensions/agents/` is a user-space extensions directory, separate from the plugin's own `agents/` directory. This keeps custom agents isolated from core agents and makes them portable across plugin updates.
 - The agent file format (YAML frontmatter with name, description, tools, color, model, skills) matches the core agent format exactly, so the plugin infrastructure (hooks, memory injection) can work with custom agents the same way it works with core agents.
 - The `model: inherit` convention is followed for custom agents -- the conductor decides the model at spawn time based on work complexity.

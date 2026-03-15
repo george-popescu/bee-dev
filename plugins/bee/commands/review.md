@@ -171,7 +171,7 @@ Stack: {stack.name}
 
 {false-positives list from Step 3.9}
 
-Read TASKS.md to find the files created/modified by this phase. Scope your file search to files within the `{stack.path}` directory. Review those files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). Report only HIGH confidence findings in your standard output format.
+Read TASKS.md to find the files created/modified by this phase. Scope your file search to files within the `{stack.path}` directory. Review those files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides (CLAUDE.md takes precedence over stack skill for project-specific conventions). Report only HIGH confidence findings in your standard output format.
 ```
 
 **Per-stack Agent: Pattern Reviewer** (resolved agent name -- see agent resolution above) -- model set in 4.2 by implementation_mode -- one per stack
@@ -186,7 +186,7 @@ Stack: {stack.name}
 
 {false-positives list from Step 3.9}
 
-Read TASKS.md to find the files created/modified by this phase. Scope your file search to files within the `{stack.path}` directory. For each file, find 2-3 similar existing files in the codebase, extract their patterns, and compare. Report only HIGH confidence deviations in your standard output format.
+Read TASKS.md to find the files created/modified by this phase. Scope your file search to files within the `{stack.path}` directory. For each file, find 2-3 similar existing files in the codebase, extract their patterns, and compare. If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides. Report only HIGH confidence deviations in your standard output format.
 ```
 
 **Per-stack Agent: Stack Reviewer** (resolved agent name -- see agent resolution above) -- model set in 4.2 by implementation_mode -- one per stack
@@ -200,7 +200,7 @@ Phase number: {N}
 
 {false-positives list from Step 3.9}
 
-The stack for this review pass is `{stack.name}`. Load the stack skill at `skills/stacks/{stack.name}/SKILL.md` and check all code within the `{stack.path}` directory against that stack's conventions. Use Context7 to verify framework best practices. Report only HIGH confidence violations in your standard output format.
+The stack for this review pass is `{stack.name}`. Load the stack skill at `skills/stacks/{stack.name}/SKILL.md` and check all code within the `{stack.path}` directory against that stack's conventions. If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides (CLAUDE.md takes precedence over stack skill). Use Context7 to verify framework best practices. Report only HIGH confidence violations in your standard output format.
 ```
 
 **4.1d: Build global context packet (spawned ONCE, not per-stack)**
@@ -221,7 +221,7 @@ Phase number: {N}
 
 {false-positives list from Step 3.9}
 
-Review mode: code review. Check implemented code against spec requirements and acceptance criteria. Verify every acceptance criterion in TASKS.md has corresponding implementation. Check for missing features, incorrect behavior, and over-scope additions. If phase > 1, also check cross-phase integration (imports, data contracts, workflow connections, shared state). Report findings in your standard code review mode output format.
+Review mode: code review. Check implemented code against spec requirements and acceptance criteria. Verify every acceptance criterion in TASKS.md has corresponding implementation. Check for missing features, incorrect behavior, and over-scope additions. If phase > 1, also check cross-phase integration (imports, data contracts, workflow connections, shared state). If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides. Report findings in your standard code review mode output format.
 ```
 
 #### 4.2: Spawn agents
@@ -305,7 +305,7 @@ For each pair of findings from different agents, check if they reference the sam
 
 1. For each finding in REVIEW.md (parsed from the `### F-NNN` sections):
    - Build validation context: finding ID, summary, severity, category, file path, line range, description, suggested fix, and `source_agent` (the specialist agent that originally produced the finding -- determined by category mapping: Bug/Security -> `bug-detector`, Pattern -> `pattern-reviewer`, Spec Gap -> `plan-compliance-reviewer`, Standards -> `stack-reviewer`)
-   - Spawn `finding-validator` agent via Task tool with `model: "sonnet"` (single-finding classification is structured work) and the finding context
+   - Spawn `finding-validator` agent via Task tool and the finding context. Model selection: **economy** mode passes `model: "sonnet"`, **quality or premium** mode omits model (inherit parent) -- finding validation is critical classification work
    - Multiple validators CAN be spawned in parallel (they are read-only and independent)
    - Batch up to 5 validators at a time to avoid overwhelming the system
 2. Collect classifications from each validator's final message (the `## Classification` section with Finding, Verdict, Confidence, Source Agent, and Reason fields)

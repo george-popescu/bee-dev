@@ -20,7 +20,6 @@
   },
   "quick": {
     "review": false,
-    "agents": true,
     "fast": false
   }
 }
