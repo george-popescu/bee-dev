@@ -292,16 +292,15 @@ Read the final TASKS.md from disk. Present a formatted summary to the user:
 
 Then ask the user:
 
-"Does this plan look good? You can:
-(a) **Approve** it as-is
-(b) **Modify** -- describe changes (reorder tasks, modify acceptance criteria, move between waves, add/remove tasks)
-(c) **Reject** and re-plan from scratch"
+Use AskUserQuestion:
+Question: "Does this plan look good?"
+Options: "Approve" (proceed as-is to Step 8), "Modify" (describe changes — reorder tasks, modify acceptance criteria, move between waves, add/remove tasks), "Reject" (re-plan from scratch with new guidance).
 
 Handle each response:
 
-- **(a) Approve:** Proceed to Step 8.
-- **(b) Modify:** Apply the user's requested changes to TASKS.md on disk. Re-present the updated plan summary. Repeat until the user approves.
-- **(c) Reject:** Ask the user for additional guidance or constraints, then re-run from Step 3 (re-spawn planner Pass 1 with the user's new guidance as additional context).
+- **Approve:** Proceed to Step 8.
+- **Modify:** Wait for the user's change description (via "Other" input or follow-up). Apply the requested changes to TASKS.md on disk. Re-present the updated plan summary. Repeat AskUserQuestion until the user approves.
+- **Reject:** Ask the user for additional guidance or constraints, then re-run from Step 3 (re-spawn planner Pass 1 with the user's new guidance as additional context).
 
 IMPORTANT: Never auto-approve the plan. Always present it and wait for explicit user approval.
 
@@ -338,7 +337,5 @@ Wave breakdown:
 - Wave 2: {count} tasks (depends on Wave 1)
 ...
 
-Next step:
-  /clear
-  /bee:execute-phase {N}
+Next step: /bee:execute-phase {N} (/clear first if context is long)
 ```

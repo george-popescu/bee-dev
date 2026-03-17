@@ -1,6 +1,6 @@
 ---
 description: Generate manual test scenarios and verify with developer
-argument-hint: ""
+argument-hint: "[phase-number]"
 ---
 
 ## Current State (load before proceeding)
@@ -25,7 +25,7 @@ Check these guards in order. Stop immediately if any fails:
    "No spec found. Run `/bee:new-spec` first."
    Do NOT proceed.
 
-3. **Phase detection:** Read the Phases table from STATE.md. Find the first phase where: Status is "REVIEWED" AND the Tested column is NOT "Pass". This is the phase to test. If no such phase exists, tell the user:
+3. **Phase detection:** Check `$ARGUMENTS` for a phase number. If present, use that phase number explicitly. Validate: if the phase does not exist in the Phases table, tell the user: "Phase {N} does not exist. Your spec has {M} phases." Do NOT proceed. If the explicit phase's Status is not "REVIEWED" or its Tested column already shows "Pass", tell the user: "Phase {N} has status {status} -- expected REVIEWED with Tested != Pass for testing." Do NOT proceed. If no phase number in `$ARGUMENTS`, read the Phases table from STATE.md. Find the **last** phase where: Status is "REVIEWED" AND the Tested column is NOT "Pass". This is the phase to test. If no such phase exists, tell the user:
    "No reviewed phases waiting for testing. Run `/bee:review` first."
    Do NOT proceed.
 
@@ -117,9 +117,7 @@ This step loops until the developer confirms all scenarios pass.
    ```
    All {count} scenarios passed! Phase {N} testing complete.
 
-   Next step:
-     /clear
-     /bee:commit
+   Next step: /bee:commit (/clear first if context is long)
    ```
 7. Stop.
 
@@ -135,14 +133,10 @@ This step loops until the developer confirms all scenarios pass.
 
    a. Increment fix attempts for this scenario.
 
-   b. If fix attempts > 3 for this scenario, present options:
-      "Scenario '{scenario}' has failed 3 fix attempts. Options:
-       (a) Mark as known issue and continue
-       (b) Skip -- you'll fix it manually
-       (c) Try one more fix"
-      - If (a): mark scenario with `[!]` in TESTING.md, add to Dev Result Failures as "known issue"
-      - If (b): mark scenario as skipped in TESTING.md, continue to next failure
-      - If (c): proceed with fix below
+   b. If fix attempts > 3 for this scenario, use AskUserQuestion:
+      Question: "Scenario '{scenario}' has failed 3 fix attempts. What to do?"
+      Options: "Mark as known issue" (mark with [!] in TESTING.md, add to Dev Result Failures), "Skip" (you'll fix it manually, mark as skipped), "Try one more fix" (proceed with fix below).
+      Act on the user's choice.
 
    c. Build fixer context packet:
       - Full scenario line from TESTING.md
@@ -175,7 +169,7 @@ This step loops until the developer confirms all scenarios pass.
 
 **Design Notes (do not display to user):**
 
-- The command auto-detects the phase to test (first REVIEWED but Tested != "Pass"). No phase number argument needed.
+- The command auto-detects the phase to test (last REVIEWED but Tested != "Pass"), or accepts an optional phase number argument to target a specific phase.
 - TESTING.md is the pipeline state, progressively updated as scenarios are verified and fixes applied. Analogous to REVIEW.md in the review command.
 - Fixes are SEQUENTIAL (one fixer at a time) to prevent file conflicts. Same pattern as the review command's fix step.
 - Only previously-failed scenarios are re-presented after fixes -- not all scenarios. This respects the developer's time.

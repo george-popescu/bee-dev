@@ -1,6 +1,6 @@
 ---
 description: Show diff summary and create a commit with user approval
-argument-hint: ""
+argument-hint: "[phase-number]"
 ---
 
 ## Current State (load before proceeding)
@@ -35,7 +35,7 @@ Check these guards in order. Stop immediately if any fails:
    "No spec found. Run `/bee:new-spec` first."
    Do NOT proceed.
 
-4. **Phase detection:** Read the Phases table from STATE.md. Find the first phase where: Status is "TESTED" AND the Committed column is NOT "Yes". This is the phase to commit. If no such phase exists: check for phases with Status "REVIEWED" and Committed column NOT "Yes" (user may want to commit after review without testing). If still no such phase, tell the user:
+4. **Phase detection:** Check `$ARGUMENTS` for a phase number. If present, use that phase number explicitly. Validate: if the phase does not exist in the Phases table, tell the user: "Phase {N} does not exist. Your spec has {M} phases." Do NOT proceed. If the explicit phase's Status is not "TESTED" (with Committed != "Yes") and not "REVIEWED" (with Committed != "Yes"), tell the user: "Phase {N} has status {status} -- expected TESTED or REVIEWED with Committed != Yes for committing." Do NOT proceed. If no phase number in `$ARGUMENTS`, read the Phases table from STATE.md. Find the **last** phase where: Status is "TESTED" AND the Committed column is NOT "Yes". This is the phase to commit. If no such phase exists: check for the **last** phase with Status "REVIEWED" and Committed column NOT "Yes" (user may want to commit after review without testing). If still no such phase, tell the user:
    "No phases ready to commit. Complete testing first with `/bee:test`."
    Do NOT proceed.
 
@@ -79,16 +79,11 @@ Check these guards in order. Stop immediately if any fails:
 
 Ask the user:
 
-```
-How would you like to proceed?
-(a) Commit with this message
-(b) Edit the message -- provide your preferred message
-(c) Cancel -- don't commit
-```
+Use AskUserQuestion:
+Question: "How would you like to proceed?"
+Options: "Commit with this message" (proceed to Step 5 with the suggested message), "Edit the message" (user provides preferred message, then proceed to Step 5), "Cancel" (don't commit, stop).
 
-- If (a): proceed to Step 5 with the suggested message
-- If (b): wait for the user's edited message, then proceed to Step 5 with the edited message
-- If (c): display "Commit cancelled." Stop.
+Act on the user's choice. If "Edit the message" is selected, wait for the user's edited message via their "Other" input or follow-up message.
 
 ### Step 5: Execute Commit
 
@@ -122,16 +117,14 @@ How would you like to proceed?
    ```
    Committed! Phase {N}: {phase_name}
 
-   Next step:
-     /clear
-     {suggested command}
+   Next step: {suggested command} (/clear first if context is long)
    ```
 
 ---
 
 **Design Notes (do not display to user):**
 
-- NEVER auto-commit. The user MUST explicitly choose option (a) or provide an edited message before any git commit runs.
+- NEVER auto-commit. The user MUST explicitly choose "Commit with this message" or provide an edited message via AskUserQuestion before any git commit runs.
 - NEVER use `git add -A`, `git add .`, or `git add --all`. Stage specific files only based on TASKS.md.
 - NEVER use `--force`, `--amend`, or any destructive git operation.
 - If there are no changes to commit, inform the user and stop. Do NOT create an empty commit.

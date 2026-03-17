@@ -326,32 +326,28 @@ If 0 issues total, set Status to CLEAN. Otherwise set Status to ISSUES_FOUND.
    Full review: {phase_directory}/PLAN-REVIEW.md
    ```
 
-4. Present options to the user:
-   ```
-   {X} issues found. What would you like to do?
-   (a) Fix -- I'll fix these issues in TASKS.md now (Recommended)
-   (b) Accept as-is -- proceed to execution despite findings
-   (c) Fix manually -- I'll edit TASKS.md myself and re-run plan-review
-   ```
+4. Present options to the user via AskUserQuestion:
+   Question: "{X} issues found. What would you like to do?"
+   Options: "Fix (Recommended)" (fix issues in TASKS.md now), "Accept as-is" (proceed to execution despite findings), "Fix manually" (edit TASKS.md yourself and re-run plan-review).
 
 5. Handle responses:
 
-   - **(a) Fix (Recommended):** Apply fixes directly to TASKS.md on disk:
+   - **Fix (Recommended):** Apply fixes directly to TASKS.md on disk:
      - Spec compliance gaps → add missing acceptance criteria or tasks
      - Bug risks → add edge case handling to acceptance criteria
      - Pattern issues → update task descriptions to follow established patterns
      - Stack issues → align task approach with stack conventions
      Display what was fixed. Then archive the current PLAN-REVIEW.md (use Glob to count existing `PLAN-REVIEW-*.md` files, archive number = count + 1, rename to `PLAN-REVIEW-{archive_number}.md`). Track fix iterations with `$FIX_ITERATION` (initialize to 1, increment on each re-run). Read `config.review.max_plan_review_iterations` from config.json (default: 3). If `$FIX_ITERATION > max`, display: "Plan review found persistent issues after {N} fix attempts. Review PLAN-REVIEW.md and fix manually." Stop — do not loop further. Re-run the review pipeline (Steps 3.1 through 3.6) to verify fixes. If the re-review is CLEAN, auto-approve (update STATE.md Plan Review column). If issues remain, re-present Step 4 (loop).
 
-   - **(b) Accept as-is:** Read STATE.md from disk. Parse the current Plan Review column value for this phase to extract N (e.g., `"Yes (1)"` -> N=1, `"Yes"` -> N=0, empty -> N=0). Always parse and increment -- never use file-count. Write `"Yes ({N+1})"` to the Plan Review column for this phase in STATE.md. Display "Plan approved with {X} known issues. Plan Review set to Yes ({N+1}) in STATE.md. Run `/bee:execute-phase {N}` to start." Stop.
+   - **Accept as-is:** Read STATE.md from disk. Parse the current Plan Review column value for this phase to extract N (e.g., `"Yes (1)"` -> N=1, `"Yes"` -> N=0, empty -> N=0). Always parse and increment -- never use file-count. Write `"Yes ({N+1})"` to the Plan Review column for this phase in STATE.md. Display "Plan approved with {X} known issues. Plan Review set to Yes ({N+1}) in STATE.md. Run `/bee:execute-phase {N}` to start." Stop.
 
-   - **(c) Fix manually:** Display "Edit `{phase_directory}/TASKS.md` to address the findings, then re-run `/bee:plan-review {N}` for a fresh review." Stop.
+   - **Fix manually:** Display "Edit `{phase_directory}/TASKS.md` to address the findings, then re-run `/bee:plan-review {N}` for a fresh review." Stop.
 
 ---
 
 **Design Notes (do not display to user):**
 
-- This command can modify TASKS.md when the user chooses (a) Fix. The auto-fix applies changes from review findings directly, then re-runs the review pipeline to verify. On Approve or CLEAN auto-approve, it writes the Plan Review column in STATE.md using a Read-Modify-Write pattern: read STATE.md, parse the current Plan Review value to extract N, increment, and write "Yes ({N+1})".
+- This command can modify TASKS.md when the user chooses Fix via AskUserQuestion. The auto-fix applies changes from review findings directly, then re-runs the review pipeline to verify. On Approve or CLEAN auto-approve, it writes the Plan Review column in STATE.md using a Read-Modify-Write pattern: read STATE.md, parse the current Plan Review value to extract N, increment, and write "Yes ({N+1})".
 - Four specialized agents (bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer) review the plan in parallel via four Task tool calls in a single message. Model tier depends on `implementation_mode`: economy mode passes `model: "sonnet"` (structured comparison work, lower cost); quality or premium mode omits model (inherits parent for deeper analysis).
 - The command (not the agents) writes PLAN-REVIEW.md. Agents report findings in their own output formats; the command normalizes, deduplicates, and writes the unified PLAN-REVIEW.md.
 - The plan-compliance-reviewer operates in "plan review mode" (not code review mode). Its output provides the primary PLAN-REVIEW.md structure (Coverage Matrix, Gaps, Partial Coverage, Spec Drift, Over-Engineering). The other three agents' findings are merged as additional sections (Bug Risk, Pattern Concerns, Stack Best Practice Concerns).

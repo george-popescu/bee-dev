@@ -465,9 +465,7 @@ Files:
 - spec.md (feature specification)
 - phases.md (implementation phases)
 
-Next step:
-  /clear
-  /bee:plan-phase 1
+Next step: /bee:plan-phase 1 (/clear first if context is long)
 ```
 
 If this was an amend, adjust the message:
@@ -480,9 +478,7 @@ Path: .bee/specs/{folder}/
 Changes: {brief summary of what changed}
 Phases: {N} phases (updated if affected)
 
-Next step:
-  /clear
-  /bee:plan-phase N    (re-plan affected phases)
+Next step: /bee:plan-phase N (/clear first if context is long) -- re-plan affected phases
 ```
 
 ---

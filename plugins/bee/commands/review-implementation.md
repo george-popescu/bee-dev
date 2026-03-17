@@ -56,10 +56,10 @@ For each stack in `config.stacks`, scoped to its `path`:
 2. If a build script exists, run it via Bash scoped to the stack path:
    - Node projects: `cd {stack.path} && npm run build`
    - PHP projects: skip (no build step typically)
-3. If build **fails**: display "Build: {stack.name} FAILED" with error output and ask:
-   "Build failed for {stack.name}. Options: (a) Fix build errors first (b) Continue review anyway"
-   - If (a): stop the review. The user fixes and re-runs.
-   - If (b): continue (note build failure in the review context).
+3. If build **fails**: display "Build: {stack.name} FAILED" with error output. Use AskUserQuestion:
+   Question: "Build failed for {stack.name}. How to proceed?"
+   Options: "Fix build errors first" (stop review, user fixes and re-runs), "Continue review anyway" (note build failure in context).
+   Act on the user's choice.
 4. If build **passes**: display "Build: {stack.name}: OK" and continue.
 5. If no build script exists: display "Build: {stack.name}: skipped (no build script)" and continue.
 
@@ -78,10 +78,10 @@ For each stack:
    - `pest`: `cd {stack.path} && ./vendor/bin/pest --parallel` (uses Paratest under the hood)
 3. Run the detected test command via Bash (timeout: 5 minutes).
 4. If tests **pass**: display "Tests: {stack.name} ({runner}): {count} passed" and continue.
-5. If tests **fail**: display the failure summary and ask:
-   "Tests failed for {stack.name} ({fail_count} failures). Options: (a) Fix test failures first (b) Continue review anyway"
-   - If (a): stop. User fixes and re-runs.
-   - If (b): continue (note test failures in the review context).
+5. If tests **fail**: display the failure summary. Use AskUserQuestion:
+   Question: "Tests failed for {stack.name} ({fail_count} failures). How to proceed?"
+   Options: "Fix test failures first" (stop, user fixes and re-runs), "Continue review anyway" (note failures in context).
+   Act on the user's choice.
 
 If the user says **no**: display "Tests: skipped" and continue.
 
@@ -425,12 +425,13 @@ This step is handled inline in Step 4.3 through 4.5 above. After the output repo
    - Update output report: set the finding's Fix Status to "False Positive"
 
 6. Handle STYLISTIC findings (user interaction):
-   - For each STYLISTIC finding, present to user:
-     "STYLISTIC finding: F-{NNN} -- '{summary}'. Options: (a) Fix it, (b) Ignore, (c) False Positive (won't be flagged again)"
-   - Wait for user response for each STYLISTIC finding
-   - If user chooses (a): add finding to the confirmed fix list
-   - If user chooses (b): mark as "Skipped (user ignored)" in the output report Fix Status
-   - If user chooses (c): append to `.bee/false-positives.md` (same format as step 5) and mark as "False Positive" in the output report
+   - For each STYLISTIC finding, use AskUserQuestion:
+     Question: "STYLISTIC finding: F-{NNN} -- '{summary}'. What to do?"
+     Options: "Fix it" (add to confirmed fix list), "Ignore" (mark as Skipped in output report), "False Positive" (persist to false-positives.md, won't be flagged again).
+   - Act on the user's choice for each STYLISTIC finding:
+     - Fix it: add finding to the confirmed fix list
+     - Ignore: mark as "Skipped (user ignored)" in the output report Fix Status
+     - False Positive: append to `.bee/false-positives.md` (same format as step 5) and mark as "False Positive" in the output report
 
 7. Build confirmed fix list: all REAL BUG findings (both HIGH confidence and specialist-confirmed) + user-approved STYLISTIC findings (those where user chose option a). Exclude any findings reclassified as FALSE POSITIVE by specialist escalation.
 8. Display validation summary: "{real_bug} real bugs, {false_positive} false positives, {stylistic} stylistic ({user_fix} to fix, {user_ignore} ignored), {escalated} escalated ({escalated_real_bug} confirmed, {escalated_false_positive} reclassified as FP)"
@@ -512,10 +513,7 @@ Per-phase compliance percentages are calculated from the findings: for each phas
 
 4. Display next step suggestion:
    ```
-   Next step:
-     /clear
-     /bee:commit              (if fixes were applied)
-     /bee:plan-phase {N+1}    (to address remaining gaps)
+   Next step: /bee:commit (/clear first if context is long) if fixes were applied, or /bee:plan-phase {N+1} to address remaining gaps
    ```
 
 #### Ad-Hoc Mode Summary
@@ -541,9 +539,7 @@ Review saved: {output_path}
 
 4. Display next step suggestion:
    ```
-   Next step:
-     /clear
-     /bee:commit              (if fixes were applied)
+   Next step: /bee:commit (/clear first if context is long) if fixes were applied
    ```
 
 ---

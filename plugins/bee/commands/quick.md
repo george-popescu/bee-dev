@@ -264,13 +264,13 @@ If the implementer reported failures or issues, present them and ask the user ho
 
 If `$USE_REVIEW` is true, run a review before committing. The review pipeline uses 4 agents when a plan file exists (TDD mode) or 3 agents when no plan file exists (fast mode).
 
-**Build check:** If `package.json` has a `build` script, run `npm run build`. If it fails, display the error and ask: "(a) Fix first (b) Continue anyway". If no build script, skip.
+**Build check:** If `package.json` has a `build` script, run `npm run build`. If it fails, display the error. Use AskUserQuestion: Question: "Build failed. How to proceed?" Options: "Fix first" (stop, user fixes), "Continue anyway" (note failure). If no build script, skip.
 
 **Test check:** Ask: "Run tests before review? (yes/no)". If yes:
 For each stack in `config.stacks`, resolve its test runner: read `stacks[i].testRunner` first, fall back to root `config.testRunner` if absent, then `"none"`. Run each stack's test runner scoped to its path. Report per-stack: "Tests: {stack.name} ({runner}): {result}".
 For each stack:
 1. Resolve the test runner using the fallback chain above. If `"none"`, display "Tests: {stack.name}: skipped (no test runner configured)" and continue to the next stack.
-2. Run the test command scoped to the stack path (`vitest`: `cd {stack.path} && npx vitest run`, `jest`: `cd {stack.path} && npx jest --maxWorkers=auto`, `pest`: `cd {stack.path} && ./vendor/bin/pest --parallel`). Display results. If tests fail, ask: "(a) Fix first (b) Continue anyway".
+2. Run the test command scoped to the stack path (`vitest`: `cd {stack.path} && npx vitest run`, `jest`: `cd {stack.path} && npx jest --maxWorkers=auto`, `pest`: `cd {stack.path} && ./vendor/bin/pest --parallel`). Display results. If tests fail, use AskUserQuestion: Question: "Tests failed. How to proceed?" Options: "Fix first" (stop), "Continue anyway" (note failures).
 
 #### 4.5.0: Detect review scope and compute output path
 
@@ -451,15 +451,14 @@ For each pair of findings from different agents, check if they reference the sam
 ```
 Quick review found {N} confirmed issue(s):
 {For each: F-NNN [severity] category: summary}
-
-Options:
-(a) Fix before commit -- spawn fixers for confirmed issues
-(b) Commit as-is -- acknowledge and proceed
-(c) Cancel -- stop here
 ```
 
+Use AskUserQuestion:
+Question: "Quick review found {N} issue(s). What to do?"
+Options: "Fix before commit" (spawn fixers for confirmed issues), "Commit as-is" (acknowledge and proceed), "Cancel" (stop here).
+
 6. Handle user choice:
-   - **(a) Fix:** Sort confirmed findings by priority before spawning fixers:
+   - **Fix:** Sort confirmed findings by priority before spawning fixers:
      - Priority 1: Critical severity
      - Priority 2: High severity
      - Priority 3: Standards category (Medium)
@@ -480,8 +479,8 @@ Options:
      3. Read the fixer's Fix Report status from its final message.
      4. If the fixer reports "Reverted" or "Failed": display "Fix for F-{NNN} failed -- changes reverted. Skipping." and continue to the next finding.
      5. After all findings processed, display: "{fixed} fixed, {skipped} skipped out of {total}." then proceed to Step 5.
-   - **(b) Commit as-is:** Proceed to Step 5.
-   - **(c) Cancel:** Display "Cancelled. Changes remain unstaged." Stop.
+   - **Commit as-is:** Proceed to Step 5.
+   - **Cancel:** Display "Cancelled. Changes remain unstaged." Stop.
 
 ### Step 5: Commit
 
@@ -575,4 +574,4 @@ Next: /bee:progress to see project state, or /bee:quick for another task.
 - **Plan persistence:** In TDD mode, a plan file is written to `.bee/quick/{NNN}-{slug}.md` before execution. The plan captures the task description, acceptance criteria, test file targets, pattern references, research findings, and execution notes. This enables `--amend` and provides an audit trail. Fast mode (`--fast`) skips plan creation entirely -- no `.bee/quick/` artifacts.
 - **Plan enrichment:** The plan file in TDD mode includes three enriched sections beyond the basic template: `## Acceptance Criteria` (testable criteria derived from the description), `## Test File Targets` (test file paths for the implementer), and `## Pattern References` (existing files to use as code patterns). These sections are consumed by the `bee:quick-implementer` agent.
 - **`--amend` flow:** Allows re-executing a previous quick task with modifications. Reads the existing plan file, lets the user modify it, then re-executes. Only works for tasks that have plan files (TDD mode tasks). Fast mode tasks cannot be amended.
-- **User choice gate:** The review gate presents three options: (a) Fix -- spawns fixer agents sequentially for confirmed issues, (b) Commit as-is -- proceeds to commit, (c) Cancel -- stops. The sequential fixer loop follows the same pattern as `/bee:fix-implementation`.
+- **User choice gate:** The review gate presents three options via AskUserQuestion: Fix (spawns fixer agents sequentially for confirmed issues), Commit as-is (proceeds to commit), Cancel (stops). The sequential fixer loop follows the same pattern as `/bee:fix-implementation`.

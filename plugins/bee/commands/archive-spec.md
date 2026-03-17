@@ -114,9 +114,7 @@ Spec archived!
 - State: NO_SPEC
 - Plugin version: {new-version}
 
-Next step:
-  /clear
-  /bee:new-spec    (start a new feature)
+Next step: /bee:new-spec (/clear first if context is long) -- start a new feature
 ```
 
 ---

@@ -417,9 +417,7 @@ Created:
 {If any stack has ⚠ no skill:}
 Tip: Run /bee:create-skill to create custom stack skills for unsupported stacks.
 
-Next step:
-  /clear
-  /bee:new-spec
+Next step: /bee:new-spec (/clear first if context is long)
 ```
 
 ### Step 10.5: Notification Setup

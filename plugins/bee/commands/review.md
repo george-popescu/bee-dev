@@ -1,6 +1,6 @@
 ---
 description: Review current phase implementation against spec, standards, and quality checklist
-argument-hint: "[--loop]"
+argument-hint: "[--phase N] [--loop]"
 ---
 
 ## Current State (load before proceeding)
@@ -25,7 +25,7 @@ Check these guards in order. Stop immediately if any fails:
    "No spec found. Run `/bee:new-spec` first."
    Do NOT proceed.
 
-3. **Phase detection:** Read the Phases table from STATE.md. Find the first phase where: Status is "EXECUTED" or "REVIEWED". This allows both first-time reviews and re-reviews of already-reviewed phases. If no such phase exists, tell the user:
+3. **Phase detection:** Check `$ARGUMENTS` for a `--phase N` flag. If present, use phase N explicitly. Validate: if phase N does not exist in the Phases table, tell the user: "Phase {N} does not exist. Your spec has {M} phases." Do NOT proceed. If the explicit phase's Status is not "EXECUTED" or "REVIEWED", tell the user: "Phase {N} has status {status} -- expected EXECUTED or REVIEWED for review." Do NOT proceed. If `--phase N` is not present, read the Phases table from STATE.md. Find the **last** phase where: Status is "EXECUTED" or "REVIEWED". This allows both first-time reviews and re-reviews of already-reviewed phases. If no such phase exists, tell the user:
    "No executed phases waiting for review. Run `/bee:execute-phase N` first."
    Do NOT proceed.
 
@@ -82,10 +82,10 @@ For each stack in `config.stacks`, scoped to its `path`:
 2. If a build script exists, run it via Bash scoped to the stack path:
    - Node projects: `cd {stack.path} && npm run build`
    - PHP projects: skip (no build step typically)
-3. If build **fails**: display "Build: {stack.name} FAILED" with error output and ask:
-   "Build failed for {stack.name}. Options: (a) Fix build errors first (b) Continue review anyway"
-   - If (a): stop the review. The user fixes and re-runs `/bee:review`.
-   - If (b): continue to review (note build failure in the review context).
+3. If build **fails**: display "Build: {stack.name} FAILED" with error output. Use AskUserQuestion:
+   Question: "Build failed for {stack.name}. How to proceed?"
+   Options: "Fix build errors first" (stop review, user fixes and re-runs), "Continue review anyway" (note build failure in context).
+   Act on the user's choice.
 4. If build **passes**: display "Build: {stack.name}: OK" and continue.
 5. If no build script exists: display "Build: {stack.name}: skipped (no build script)" and continue.
 
@@ -104,10 +104,10 @@ For each stack:
    - `pest`: `cd {stack.path} && ./vendor/bin/pest --parallel` (uses Paratest under the hood)
 3. Run the detected test command via Bash (timeout: 5 minutes).
 4. If tests **pass**: display "Tests: {stack.name} ({runner}): {count} passed" and continue.
-5. If tests **fail**: display the failure summary and ask:
-   "Tests failed for {stack.name} ({fail_count} failures). Options: (a) Fix test failures first (b) Continue review anyway"
-   - If (a): stop. User fixes and re-runs.
-   - If (b): continue (note test failures in the review context).
+5. If tests **fail**: display the failure summary. Use AskUserQuestion:
+   Question: "Tests failed for {stack.name} ({fail_count} failures). How to proceed?"
+   Options: "Fix test failures first" (stop, user fixes and re-runs), "Continue review anyway" (note failures in context).
+   Act on the user's choice.
 
 If the user says **no**: display "Tests: skipped" and continue.
 
@@ -370,12 +370,13 @@ For each pair of findings from different agents, check if they reference the sam
    - Update REVIEW.md: set the finding's Fix Status to "False Positive"
 
 6. Handle STYLISTIC findings (user interaction):
-   - For each STYLISTIC finding, present to user:
-     "STYLISTIC finding: F-{NNN} -- '{summary}'. Options: (a) Fix it, (b) Ignore, (c) False Positive (won't be flagged again)"
-   - Wait for user response for each STYLISTIC finding
-   - If user chooses (a): add finding to the confirmed fix list
-   - If user chooses (b): mark as "Skipped (user ignored)" in REVIEW.md Fix Status
-   - If user chooses (c): append to `.bee/false-positives.md` (same format as step 5) and mark as "False Positive" in REVIEW.md
+   - For each STYLISTIC finding, use AskUserQuestion:
+     Question: "STYLISTIC finding: F-{NNN} -- '{summary}'. What to do?"
+     Options: "Fix it" (add to confirmed fix list), "Ignore" (mark as Skipped in REVIEW.md), "False Positive" (persist to false-positives.md, won't be flagged again).
+   - Act on the user's choice for each STYLISTIC finding:
+     - Fix it: add finding to the confirmed fix list
+     - Ignore: mark as "Skipped (user ignored)" in REVIEW.md Fix Status
+     - False Positive: append to `.bee/false-positives.md` (same format as step 5) and mark as "False Positive" in REVIEW.md
 
 7. Build confirmed fix list: all REAL BUG findings (both HIGH confidence and specialist-confirmed) + user-approved STYLISTIC findings (those where user chose option a). Exclude any findings reclassified as FALSE POSITIVE by specialist escalation.
 8. Display validation summary: "{real_bug} real bugs, {false_positive} false positives, {stylistic} stylistic ({user_fix} to fix, {user_ignore} ignored), {escalated} escalated ({escalated_real_bug} confirmed, {escalated_false_positive} reclassified as FP)"
@@ -483,15 +484,24 @@ Findings: {total} total
 Iterations: {iteration_count}
 
 Next step:
-  /clear
-  /bee:test              (or /bee:plan-phase {N+1} to skip testing)
+{If fixed > 0: "/bee:review --phase {N} to verify fixes, or /bee:test to proceed"}
+{If fixed == 0: "/bee:test or /bee:plan-phase {N+1} to skip testing"}
+(/clear first if context is long)
 ```
+
+Use AskUserQuestion to let the user choose:
+- If fixes were applied (fixed > 0):
+  Question: "Findings were fixed. What next?"
+  Options: "Re-review phase {N}" (verify the fixes with a fresh review), "Proceed to testing" (/bee:test), "Skip to next phase" (/bee:plan-phase {N+1}).
+- If no fixes (all clean, false positives, or ignored):
+  Question: "Review complete. What next?"
+  Options: "Proceed to testing" (/bee:test), "Skip to next phase" (/bee:plan-phase {N+1}).
 
 ---
 
 **Design Notes (do not display to user):**
 
-- The command auto-detects the phase to review (first EXECUTED or REVIEWED phase). Re-reviewing an already-reviewed phase is allowed -- the previous REVIEW.md is archived as REVIEW-{N}.md where N is the previous iteration number, and the iteration counter increments.
+- The command auto-detects the phase to review (last EXECUTED or REVIEWED phase), or accepts an explicit `--phase N` argument to target a specific phase. Re-reviewing an already-reviewed phase is allowed -- the previous REVIEW.md is archived as REVIEW-{N}.md where N is the previous iteration number, and the iteration counter increments.
 - In multi-stack projects, bug-detector, pattern-reviewer, and stack-reviewer are spawned once per stack (3 per-stack agents) while plan-compliance-reviewer is spawned ONCE globally (stack-agnostic). Total: `(3 x N) + 1` agents where N = number of stacks. For single-stack projects this is exactly 4 agents, identical to the original behavior. Model tier depends on `implementation_mode`: quality/premium mode omits model (inherits parent for deeper analysis); economy mode passes `model: "sonnet"` and spawns agents sequentially per stack to reduce token usage.
 - The command (not the agents) writes REVIEW.md. Agents report findings in their own output formats; the command normalizes, deduplicates, and writes the unified REVIEW.md.
 - Step 3.9 extracts false positives BEFORE spawning agents. Each agent receives the formatted false-positives list in its context packet so it can self-filter. The command does NOT need to post-filter.

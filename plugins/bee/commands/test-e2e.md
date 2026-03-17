@@ -157,17 +157,14 @@ Failure analysis:
    Suggested fix: {what to change}
 ```
 
-**6c. Ask user:**
-```
-Options:
-(a) Fix test issues — I'll update the test files
-(b) Show trace — open Playwright trace viewer for debugging
-(c) Skip — leave failures for manual investigation
-```
+**6c. Ask user:** Use AskUserQuestion:
+Question: "Tests failed. How to proceed?"
+Options: "Fix test issues" (update test files and re-run), "Show trace" (open Playwright trace viewer for debugging), "Skip" (leave failures for manual investigation).
 
-- **(a) Fix:** Apply fixes to test files, re-run. Loop up to 3 times. After 3 failed fix attempts, display: "Tests still failing after 3 fix attempts. Recommend manual investigation with `npx playwright test --ui`." and proceed to Step 7.
-- **(b) Trace:** Run `npx playwright show-trace trace.zip` for the failed test.
-- **(c) Skip:** Report final state and stop.
+Handle each response:
+- **Fix test issues:** Apply fixes to test files, re-run. Loop up to 3 times. After 3 failed fix attempts, display: "Tests still failing after 3 fix attempts. Recommend manual investigation with `npx playwright test --ui`." and proceed to Step 7.
+- **Show trace:** Run `npx playwright show-trace trace.zip` for the failed test.
+- **Skip:** Report final state and stop.
 
 ### Step 7: Completion
 

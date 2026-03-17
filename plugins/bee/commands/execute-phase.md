@@ -171,11 +171,13 @@ IMPORTANT: Always re-read TASKS.md from disk before each write (Read-Modify-Writ
 
 If any task in the wave was marked `[FAILED]`:
 - Display failure details to the user (task ID, failure reason)
-- Ask: "Task(s) {failed_ids} failed. You can: (a) Continue to next wave (dependent tasks may also fail), (b) Stop execution to fix manually, (c) Retry failed tasks"
+- Use AskUserQuestion:
+  Question: "Task(s) {failed_ids} failed. How to proceed?"
+  Options: "Continue to next wave" (dependent tasks may also fail), "Stop execution" (fix manually), "Retry failed tasks" (re-spawn fresh agents).
 - Handle user choice:
-  - (a) Continue: proceed to next wave
-  - (b) Stop: update STATE.md Last Action result to "Paused -- manual fix needed for {failed_ids}", stop execution
-  - (c) Retry: re-spawn fresh agents for failed tasks with their original context, process results, then proceed
+  - Continue: proceed to next wave
+  - Stop: update STATE.md Last Action result to "Paused -- manual fix needed for {failed_ids}", stop execution
+  - Retry: re-spawn fresh agents for failed tasks with their original context, process results, then proceed
 
 **5e. Repeat for next wave** until all waves are processed.
 
@@ -207,9 +209,7 @@ Task summary:
 - Wave 2: {task_ids} ({status})
 ...
 
-Next step:
-  /clear
-  /bee:review
+Next step: /bee:review (/clear first if context is long)
 ```
 
 If any tasks are marked `[FAILED]`, add a note after the summary:
