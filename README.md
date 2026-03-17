@@ -2,7 +2,7 @@
 
 Spec-driven development workflow plugin for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-Bee takes a feature idea through a complete, repeatable pipeline: **spec > plan > execute > review > test > commit**. Every step is orchestrated by Claude Code with review gates between phases.
+Bee takes a feature idea through a complete, repeatable pipeline: **spec > plan > execute > review > test > commit**. Every step is orchestrated by Claude Code with review gates between phases. Includes a comprehensive code audit system for analyzing inherited/vibecoded projects.
 
 ## Install
 
@@ -34,69 +34,101 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 /bee:test            # Generate test scenarios, verify with developer
 /bee:commit          # Guided commit with diff summary
 /bee:quick           # Fast-track: describe, execute, commit (no spec needed)
-/bee:review-implementation  # Context-aware review (spec or ad-hoc)
+/bee:audit           # Comprehensive 9-agent code audit (great for inherited projects)
 ```
 
-## Commands
+## Commands (26)
 
+### Setup & Navigation
 | Command | Description |
 |---------|-------------|
 | `/bee:init` | Initialize project -- detect stack, create `.bee/` config |
-| `/bee:new-spec` | Create feature spec through conversational discovery with structured options. Use `--amend` to modify existing |
-| `/bee:plan-phase N` | Plan a phase: task decomposition, research, wave assignment |
-| `/bee:execute-phase N` | Execute a planned phase with wave-based parallel TDD |
-| `/bee:review` | Multi-agent parallel review (4 specialized agents), validate findings with specialist escalation, fix, re-review. Use `--loop` for auto-loop |
-| `/bee:test` | Manual testing handoff with scenario generation and fix loop |
-| `/bee:commit` | Show diff summary, suggest commit message, require confirmation |
-| `/bee:quick` | Fast-track task: describe, execute, commit. Agents mode is default; `--fast` for direct mode, `--amend` to modify existing plan, `--review` for post-review |
-| `/bee:review-implementation` | Context-aware review -- full spec mode (4 agents) or ad-hoc mode (3 agents, no spec required) |
-| `/bee:fix-implementation` | Standalone fix command -- reads review output and fixes confirmed findings sequentially |
-| `/bee:plan-review N` | Review a phase plan (TASKS.md) against the spec before execution |
-| `/bee:add-phase` | Append a new phase to the current spec |
-| `/bee:memory` | View accumulated agent memories for the current project |
-| `/bee:compact` | Smart compact -- preserve bee context, then compress conversation |
 | `/bee:progress` | Show current project state and suggest next action |
 | `/bee:resume` | Restore full context after a break |
-| `/bee:eod` | End-of-day audit with 4 parallel checks |
+| `/bee:compact` | Smart compact -- preserve bee context, then compress conversation |
+| `/bee:memory` | View accumulated agent memories for the current project |
+| `/bee:refresh-context` | Re-run codebase context extraction, overwriting CONTEXT.md |
+| `/bee:create-agent` | Create a custom project-local agent extension |
+| `/bee:create-skill` | Create a custom project-local skill extension |
+| `/bee:update` | Update bee statusline and clean up legacy local copies |
+
+### Specification
+| Command | Description |
+|---------|-------------|
+| `/bee:new-spec` | Create feature spec through conversational discovery. `--amend` to modify, `--from-discussion` to use discussion notes |
+| `/bee:plan-phase N` | Plan a phase: task decomposition, research, wave assignment + auto-fix review loop |
+| `/bee:plan-review N` | Review a phase plan (TASKS.md) against the spec before execution |
+| `/bee:add-phase` | Append a new phase to the current spec |
+| `/bee:discuss` | Guided brainstorming-style codebase-grounded discussion before creating a spec |
+
+### Execution
+| Command | Description |
+|---------|-------------|
+| `/bee:execute-phase N` | Execute a planned phase with wave-based parallel TDD agents |
+| `/bee:quick` | Fast-track task. `--fast` for direct mode, `--amend N` to modify existing, `--review` for post-review |
+
+### Quality
+| Command | Description |
+|---------|-------------|
+| `/bee:review` | Multi-agent parallel review (4 specialists) with finding validation, escalation, and auto-fix. `--loop` for auto-loop |
+| `/bee:review-implementation` | Context-aware review -- full spec mode (4 agents per stack) or ad-hoc mode (3 agents) |
+| `/bee:fix-implementation` | Standalone fix -- reads review output and fixes confirmed findings sequentially |
+| `/bee:test` | Generate manual test scenarios and verify with developer |
+| `/bee:test-e2e` | Generate and run Playwright E2E tests with Page Object Model |
+
+### Audit
+| Command | Description |
+|---------|-------------|
+| `/bee:audit` | Comprehensive 9-agent code audit with finding validation and structured report. `--only security,database` for selective |
+| `/bee:audit-to-spec` | Convert audit findings into actionable specs by severity. `--critical` for critical only, `--dry-run` to preview |
+
+### Finalization
+| Command | Description |
+|---------|-------------|
+| `/bee:commit` | Show diff summary, suggest commit message, require confirmation |
 | `/bee:archive-spec` | Archive completed spec, reset STATE.md, bump plugin version |
+| `/bee:eod` | End-of-day integrity check with 4 parallel audits |
 
-## Workflow
+## Workflows
 
+### Full Feature Workflow
 ```
-/bee:init
-    │
-/bee:new-spec ─── Research codebase
-    │              │
-    │         Discovery conversation (AskUserQuestion rounds)
-    │              │
-    │         requirements.md → spec-writer → spec.md + phases.md
-    │
-    v
-/bee:plan-phase 1 --> /bee:execute-phase 1 --> /bee:review --> /bee:test --> /bee:commit
-    │                                                                            │
-/bee:plan-phase 2 --> /bee:execute-phase 2 --> /bee:review --> /bee:test --> /bee:commit
-    │                                                                            │
-   ...                                                                          ...
-    │
-/bee:review-implementation  (optional: full spec compliance check)
-    │
-/bee:archive-spec          (archive spec, reset state)
-    │
-/bee:eod                   (optional: end-of-day audit)
+/bee:init → /bee:new-spec → /bee:plan-phase 1 → /bee:execute-phase 1 → /bee:review → /bee:test → /bee:commit
+                                                    ↑ repeat for each phase ↓
+                            /bee:review-implementation → /bee:archive-spec → /bee:eod
 ```
 
-Each phase goes through the full pipeline before the next one starts. Review gates ensure quality between steps.
+### Quick Task Workflow
+```
+/bee:quick fix the login button alignment     # Agents mode (default): research + implement
+/bee:quick --fast fix the button color        # Direct execution, no agents
+/bee:quick --amend 3                          # Modify existing quick task plan #3
+/bee:quick --review update the footer links   # Execute + review before commit
+```
 
-## Supported Stacks
+### Code Audit Workflow (Vibecoded Project Takeover)
+```
+/bee:init → /bee:audit → /bee:audit-to-spec → /bee:new (per spec) → standard pipeline
+```
 
-- `laravel-inertia-vue`
+## Agents (33)
+
+11 core agents, 5 review agents, 11 audit agents, 3 EOD agents, 3 stack-specific agents. See `plugins/bee/README.md` for full details.
+
+## Supported Stacks (10)
+
+- `laravel-inertia-vue` (gold standard — 3 stack-specific agents)
 - `laravel-inertia-react`
-- `react`
-- `nextjs`
 - `nestjs`
+- `vue`
+- `nextjs`
+- `react`
+- `angular`
 - `react-native-expo`
+- `kmp-compose`
+- `claude-code-plugin`
 
-Stack detection is automatic during `/bee:init` based on `package.json` and `composer.json`.
+Stack detection is automatic during `/bee:init` based on `package.json`, `composer.json`, and `build.gradle.kts`.
 
 ## Project Structure
 
@@ -107,75 +139,65 @@ your-project/
 └── .bee/
     ├── config.json          # Stack, linter, test runner, CI config
     ├── PROJECT.md           # Codebase index (structure, entry points, deps)
-    ├── STATE.md             # Current workflow state (phases, progress)
+    ├── CONTEXT.md           # Extracted codebase patterns (from context-builder)
+    ├── STATE.md             # Current workflow state (phases, progress, audit history)
     ├── COMPACT-CONTEXT.md   # Context snapshot for /bee:compact
-    ├── specs/
-    │   └── feature-name/
-    │       ├── requirements.md  # Discovery conversation output
-    │       ├── spec.md          # Feature specification
-    │       └── phases.md        # Phase breakdown
-    ├── quick/              # Persisted quick task plans ({NNN}-{slug}.md)
-    ├── memory/             # Agent memory (shared.md + per-agent .md files)
-    ├── reviews/            # Review reports from /bee:review-implementation
-    └── eod-reports/        # End-of-day audit reports
+    ├── AUDIT-REPORT.md      # Latest audit report (from /bee:audit)
+    ├── audit-findings.json  # Machine-readable findings (for /bee:audit-to-spec)
+    ├── specs/               # Feature specs
+    ├── audit-specs/         # Spec descriptions generated from audit findings
+    ├── quick/               # Persisted quick task plans
+    ├── memory/              # Agent memory (shared.md + per-agent .md files)
+    ├── reviews/             # Review reports from /bee:review-implementation
+    └── eod-reports/         # End-of-day audit reports
 ```
 
 ## How It Works
 
-1. **Spec creation** (`/bee:new-spec`) -- Structured developer interview (2-5 adaptive rounds with selectable options): researches codebase first so questions reference specific files, then converges on requirements and writes spec + phases.
+1. **Spec creation** (`/bee:new-spec`) — Structured developer interview (2-5 adaptive rounds): researches codebase first, then converges on requirements and writes spec + phases.
 
-2. **Phase planning** (`/bee:plan-phase`) -- Decomposes a phase into tasks, runs research, assigns tasks to parallel execution waves. Automatically runs plan review (4 parallel agents) after planning -- developer approves or modifies before proceeding.
+2. **Phase planning** (`/bee:plan-phase`) — Decomposes a phase into tasks, runs research, assigns to parallel waves. Auto-reviews plan with 4 agents before proceeding.
 
-3. **Execution** (`/bee:execute-phase`) -- Spawns implementer agents per wave. Each agent follows TDD: write tests first, then implement, then verify.
+3. **Execution** (`/bee:execute-phase`) — Spawns implementer agents per wave. Each follows TDD: write tests first, then implement, then verify.
 
-4. **Review** (`/bee:review`) -- Multi-agent parallel review: 4 specialized agents (bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer) review code in parallel, then findings are validated (with specialist escalation for medium-confidence results), auto-fixed, and optionally re-reviewed.
+4. **Review** (`/bee:review`) — 4 specialized agents review in parallel (bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer), findings validated with specialist escalation, auto-fixed, optionally re-reviewed.
 
-5. **Testing** (`/bee:test`) -- Generates manual test scenarios from the spec, presents them for developer verification, routes failures to fixer agent.
+5. **Testing** (`/bee:test`) — Generates manual test scenarios, presents for verification, routes failures to fixer agent.
 
-6. **Commit** (`/bee:commit`) -- Shows diff summary, suggests conventional commit message, waits for explicit confirmation.
+6. **Commit** (`/bee:commit`) — Shows diff summary, suggests conventional commit message, waits for confirmation.
 
-## Smart Model Delegation
+7. **Audit** (`/bee:audit`) — 9 specialized agents scan the entire codebase in parallel (security, errors, database, architecture, API, frontend, performance, testing, end-to-end flows). Findings validated to filter hallucinations. Report generated with severity grouping and actionable recommendations.
 
-Bee optimizes cost and speed by dynamically selecting the model for each agent at spawn time:
+## Implementation Modes
 
-- **Sonnet** -- structured work: research, planning, validation, classification, audits
-- **Inherit (parent model)** -- production code, deep analysis, interactive sessions
+Three modes control cost and speed via model selection:
 
-The parent command (conductor) decides the model based on task complexity. Agents don't hardcode their model — the conductor overrides at spawn time.
+| Mode | Scanning agents | Critical agents |
+|------|----------------|-----------------|
+| **Economy** | sonnet | sonnet |
+| **Quality** (default) | sonnet | opus |
+| **Premium** | opus | opus |
 
-## Quick Tasks
+Set via `config.implementation_mode` in `.bee/config.json`.
 
-For small changes that don't need the full pipeline. Quick tasks are tracked in a separate STATE.md section with no impact on the spec/phase pipeline. Plans persist in `.bee/quick/`.
+## Hooks (8 events, 24 validators)
 
-```
-/bee:quick fix the login button alignment     # Agents mode (default): research + implement
-/bee:quick --fast fix the button color        # Direct execution, no agents
-/bee:quick --amend 3                          # Modify existing quick task plan #3
-/bee:quick --review update the footer links   # Execute + lightweight review before commit
-/bee:review-implementation                    # Standalone review of any changes (auto-detects mode)
-```
+- **SessionStart** — Load project context + configure statusline
+- **PostToolUse** — Auto-lint after file edits
+- **PreToolUse** — Pre-commit validation gate (linter + tests)
+- **PreCompact** — Save session context before compression
+- **SubagentStart** — Inject agent memory into subagent context
+- **SubagentStop** — 24 role-specific output validators (TDD compliance, finding format, read-only enforcement)
+- **Stop** — Warn about unreviewed phases
+- **SessionEnd** — Memory file limit warnings
 
 ## Statusline
 
-Bee installs a custom statusline (auto-configured on first session):
-
 ```
-Opus | v2.0.0 | 🐝 ▰▰▱▱▱ P2/5 EXEC | 3Δ | ████░░░░░░ 40%
+Opus | v3.1.0 | 🐝 ▰▰▱▱▱ P2/5 EXEC | 3Δ | ████░░░░░░ 40%
 ```
 
-Shows: model | bee version | implementation progress + active phase + status | git dirty count | context usage.
-
-## Hooks
-
-The plugin includes automatic hooks:
-
-- **SessionStart** -- Loads `.bee/STATE.md` and config; auto-configures statusline
-- **PostToolUse** -- Auto-lints after file edits (uses project's configured linter)
-- **PreToolUse** -- Pre-commit validation gate (runs linter + test checks before allowing commits)
-- **PreCompact** -- Saves session context before context compression
-- **SubagentStart** -- Injects agent memory (`.bee/memory/`) into subagent context at spawn time
-- **SubagentStop** -- Validates output from 4 specialized review agents (bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer) with role-specific checks
-- **Stop** -- Warns if executed phases haven't been reviewed
+Shows: model | bee version | phase progress + status | git dirty count | context usage.
 
 ## Requirements
 
