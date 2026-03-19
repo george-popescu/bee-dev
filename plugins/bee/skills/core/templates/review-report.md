@@ -42,6 +42,9 @@
 - **Category:** {Bug | Spec Gap | Standards | Dead Code | Security | TDD | Pattern}
 - **File:** {FILE_PATH}
 - **Lines:** {START_LINE}-{END_LINE}
+- **Evidence:** [trace path showing how the bug manifests, e.g., file:line → file:line → file:line (problem)]
+- **Impact:** [concrete user-facing or system consequence]
+- **Test Gap:** [specific missing test scenario] or "Covered by [test_name]"
 - **Description:** {DETAILED_DESCRIPTION}
 - **Suggested Fix:** {WHAT_TO_CHANGE}
 - **Validation:** pending

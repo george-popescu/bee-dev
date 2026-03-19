@@ -180,16 +180,19 @@ Use the template at `skills/core/templates/review-report.md` as the format refer
 
 Each finding gets a sequential ID: `F-001`, `F-002`, `F-003`, etc.
 
-For every finding, include all 8 fields:
+For every finding, include all 11 fields:
 
 1. **Severity:** Critical, High, or Medium
 2. **Category:** Bug, Spec Gap, Standards, Dead Code, Security, TDD, or Pattern
 3. **File:** Exact file path relative to project root
 4. **Lines:** Start and end line numbers (be specific -- generic findings without location are useless)
-5. **Description:** Detailed explanation of what is wrong and why
-6. **Suggested Fix:** Concrete description of what to change
-7. **Validation:** Set to `pending` (the review command handles validation)
-8. **Fix Status:** Set to `pending` (the review command handles fixing)
+5. **Evidence:** Trace path showing how the bug manifests, e.g., `file:line → file:line → file:line (problem)`
+6. **Impact:** Concrete user-facing or system consequence
+7. **Test Gap:** Specific missing test scenario, or "Covered by [test_name]"
+8. **Description:** Detailed explanation of what is wrong and why
+9. **Suggested Fix:** Concrete description of what to change
+10. **Validation:** Set to `pending` (the review command handles validation)
+11. **Fix Status:** Set to `pending` (the review command handles fixing)
 
 **Summary counts:** After writing all findings, fill in the summary tables at the top of REVIEW.md:
 - Severity counts table: total findings per severity level (set Real Bug, False Positive, Stylistic, and Fixed columns to 0 -- these are updated after validation)
