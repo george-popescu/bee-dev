@@ -125,6 +125,30 @@ Before spawning review agents, extract documented false positives so each agent 
 3. If the file does not exist, set the false-positives list to: `"No documented false positives."`
 4. This formatted list is included verbatim in each agent's context packet in Step 4.
 
+### Step 3.95: Context Cache and Dependency Scan
+
+**Context Cache (read once, pass to all agents):**
+
+Before spawning any agents, read these files once and include their content in every agent's context packet:
+1. Stack skill: `plugins/bee/skills/stacks/{stack}/SKILL.md`
+2. Project context: `.bee/CONTEXT.md`
+3. False positives: `.bee/false-positives.md`
+4. User preferences: `.bee/user.md`
+
+Pass these as part of the agent's prompt context — agents should NOT re-read these files themselves.
+
+**Dependency Scan:**
+
+Before spawning review agents, expand the file scope:
+
+1. For each modified file, grep for `import`/`require`/`use` statements to find its **dependencies** (files it imports)
+2. Grep the project for files that `import`/`require` any modified file to find its **consumers** (files that import it)
+3. Scan depth: direct imports only (not transitive)
+4. **Test file discovery:** For each modified file, look for corresponding test files using common patterns: `{name}.test.{ext}`, `{name}.spec.{ext}`, `tests/{name}.{ext}`, `__tests__/{name}.{ext}`. Include discovered test file paths in the context packet.
+5. Limit: max 20 extra files (dependencies + consumers + test files combined) per agent context packet — if more than 20, prioritize consumers over dependencies
+6. Include all expanded file paths in the agent's context packet alongside the modified files
+7. Instruct agents: "Also verify that modifications don't break consumer files. Check import compatibility, return type changes, and side effect changes. Verify test files cover the modified behavior."
+
 ### Step 4: STEP 1 -- REVIEW (spawn specialized agents)
 
 Spawn specialized review agents. In a multi-stack project, bug-detector, pattern-reviewer, and stack-reviewer are spawned once per stack (3 per-stack agents), while plan-compliance-reviewer is spawned ONCE globally (stack-agnostic). Total agents: `(3 x N) + 1` where N = number of stacks. For single-stack projects, N = 1 so exactly 4 agents are spawned (identical to original behavior). The command (not the agents) writes REVIEW.md after consolidating all findings from all stacks.

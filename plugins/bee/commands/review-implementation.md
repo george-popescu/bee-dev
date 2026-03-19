@@ -21,6 +21,18 @@ Check these guards in order. Stop immediately if any fails:
    "BeeDev is not initialized. Run `/bee:init` first."
    Do NOT proceed.
 
+### Step 1.5: Context Cache
+
+**Context Cache (read once, pass to all agents):**
+
+Before spawning any agents, read these files once and include their content in every agent's context packet:
+1. Stack skill: `plugins/bee/skills/stacks/{stack}/SKILL.md`
+2. Project context: `.bee/CONTEXT.md`
+3. False positives: `.bee/false-positives.md`
+4. User preferences: `.bee/user.md`
+
+Pass these as part of the agent's prompt context — agents should NOT re-read these files themselves.
+
 ### Step 2: Context Detection -- Full Spec Mode vs Ad-Hoc Mode
 
 Read STATE.md from the dynamic context above. Determine the review mode:
@@ -99,6 +111,20 @@ Before spawning review agents, extract documented false positives so each agent 
    ```
 3. If the file does not exist, set the false-positives list to: `"No documented false positives."`
 4. This formatted list is included verbatim in each agent's context packet in Step 4.
+
+### Step 3.7: Dependency Scan
+
+**Dependency Scan:**
+
+Before spawning review agents, expand the file scope:
+
+1. For each modified file, grep for `import`/`require`/`use` statements to find its **dependencies** (files it imports)
+2. Grep the project for files that `import`/`require` any modified file to find its **consumers** (files that import it)
+3. Scan depth: direct imports only (not transitive)
+4. **Test file discovery:** For each modified file, look for corresponding test files using common patterns: `{name}.test.{ext}`, `{name}.spec.{ext}`, `tests/{name}.{ext}`, `__tests__/{name}.{ext}`. Include discovered test file paths in the context packet.
+5. Limit: max 20 extra files (dependencies + consumers + test files combined) per agent context packet — if more than 20, prioritize consumers over dependencies
+6. Include all expanded file paths in the agent's context packet alongside the modified files
+7. Instruct agents: "Also verify that modifications don't break consumer files. Check import compatibility, return type changes, and side effect changes. Verify test files cover the modified behavior."
 
 ### Step 4: Spawn Review Agents in Parallel
 
@@ -436,7 +462,7 @@ This step is handled inline in Step 4.3 through 4.5 above. After the output repo
 7. Build confirmed fix list: all REAL BUG findings (both HIGH confidence and specialist-confirmed) + user-approved STYLISTIC findings (those where user chose option a). Exclude any findings reclassified as FALSE POSITIVE by specialist escalation.
 8. Display validation summary: "{real_bug} real bugs, {false_positive} false positives, {stylistic} stylistic ({user_fix} to fix, {user_ignore} ignored), {escalated} escalated ({escalated_real_bug} confirmed, {escalated_false_positive} reclassified as FP)"
 
-#### 6.2: Fix confirmed issues (spawn fixer agents sequentially)
+#### 6.2: Fix confirmed issues (spawn fixer agents with file-based parallelism)
 
 1. Sort confirmed findings by priority order:
    - Priority 1: Critical severity
@@ -445,13 +471,23 @@ This step is handled inline in Step 4.3 through 4.5 above. After the output repo
    - Priority 4: Dead Code category (Medium)
    - Priority 5: Other Medium severity
 2. If no confirmed findings (all were false positives, ignored, or skipped): display "No confirmed findings to fix -- all findings were classified as false positives or stylistic (ignored)." Skip to Step 7.
-3. For EACH confirmed finding in priority order (SEQUENTIAL -- one at a time, never parallel):
+
+**Fixer Parallelization Strategy:**
+
+1. Group confirmed findings by file path
+2. For findings on DIFFERENT files: spawn fixers in parallel (one fixer per file group, processing its findings)
+3. For findings on the SAME file: run fixers sequentially within the group (safety — each fix changes file state)
+4. Collect all results, update review file with fix status
+
+Example: 6 findings on 3 files → 3 parallel fixer groups (instead of 6 sequential).
+
+3. For EACH file group (parallel across groups, sequential within each group):
    - Build fixer context packet:
      - Finding details: ID, summary, severity, category, file path, line range, description, suggested fix
      - Validation classification: REAL BUG or STYLISTIC (user-approved)
      - Stack info: resolve the correct stack for the finding's file path using path-overlap logic (compare the finding's file path against each stack's `path` in config.stacks -- a file matches a stack if the file path starts with or is within the stack's path; `"."` matches everything). Pass the resolved stack name explicitly.
    - Spawn `fixer` agent via Task tool with the context packet. Use the parent model (omit model parameter) -- fixers write production code and need full reasoning.
-   - WAIT for the fixer to complete before spawning the next fixer
+   - For findings on the same file: WAIT for each fixer to complete before spawning the next within that group. For findings on different files: fixer groups run in parallel.
    - Read the fixer's fix report from its final message (## Fix Report section)
    - Read current output report from disk (fresh read -- Read-Modify-Write pattern)
    - Update output report: set Fix Status for this finding to the fixer's reported status (Fixed / Reverted / Failed)
@@ -460,7 +496,7 @@ This step is handled inline in Step 4.3 through 4.5 above. After the output repo
      - Display failure to user: "Fix for F-{NNN} failed -- tests broke after fix. Changes reverted. Skipping this finding."
      - Update output report Fix Status to "Skipped (tests failed)"
 
-CRITICAL: Spawn fixers SEQUENTIALLY, one at a time. Never spawn multiple fixers in parallel. One fix may change the context for the next finding. Sequential execution prevents file conflicts and ensures each fixer sees the latest code state.
+CRITICAL: Within the same file group, spawn fixers SEQUENTIALLY, one at a time. Never spawn multiple fixers for the same file in parallel. One fix may change the context for the next finding on that file. Cross-file fixer groups may run in parallel safely.
 
 4. After all confirmed findings have been processed, display fix summary:
    "{fixed} fixed, {skipped} skipped, {failed} failed out of {total} confirmed findings"

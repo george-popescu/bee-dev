@@ -322,6 +322,18 @@ Before spawning review agents, extract documented false positives so each agent 
 3. If the file does not exist, set the false-positives list to: `"No documented false positives."`
 4. This formatted list is included verbatim in each agent's context packet in Step 4.5.2.
 
+#### 4.5.15: Context Cache
+
+**Context Cache (read once, pass to all agents):**
+
+Before spawning any agents, read these files once and include their content in every agent's context packet:
+1. Stack skill: `plugins/bee/skills/stacks/{stack}/SKILL.md`
+2. Project context: `.bee/CONTEXT.md`
+3. False positives: `.bee/false-positives.md`
+4. User preferences: `.bee/user.md`
+
+Pass these as part of the agent's prompt context — agents should NOT re-read these files themselves.
+
 #### 4.5.2: Build context packets and spawn four agents in parallel
 
 Build four agent-specific context packets. Each includes the changed files list, review mode instruction, and the false-positives list from Step 4.5.1.

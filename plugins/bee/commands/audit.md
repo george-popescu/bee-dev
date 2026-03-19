@@ -53,6 +53,30 @@ Agents: {list of agents to run}
 Estimated time: {rough estimate based on file count}
 ```
 
+### Step 3.5: Context Cache and Dependency Scan
+
+**Context Cache (read once, pass to all agents):**
+
+Before spawning any agents, read these files once and include their content in every agent's context packet:
+1. Stack skill: `plugins/bee/skills/stacks/{stack}/SKILL.md`
+2. Project context: `.bee/CONTEXT.md`
+3. False positives: `.bee/false-positives.md`
+4. User preferences: `.bee/user.md`
+
+Pass these as part of the agent's prompt context — agents should NOT re-read these files themselves.
+
+**Dependency Scan:**
+
+Before spawning review agents, expand the file scope:
+
+1. For each modified file, grep for `import`/`require`/`use` statements to find its **dependencies** (files it imports)
+2. Grep the project for files that `import`/`require` any modified file to find its **consumers** (files that import it)
+3. Scan depth: direct imports only (not transitive)
+4. **Test file discovery:** For each modified file, look for corresponding test files using common patterns: `{name}.test.{ext}`, `{name}.spec.{ext}`, `tests/{name}.{ext}`, `__tests__/{name}.{ext}`. Include discovered test file paths in the context packet.
+5. Limit: max 20 extra files (dependencies + consumers + test files combined) per agent context packet — if more than 20, prioritize consumers over dependencies
+6. Include all expanded file paths in the agent's context packet alongside the modified files
+7. Instruct agents: "Also verify that modifications don't break consumer files. Check import compatibility, return type changes, and side effect changes. Verify test files cover the modified behavior."
+
 ### Step 4: Run Audit Agents
 
 Spawn audit agents in parallel batches. The order and grouping depends on `$IMPL_MODE`:

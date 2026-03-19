@@ -82,6 +82,18 @@ Fix order:
 ...
 ```
 
+### Step 3.5: Context Cache
+
+**Context Cache (read once, pass to all agents):**
+
+Before spawning any agents, read these files once and include their content in every agent's context packet:
+1. Stack skill: `plugins/bee/skills/stacks/{stack}/SKILL.md`
+2. Project context: `.bee/CONTEXT.md`
+3. False positives: `.bee/false-positives.md`
+4. User preferences: `.bee/user.md`
+
+Pass these as part of the agent's prompt context — agents should NOT re-read these files themselves.
+
 ### Step 4: Fix Loop
 
 Build the stack list for per-finding resolution:
@@ -89,9 +101,18 @@ Build the stack list for per-finding resolution:
 - If `config.stacks` is absent but `config.stack` exists (legacy v2 config): create a single-entry list: `[{ name: config.stack, path: "." }]`.
 - If neither exists, create a single-entry list: `[{ name: "unknown", path: "." }]`.
 
-For EACH finding in the sorted priority order (SEQUENTIAL -- one at a time, never parallel):
+**Fixer Parallelization Strategy:**
 
-1. Display: "Fixing F-{NNN}: {summary}..."
+1. Group confirmed findings by file path
+2. For findings on DIFFERENT files: spawn fixers in parallel (one fixer per file group, processing its findings)
+3. For findings on the SAME file: run fixers sequentially within the group (safety — each fix changes file state)
+4. Collect all results, update review file with fix status
+
+Example: 6 findings on 3 files → 3 parallel fixer groups (instead of 6 sequential).
+
+For EACH file group:
+
+1. Display: "Fixing F-{NNN}: {summary}..." (for each finding in the group)
 
 2. Build fixer context packet:
    - Finding details: ID, summary, severity, category, file path, line range, description, suggested fix
@@ -100,7 +121,7 @@ For EACH finding in the sorted priority order (SEQUENTIAL -- one at a time, neve
 
 3. Spawn `fixer` agent via Task tool with the context packet. Omit the model parameter -- fixers write production code and need full reasoning capability.
 
-4. WAIT for the fixer to complete before spawning the next fixer.
+4. For findings on the same file: WAIT for each fixer to complete before spawning the next within that group. For findings on different files: fixer groups run in parallel.
 
 5. Read the fixer's fix report from its final message (the `## Fix Report` section).
 
@@ -114,7 +135,7 @@ For EACH finding in the sorted priority order (SEQUENTIAL -- one at a time, neve
    - Display: "Fix for F-{NNN} failed -- changes reverted. Skipping."
    - Update the review file Fix Status to "Skipped (tests failed)"
 
-CRITICAL: Spawn fixers SEQUENTIALLY, one at a time. Never spawn multiple fixers in parallel. One fix may change the context for the next finding. Sequential execution prevents file conflicts and ensures each fixer sees the latest code state.
+CRITICAL: Within the same file group, spawn fixers SEQUENTIALLY, one at a time. Never spawn multiple fixers for the same file in parallel. One fix may change the context for the next finding on that file. Cross-file fixer groups may run in parallel safely.
 
 ### Step 5: Summary
 
