@@ -181,7 +181,6 @@ The `stacks` array contains one entry per each confirmed stack-path pair from St
 **Single-stack example:**
 ```json
 {
-  "version": "0.1.0",
   "stacks": [
     { "name": "{detected_stack}", "path": ".", "linter": "{detected_linter}", "testRunner": "{detected_runner}" }
   ],
@@ -208,7 +207,6 @@ The `stacks` array contains one entry per each confirmed stack-path pair from St
 **Multi-stack example:**
 ```json
 {
-  "version": "0.1.0",
   "stacks": [
     { "name": "laravel-inertia-vue", "path": ".", "linter": "pint", "testRunner": "pest" },
     { "name": "nestjs", "path": "api", "linter": "eslint", "testRunner": "jest" }

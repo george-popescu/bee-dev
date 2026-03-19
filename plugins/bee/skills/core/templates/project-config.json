@@ -1,5 +1,4 @@
 {
-  "version": "0.1.0",
   "stacks": [
     { "name": "{STACK}", "path": ".", "linter": "{LINTER}", "testRunner": "{TEST_RUNNER}" }
   ],
