@@ -206,6 +206,8 @@ Ask questions ONE AT A TIME to understand the feature. Each question is its own 
 
 **Self-check every 3 questions:** After every 3 questions answered, pause and assess: "Do I understand this feature well enough to propose approaches?" If yes, move to Phase 4. If no, continue asking.
 
+Continue asking clarifying questions one at a time using AskUserQuestion with options. Stop when you have sufficient context to write a complete spec. The user can always choose "Enough, write the spec" to move forward. No hardcoded question limit.
+
 Skip questions that are already answered by discussion notes (when `$USE_DISCUSSION` is true).
 
 #### Phase 4: Approaches
@@ -450,6 +452,8 @@ After all steps complete successfully (in either the new or amend flow), update 
 
 Display the following summary to the user:
 
+Display the following summary to the user:
+
 ```
 Spec created!
 
@@ -464,11 +468,9 @@ Files:
 - requirements.md (from discovery conversation)
 - spec.md (feature specification)
 - phases.md (implementation phases)
-
-Next step: /bee:plan-phase 1 (/clear first if context is long)
 ```
 
-If this was an amend, adjust the message:
+If this was an amend, display instead:
 
 ```
 Spec amended!
@@ -477,9 +479,20 @@ Spec: {spec-name}
 Path: .bee/specs/{folder}/
 Changes: {brief summary of what changed}
 Phases: {N} phases (updated if affected)
-
-Next step: /bee:plan-phase N (/clear first if context is long) -- re-plan affected phases
 ```
+
+Then use AskUserQuestion for the next step:
+
+```
+AskUserQuestion(
+  question: "Spec '{spec-name}' scrisă. {N} phases definite.",
+  options: ["Plan Phase 1", "Revise", "Custom"]
+)
+```
+
+- **Plan Phase 1**: Execute `/bee:plan-phase 1`
+- **Revise**: Follow-up AskUserQuestion for what to change, then re-run spec-writer
+- **Custom**: Free text
 
 ---
 

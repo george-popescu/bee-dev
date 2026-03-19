@@ -116,6 +116,8 @@ Example progression (adapt based on context):
 
 **Self-check every 3 questions:** After every 3 questions answered, pause and assess: "Do I understand the problem space well enough to discuss approaches?" If yes, move to Phase 3. If no, continue asking.
 
+Continue asking clarifying questions one at a time using AskUserQuestion with options. Stop when you have sufficient context to produce useful discussion notes. The user can always choose to move forward. No hardcoded question limit.
+
 #### Phase 3: Approaches
 
 Present 2-3 approaches with trade-offs from the scan results. Lead with your recommendation:
@@ -237,10 +239,21 @@ Rounds: {number of rounds completed}
 
 The discussion notes capture the problem space, approaches considered,
 and insights for spec creation.
-
-Next step:
-  /bee:new-spec --from-discussion {$NOTES_PATH}
 ```
+
+Then use AskUserQuestion for the next step:
+
+```
+AskUserQuestion(
+  question: "Discussion notes scrise: {$NOTES_PATH}",
+  options: ["Accept", "Continue discussing", "New Spec", "Custom"]
+)
+```
+
+- **Accept**: Notes are complete, show path and end
+- **Continue discussing**: Re-enter discussion loop for more detail, then regenerate notes
+- **New Spec**: Execute `/bee:new-spec --from-discussion {$NOTES_PATH}`
+- **Custom**: Free text
 
 ---
 

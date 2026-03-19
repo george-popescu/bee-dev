@@ -204,6 +204,19 @@ Store the research output as `$RESEARCH`.
 
 **Persist research to plan file:** After the researcher returns, read `$PLAN_FILE` and update the `## Research` section with `$RESEARCH` content. Write the updated plan file to disk.
 
+**Research complete — present menu:**
+
+```
+AskUserQuestion(
+  question: "Research complete. Plan: {$PLAN_FILE}",
+  options: ["Execute", "Revise plan", "Custom"]
+)
+```
+
+- **Execute**: Proceed to spawn quick-implementer agent (Phase 2 below).
+- **Revise plan**: Use AskUserQuestion to ask for revision instructions, update the plan file accordingly, then proceed to Phase 2.
+- **Custom**: Wait for free-text input from the user and act on it.
+
 **Phase 2: Implementation (TDD)**
 
 Spawn the `quick-implementer` agent with the research context, plan file path, and enriched plan content. The quick-implementer enforces TDD: it reads acceptance criteria from the plan file, writes failing tests first, then implements the minimal code to make tests pass.
@@ -257,6 +270,21 @@ Tests: {pass/fail summary}
 **Persist execution notes to plan file:** After the implementer returns, read `$PLAN_FILE` and update the `## Execution Notes` section with a summary of the changes made. Set `Status:` to `EXECUTED`. Write the updated plan file to disk.
 
 If the implementer reported failures or issues, present them and ask the user how to proceed before continuing to Step 4.5.
+
+**Implementation complete — present menu:**
+
+```
+AskUserQuestion(
+  question: "Implementation complete. [X] tests passing.",
+  options: ["Review", "Accept", "Custom"]
+)
+```
+
+Replace `[X]` with the actual test count from the implementer's final message.
+
+- **Review**: Proceed to Step 4.5 (spawn bug-detector, pattern-reviewer, stack-reviewer, plan-compliance-reviewer).
+- **Accept**: Skip review entirely — jump directly to Step 5 (Commit).
+- **Custom**: Wait for free-text input from the user and act on it.
 
 ### Step 4.5: Review Gate (if --review)
 
@@ -478,7 +506,23 @@ Options: "Fix before commit" (spawn fixers for confirmed issues), "Commit as-is"
      2. Spawn fixer and WAIT for completion.
      3. Read the fixer's Fix Report status from its final message.
      4. If the fixer reports "Reverted" or "Failed": display "Fix for F-{NNN} failed -- changes reverted. Skipping." and continue to the next finding.
-     5. After all findings processed, display: "{fixed} fixed, {skipped} skipped out of {total}." then proceed to Step 5.
+     5. After all findings processed, display: "{fixed} fixed, {skipped} skipped out of {total}."
+
+        Then present the post-review menu:
+
+        ```
+        AskUserQuestion(
+          question: "Review complete. [X] findings: [F] fixed, [FP] false positives.",
+          options: ["Re-review", "Accept", "Custom"]
+        )
+        ```
+
+        Replace `[X]` with total finding count, `[F]` with fixed count, `[FP]` with false positive count.
+
+        - **Re-review**: Re-run all review agents (Steps 4.5.0–4.5.6) on the same `$REVIEW_FILES`. No iteration limit — repeat until user selects Accept or Custom.
+        - **Accept**: End review cycle, proceed to Step 5.
+        - **Custom**: Wait for free-text input from the user and act on it.
+
    - **Commit as-is:** Proceed to Step 5.
    - **Cancel:** Display "Cancelled. Changes remain unstaged." Stop.
 
