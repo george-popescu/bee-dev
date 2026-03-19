@@ -511,10 +511,18 @@ Per-phase compliance percentages are calculated from the findings: for each phas
    - If ALL phases have Status COMMITTED: set Current Spec Status to COMPLETED
 3. Write updated STATE.md to disk.
 
-4. Display next step suggestion:
+4. Present results summary, then ask the user:
+
    ```
-   Next step: /bee:commit (/clear first if context is long) if fixes were applied, or /bee:plan-phase {N+1} to address remaining gaps
+   AskUserQuestion(
+     question: "Review complet. [X] findings: [F] fixed, [S] skipped, [FP] false positives.",
+     options: ["Re-review", "Accept", "Custom"]
+   )
    ```
+
+   - **Re-review**: Re-run the full review pipeline from Step 1 (fresh agent spawns on same files). No iteration limit.
+   - **Accept**: End command, update STATE.md
+   - **Custom**: User types what they want
 
 #### Ad-Hoc Mode Summary
 
@@ -537,10 +545,18 @@ Review saved: {output_path}
    - Result: "Ad-hoc review: {total_findings} findings, {confirmed} confirmed, {fixed} fixed"
 3. Write updated STATE.md to disk.
 
-4. Display next step suggestion:
+4. Present results summary, then ask the user:
+
    ```
-   Next step: /bee:commit (/clear first if context is long) if fixes were applied
+   AskUserQuestion(
+     question: "Review complet. [X] findings: [F] fixed, [S] skipped, [FP] false positives.",
+     options: ["Re-review", "Accept", "Custom"]
+   )
    ```
+
+   - **Re-review**: Re-run the full review pipeline from Step 1 (fresh agent spawns on same files). No iteration limit.
+   - **Accept**: End command, update STATE.md
+   - **Custom**: User types what they want
 
 ---
 

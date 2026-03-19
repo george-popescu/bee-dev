@@ -43,11 +43,10 @@ Check these guards in order. Stop immediately if any fails:
 4. Read TASKS.md to identify files created/modified by the phase
 5. Note whether `.bee/false-positives.md` exists (Step 3.9 extracts false positives before review agents)
 6. Check `$ARGUMENTS` for `--loop` flag
-7. Read `config.json` from dynamic context for `review.loop` and `review.max_loop_iterations` settings
+7. Read `config.json` from dynamic context for `review.loop` setting
 8. Determine loop mode: enabled if `--loop` in arguments OR `config.review.loop` is true
-9. Set max iterations: from `config.review.max_loop_iterations` (default: 3)
-10. Check the Reviewed column for the detected phase. If it shows "Yes (N)" for some number N, this is a re-review -- set the base iteration count to N. Otherwise (empty or no previous review), set the base iteration count to 0.
-11. Initialize iteration counter to base iteration count + 1 (first review = 1, first re-review of "Yes (1)" = 2, etc.)
+9. Check the Reviewed column for the detected phase. If it shows "Yes (N)" for some number N, this is a re-review -- set the base iteration count to N. Otherwise (empty or no previous review), set the base iteration count to 0.
+10. Initialize iteration counter to base iteration count + 1 (first review = 1, first re-review of "Yes (1)" = 2, etc.)
 
 ### Step 3: Archive Previous Review (if re-review) and Update STATE.md
 
@@ -414,10 +413,7 @@ CRITICAL: Spawn fixers SEQUENTIALLY, one at a time. Never spawn multiple fixers 
 
 1. If loop mode is NOT enabled: skip to Step 8 (completion)
 2. Track loop iterations separately from the cumulative iteration counter. Initialize `$LOOP_ITERATION = 1` on first entry to Step 7 (do NOT re-initialize on subsequent loops). Increment `$LOOP_ITERATION` on each re-entry. Also increment the cumulative `iteration_counter` (used for STATE.md and REVIEW.md naming).
-3. If `$LOOP_ITERATION > max_iterations`:
-   - Display: "Max review loop iterations ({max}) reached. Review complete."
-   - Skip to Step 8
-4. Display: "Starting re-review (loop iteration {$LOOP_ITERATION}, cumulative iteration {iteration_counter})..."
+3. Display: "Starting re-review (loop iteration {$LOOP_ITERATION}, cumulative iteration {iteration_counter})..."
 
 #### 7.1: Archive current REVIEW.md
 
@@ -482,20 +478,21 @@ Findings: {total} total
 - False positives: {fp_count} (documented in .bee/false-positives.md)
 - Stylistic: {stylistic} ({user_fixed} fixed, {user_ignored} ignored)
 Iterations: {iteration_count}
-
-Next step:
-{If fixed > 0: "/bee:review --phase {N} to verify fixes, or /bee:test to proceed"}
-{If fixed == 0: "/bee:test or /bee:plan-phase {N+1} to skip testing"}
-(/clear first if context is long)
 ```
 
 Use AskUserQuestion to let the user choose:
-- If fixes were applied (fixed > 0):
-  Question: "Findings were fixed. What next?"
-  Options: "Re-review phase {N}" (verify the fixes with a fresh review), "Proceed to testing" (/bee:test), "Skip to next phase" (/bee:plan-phase {N+1}).
-- If no fixes (all clean, false positives, or ignored):
-  Question: "Review complete. What next?"
-  Options: "Proceed to testing" (/bee:test), "Skip to next phase" (/bee:plan-phase {N+1}).
+
+```
+AskUserQuestion(
+  question: "Review phase {N} complet. [X] findings: [F] fixed, [S] skipped, [FP] false positives.",
+  options: ["Re-review", "Accept", "Testing", "Custom"]
+)
+```
+
+- **Re-review**: Re-run from Step 1. No iteration limit — user decides when clean.
+- **Accept**: End review, update STATE.md
+- **Testing**: Proceed to `/bee:test`
+- **Custom**: Free text
 
 ---
 
@@ -512,7 +509,7 @@ Use AskUserQuestion to let the user choose:
 - Specialist escalation for MEDIUM confidence findings happens AFTER batch validation completes (not inline during validation batching). Flow: (1) batch validate up to 5 findings, (2) collect all classifications, (3) for MEDIUM confidence ones, spawn the source specialist sequentially for a second opinion, (4) then proceed to update REVIEW.md with final classifications. Escalation uses `bee:finding-validator` (not the source specialist — specialist SubagentStop hooks expect their standard format, not second-opinion format). HIGH confidence classifications proceed unchanged -- only MEDIUM triggers escalation.
 - The command handles user interaction for STYLISTIC findings. Commands handle interaction, agents handle work.
 - `.bee/false-positives.md` is created on first use when the first false positive is documented. If no false positives exist yet, the file does not exist.
-- Loop mode is opt-in: `--loop` flag or `config.review.loop`. Capped at `max_loop_iterations` (default 3). Re-review (Step 7) re-extracts false positives (Step 7.2), re-spawns all review agents in parallel (Step 7.3), and applies the same parse/deduplicate/consolidate pipeline (Step 7.4) before evaluating findings. The re-review agents see the updated code (post-fix) and updated false-positives list.
+- Loop mode is opt-in: `--loop` flag or `config.review.loop`. No hardcoded iteration cap — the user decides when clean via the interactive menu at Step 8. Re-review (Step 7) re-extracts false positives (Step 7.2), re-spawns all review agents in parallel (Step 7.3), and applies the same parse/deduplicate/consolidate pipeline (Step 7.4) before evaluating findings. The re-review agents see the updated code (post-fix) and updated false-positives list.
 - Always re-read STATE.md from disk before each update (Read-Modify-Write pattern) to ensure latest state.
 - The review agents, finding-validator, and fixer are spawned via Task tool as foreground subagents. The SubagentStop hook in hooks.json fires for implementer agents only (matcher: "implementer") -- it does NOT fire for review pipeline agents.
 - If the session ends mid-review (context limit, crash, user stops), re-running `/bee:review` detects the REVIEWING status and offers to resume. REVIEW.md on disk reflects the pipeline state at the time of interruption.

@@ -151,7 +151,6 @@ Full report: `.bee/AUDIT-REPORT.md`
 - Review the report, especially NEEDS CONTEXT findings
 - Run `/bee:audit-to-spec` to convert findings into actionable specs
 - Run `/bee:audit-to-spec --critical` for immediate critical fixes only
-(/clear first if context is long)
 ```
 
 ### Step 8: Update STATE.md
@@ -183,6 +182,22 @@ Read `.bee/STATE.md` from disk (fresh read).
 ```
 
 4. Write updated STATE.md to disk.
+
+### Step 9: Interactive Menu
+
+Present the results summary from Step 7, then ask the user:
+
+```
+AskUserQuestion(
+  question: "Audit complet. [X] findings ([C] critical, [H] high, [M] medium). Report: [path]",
+  options: ["Audit-to-spec", "Re-audit", "Accept", "Custom"]
+)
+```
+
+- **Audit-to-spec**: Execute `/bee:audit-to-spec` on the generated report
+- **Re-audit**: Re-run the full audit pipeline from Step 1 (fresh agent spawns)
+- **Accept**: End command, no further action
+- **Custom**: User types what they want, conductor interprets and executes
 
 ---
 
