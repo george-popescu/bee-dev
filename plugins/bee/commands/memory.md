@@ -1,57 +1,41 @@
 ---
 name: memory
-description: View accumulated agent memories for the current project
+description: View and manage user preferences stored in .bee/user.md
 user_invocable: true
-arguments:
-  - name: agent
-    description: Optional agent name to filter (e.g., "implementer", "reviewer"). Shows all if omitted.
-    required: false
 ---
 
-# /bee:memory -- View Agent Memories
+# /bee:memory -- View & Manage User Preferences
 
-Display the accumulated project knowledge stored by agents in `.bee/memory/`.
+Display and optionally edit the user preferences stored in `.bee/user.md`.
 
 ## Instructions
 
-1. Check if `.bee/memory/` directory exists. If not, display:
+1. Check if `.bee/user.md` exists.
+
+   **If it does not exist**, display:
    ```
-   No agent memories yet. Memories are created automatically as agents work on this project.
+   No user preferences file found (.bee/user.md).
+   This file lets you set persistent preferences and context for all agents on this project.
+   Would you like to create it now?
    ```
-   Stop here.
+   If the user says yes, create `.bee/user.md` with a short starter template and open it for editing. Stop here.
 
-2. Parse the optional argument `$ARGUMENTS`. If provided, treat it as an agent name filter.
+2. **If `.bee/user.md` exists**, read its contents and display them:
 
-3. Read all `.md` files in `.bee/memory/`:
-   - `shared.md` -- cross-cutting project knowledge
-   - `{agent-name}.md` -- per-agent knowledge (implementer, reviewer, fixer, etc.)
+   ```
+   ## User Preferences (.bee/user.md)
 
-4. If an agent name filter was provided, show only `shared.md` and `{agent-name}.md`.
+   {contents of .bee/user.md}
+   ```
 
-5. Display the memories in a clean format:
+3. After displaying the contents, ask:
+   ```
+   Would you like to edit your preferences?
+   ```
 
-```
-## Project Memory
-
-### Shared
-{contents of shared.md, or "(empty)" if no entries}
-
-### {Agent Name}
-{contents of {agent}.md, or "(empty)" if no entries}
-
-...repeat for each agent memory file found...
-```
-
-6. Show a summary footer:
-
-```
----
-{N} memory files | {total lines} entries
-Memories grow automatically as agents work. Edit .bee/memory/*.md to curate.
-```
+4. If the user wants to edit, open `.bee/user.md` for editing using the Edit tool so they can add or modify entries inline. Confirm the changes were saved.
 
 ## Notes
 
-- Memory files are created automatically by agents during execution. There is nothing to "add" manually.
-- If a user wants to seed knowledge, they can edit `.bee/memory/shared.md` directly.
-- Read-only agents (reviewer, finding-validator, integrity-auditor, test-auditor, project-reviewer) consume memory but don't write to it. Write-capable agents (implementer, fixer, researcher, spec-writer, phase-planner, plan-reviewer, test-planner, spec-shaper) both read and write.
+- `.bee/user.md` is injected into every agent session automatically, so changes take effect immediately on the next run.
+- Typical entries include coding style preferences, project conventions, tool preferences, and anything else agents should always be aware of.
