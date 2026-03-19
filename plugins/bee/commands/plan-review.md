@@ -327,21 +327,28 @@ If 0 issues total, set Status to CLEAN. Otherwise set Status to ISSUES_FOUND.
    ```
 
 4. Present options to the user via AskUserQuestion:
-   Question: "{X} issues found. What would you like to do?"
-   Options: "Fix (Recommended)" (fix issues in TASKS.md now), "Accept as-is" (proceed to execution despite findings), "Fix manually" (edit TASKS.md yourself and re-run plan-review).
+
+```
+AskUserQuestion(
+  question: "Plan review complet. {X} issues găsite.",
+  options: ["Accept", "Re-review", "Revise plan", "Custom"]
+)
+```
+
+- **Accept**: Accept plan as-is, update STATE.md Plan Review column (Read-Modify-Write: parse current value, write `"Yes ({N+1})"`)
+- **Re-review**: Re-run plan review pipeline from Step 1 (re-spawn all four agents with the current TASKS.md)
+- **Revise plan**: Follow-up AskUserQuestion (text liber) for what to change — apply changes to TASKS.md on disk, then return to this menu
+- **Custom**: Free text
 
 5. Handle responses:
 
-   - **Fix (Recommended):** Apply fixes directly to TASKS.md on disk:
-     - Spec compliance gaps → add missing acceptance criteria or tasks
-     - Bug risks → add edge case handling to acceptance criteria
-     - Pattern issues → update task descriptions to follow established patterns
-     - Stack issues → align task approach with stack conventions
-     Display what was fixed. Then archive the current PLAN-REVIEW.md (use Glob to count existing `PLAN-REVIEW-*.md` files, archive number = count + 1, rename to `PLAN-REVIEW-{archive_number}.md`). Track fix iterations with `$FIX_ITERATION` (initialize to 1, increment on each re-run). Read `config.review.max_plan_review_iterations` from config.json (default: 3). If `$FIX_ITERATION > max`, display: "Plan review found persistent issues after {N} fix attempts. Review PLAN-REVIEW.md and fix manually." Stop — do not loop further. Re-run the review pipeline (Steps 3.1 through 3.6) to verify fixes. If the re-review is CLEAN, auto-approve (update STATE.md Plan Review column). If issues remain, re-present Step 4 (loop).
+   - **Accept:** Read STATE.md from disk. Parse the current Plan Review column value for this phase to extract N (e.g., `"Yes (1)"` -> N=1, `"Yes"` -> N=0, empty -> N=0). Always parse and increment -- never use file-count. Write `"Yes ({N+1})"` to the Plan Review column for this phase in STATE.md. Display "Plan approved. Plan Review set to Yes ({N+1}) in STATE.md. Run `/bee:execute-phase {N}` to start." Stop.
 
-   - **Accept as-is:** Read STATE.md from disk. Parse the current Plan Review column value for this phase to extract N (e.g., `"Yes (1)"` -> N=1, `"Yes"` -> N=0, empty -> N=0). Always parse and increment -- never use file-count. Write `"Yes ({N+1})"` to the Plan Review column for this phase in STATE.md. Display "Plan approved with {X} known issues. Plan Review set to Yes ({N+1}) in STATE.md. Run `/bee:execute-phase {N}` to start." Stop.
+   - **Re-review:** Archive the current PLAN-REVIEW.md (use Glob to count existing `PLAN-REVIEW-*.md` files, archive number = count + 1, rename to `PLAN-REVIEW-{archive_number}.md`). Re-run the full review pipeline from Step 3.1 (re-spawn all four agents). After agents complete, re-run Steps 3.2 through 3.6. If the re-review is CLEAN, auto-approve (update STATE.md Plan Review column). If issues remain, re-present this menu (Step 4).
 
-   - **Fix manually:** Display "Edit `{phase_directory}/TASKS.md` to address the findings, then re-run `/bee:plan-review {N}` for a fresh review." Stop.
+   - **Revise plan:** Ask the user (free text): "What changes would you like to make to the plan?" Apply the requested changes to TASKS.md on disk. Display what was changed. Then return to this menu (re-present Step 4 options).
+
+   - **Custom:** Free text response — interpret and act accordingly.
 
 ---
 

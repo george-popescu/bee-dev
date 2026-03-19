@@ -179,6 +179,19 @@ If any task in the wave was marked `[FAILED]`:
   - Stop: update STATE.md Last Action result to "Paused -- manual fix needed for {failed_ids}", stop execution
   - Retry: re-spawn fresh agents for failed tasks with their original context, process results, then proceed
 
+**Wave completion menu** (ask after each wave, if more waves remain):
+
+```
+AskUserQuestion(
+  question: "Wave {M} complet. {X}/{Y} tasks done. {Z} waves rămase.",
+  options: ["Continue next wave", "Pause", "Custom"]
+)
+```
+
+- **Continue next wave**: Proceed to next wave
+- **Pause**: Stop execution, update STATE.md Last Action result to "Paused after Wave {M} -- resume with /bee:execute-phase {N}", stop execution
+- **Custom**: Free text
+
 **5e. Repeat for next wave** until all waves are processed.
 
 ### Step 6: Completion
@@ -208,8 +221,6 @@ Task summary:
 - Wave 1: {task_ids} ({status -- e.g., "all passed" or "T1.2 FAILED"})
 - Wave 2: {task_ids} ({status})
 ...
-
-Next step: /bee:review (/clear first if context is long)
 ```
 
 If any tasks are marked `[FAILED]`, add a note after the summary:
@@ -217,6 +228,18 @@ If any tasks are marked `[FAILED]`, add a note after the summary:
 Warning: {count} task(s) failed. Review TASKS.md for failure details.
 You may want to fix these manually before proceeding to review.
 ```
+
+Then present the end-of-phase menu:
+
+```
+AskUserQuestion(
+  question: "Phase {N} executată. {X} tasks completate.",
+  options: ["Review Implementation", "Custom"]
+)
+```
+
+- **Review Implementation**: Execute `/bee:review-implementation`
+- **Custom**: Free text
 
 ---
 
