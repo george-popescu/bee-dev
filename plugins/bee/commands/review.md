@@ -318,8 +318,8 @@ For each pair of findings from different agents, check if they reference the sam
    - Set Status to REVIEWED
    - Set Last Action result to "Phase {N} reviewed (iteration {iteration_counter}): 0 findings -- clean code"
    - Write STATE.md to disk
-   - Display: "Review complete -- clean code! No findings (iteration {iteration_counter}). Next step: Run `/bee:test` to test this phase."
-   - Stop here.
+   - Display: "Review complete -- clean code! No findings (iteration {iteration_counter})."
+   - Skip to Step 8 (completion).
 
 3. Display findings summary: "{N} findings from {agent_count} reviewers ({stack_count} stacks): {critical} critical, {high} high, {medium} medium" (for single-stack, omit the stacks part: "{N} findings from 4 reviewers: {critical} critical, {high} high, {medium} medium")
 

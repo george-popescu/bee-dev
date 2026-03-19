@@ -263,11 +263,24 @@ Apply all fixes directly to TASKS.md on disk. For each finding:
 - Pattern issues → update task descriptions to follow established patterns
 - Stack issues → align task approach with stack conventions
 
-After fixing, display: "Fixed {N} issues. Re-running review..."
+After fixing, display: "Fixed {N} issues."
+
+Present the fixes to the user and ask:
+
+```
+AskUserQuestion(
+  question: "Auto-fix applied {N} changes (iteration {$PLAN_REVIEW_ITERATION}). Re-review the plan?",
+  options: ["Re-review", "Accept fixes", "Custom"]
+)
+```
+
+- **Re-review**: Proceed with re-review as described in 6.4.2 below.
+- **Accept fixes**: Set plan review result to "reviewed". Proceed to Step 7.
+- **Custom**: User types what they want, conductor interprets and executes.
 
 **6.4.2: Re-review loop**
 
-After applying fixes:
+After the user chooses "Re-review":
 1. Increment `$PLAN_REVIEW_ITERATION`
 2. If `$PLAN_REVIEW_ITERATION > $MAX_PLAN_REVIEW_ITERATIONS`: display "Max review iterations ({$MAX_PLAN_REVIEW_ITERATIONS}) reached. Proceeding with current plan." Set plan review result to "reviewed". Proceed to Step 7.
 3. Otherwise: go back to **Step 6.2** (re-spawn all four review agents with the updated TASKS.md). After agents complete, re-run Steps 6.3 and 6.4.

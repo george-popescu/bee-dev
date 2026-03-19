@@ -382,19 +382,33 @@ Parse the reviewer's output for the `## Spec Review` section:
 **If Status is "Issues Found":**
 - Read the issues list from the reviewer's output
 - Fix each issue directly in `spec.md` (and `phases.md` if affected) using Edit tool
-- After fixing, re-spawn the spec-reviewer with the same context (fresh read of the updated files)
-- Repeat until Status is "Approved"
+- After fixing, present the fixes and ask the user:
+
+```
+AskUserQuestion(
+  question: "Spec review found {X} issues. Auto-fixed. Re-review spec?",
+  options: ["Re-review spec", "Accept", "Custom"]
+)
+```
+
+- **Re-review spec**: Re-spawn the spec-reviewer with the same context (fresh read of the updated files). Repeat until Status is "Approved".
+- **Accept**: Accept the current spec as-is and proceed to Step 9.7.
+- **Custom**: User types what they want, conductor interprets and executes.
 
 #### 9.5.3: Iteration limit
 
-Track the review iteration count. If 5 iterations are reached without approval, stop the loop and present the remaining issues to the user:
+Track the review iteration count. If 5 iterations are reached without approval, stop the loop and present the remaining issues to the user, then ask:
 
-"Spec review found persistent issues after 5 iterations:
-{remaining issues}
+```
+AskUserQuestion(
+  question: "Spec review found persistent issues after 5 iterations. {remaining issues summary}. How to proceed?",
+  options: ["Accept spec as-is", "Fix manually then amend", "Custom"]
+)
+```
 
-You can fix these manually in `{spec_folder}/spec.md` and run `/bee:new-spec --amend` later."
-
-Proceed to Step 9.7 regardless (don't block the workflow).
+- **Accept spec as-is**: Proceed to Step 9.7 (don't block the workflow).
+- **Fix manually then amend**: Display "Edit `{spec_folder}/spec.md` manually, then run `/bee:new-spec --amend` to re-validate." Stop command.
+- **Custom**: User types what they want, conductor interprets and executes.
 
 Display spec review summary: "Spec review: {approved | X issues fixed in Y iterations | issues surfaced after 5 iterations}"
 
