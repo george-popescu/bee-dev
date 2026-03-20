@@ -15,6 +15,10 @@
   "phases": {
     "require_review_before_next": true
   },
+  "ship": {
+    "max_review_iterations": 3,
+    "final_review": true
+  },
   "quick": {
     "review": false,
     "fast": false

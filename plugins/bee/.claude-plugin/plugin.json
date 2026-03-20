@@ -1,7 +1,7 @@
 {
   "name": "bee",
-  "version": "3.2.1",
-  "description": "Spec-driven development workflow with TDD enforcement, parallel agent execution, interactive flow control, review gates, and comprehensive code auditing",
+  "version": "3.3.0",
+  "description": "Spec-driven development workflow with TDD enforcement, parallel agent execution, autonomous pipeline orchestration, interactive flow control, review gates, and comprehensive code auditing",
   "author": {
     "name": "Beecoded",
     "url": "https://github.com/beecoded"

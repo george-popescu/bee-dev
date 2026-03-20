@@ -197,7 +197,11 @@ Stack: {stack.name}
 
 {false-positives list from Step 3.9}
 
-Read TASKS.md to find the files created/modified by this phase. Scope your file search to files within the `{stack.path}` directory. Review those files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides (CLAUDE.md takes precedence over stack skill for project-specific conventions). Report only HIGH confidence findings in your standard output format.
+Read TASKS.md to find the files created/modified by this phase. Scope your file search to files within the `{stack.path}` directory. Review those files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides (CLAUDE.md takes precedence over stack skill for project-specific conventions).
+
+Apply the Review Quality Rules from the review skill: same-class completeness (scan ALL similar constructs when finding one bug), edge case enumeration (verify loop bounds, all checkbox states, null paths), and crash-path tracing (for each state write, trace what happens if the session crashes here).
+
+Report only HIGH confidence findings in your standard output format.
 ```
 
 **Per-stack Agent: Pattern Reviewer** (resolved agent name -- see agent resolution above) -- model set in 4.2 by implementation_mode -- one per stack
@@ -212,7 +216,11 @@ Stack: {stack.name}
 
 {false-positives list from Step 3.9}
 
-Read TASKS.md to find the files created/modified by this phase. Scope your file search to files within the `{stack.path}` directory. For each file, find 2-3 similar existing files in the codebase, extract their patterns, and compare. If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides. Report only HIGH confidence deviations in your standard output format.
+Read TASKS.md to find the files created/modified by this phase. Scope your file search to files within the `{stack.path}` directory. For each file, find 2-3 similar existing files in the codebase, extract their patterns, and compare. If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides.
+
+Apply same-class completeness: when you find a pattern deviation in one location, scan ALL similar constructs across the codebase for the same deviation. Report ALL instances, not just the first.
+
+Report only HIGH confidence deviations in your standard output format.
 ```
 
 **Per-stack Agent: Stack Reviewer** (resolved agent name -- see agent resolution above) -- model set in 4.2 by implementation_mode -- one per stack

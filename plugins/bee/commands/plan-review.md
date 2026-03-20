@@ -95,7 +95,11 @@ Phase number: {N}
 
 Read spec.md for feature behavior and acceptance criteria. Read requirements.md for the structured requirements summary. Read phases.md for phase decomposition context. Read TASKS.md for the planned tasks.
 
-Review the planned tasks for potential bug risks: tasks that are likely to introduce logic errors, race conditions, edge case failures, null handling issues, or security vulnerabilities based on their described scope and acceptance criteria. Report only HIGH confidence concerns in your standard output format.
+Review the planned tasks for potential bug risks: tasks that are likely to introduce logic errors, race conditions, edge case failures, null handling issues, or security vulnerabilities based on their described scope and acceptance criteria.
+
+Apply the Review Quality Rules from the review skill: same-class completeness (scan ALL similar constructs when finding one bug), edge case enumeration (verify loop bounds, all checkbox states, null paths), and crash-path tracing (for each state write, trace what happens if the session crashes here).
+
+Report only HIGH confidence concerns in your standard output format.
 ```
 
 **Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`) -- model set in 3.2 by implementation_mode
@@ -111,7 +115,11 @@ Phase number: {N}
 
 Read spec.md for feature behavior and acceptance criteria. Read requirements.md for the structured requirements summary. Read phases.md for phase decomposition context. Read TASKS.md for the planned tasks.
 
-Review the planned tasks for pattern concerns: tasks whose described approach deviates from established project patterns, uses inconsistent naming or structure, or does not reference the correct existing patterns to follow. Find similar existing files in the codebase and compare against planned approaches. Report only HIGH confidence deviations in your standard output format.
+Review the planned tasks for pattern concerns: tasks whose described approach deviates from established project patterns, uses inconsistent naming or structure, or does not reference the correct existing patterns to follow. Find similar existing files in the codebase and compare against planned approaches.
+
+Apply same-class completeness: when you find a pattern deviation in one location, scan ALL similar constructs across the codebase for the same deviation. Report ALL instances, not just the first.
+
+Report only HIGH confidence deviations in your standard output format.
 ```
 
 **Agent 3: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`) -- model set in 3.2 by implementation_mode

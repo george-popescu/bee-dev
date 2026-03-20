@@ -4,6 +4,37 @@ All notable changes to the Bee plugin are documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
+## v3.3.0 — Ship & Plan-All: Autonomous Pipeline Orchestration
+
+### New Commands
+- **`/bee:plan-all`** — Plans all unplanned phases sequentially, reviews each plan autonomously with 4-agent parallel review and auto-fix loop, then runs cross-plan consistency review (2 agents check inter-phase data contracts, dependency chains, file ownership, scope overlap, API alignment, test coverage gaps)
+- **`/bee:ship`** — Executes all plan-reviewed phases autonomously: wave-based parallel TDD execution → 4-agent review loop with auto-fix → final implementation review. Zero user interaction during pipeline. Full decision logging. Resumable after crash.
+
+### Autonomous Execution
+- Ship and plan-all operate without AskUserQuestion during inner loops — deliberate R3 exception for unattended execution
+- Structured decision log in STATE.md: every autonomous decision records what/why/alternative rejected (5 decision types: auto-fix, skip-fix, optimistic-continuation, task-failed, plan-adaptation)
+- Optimistic continuation: max review iterations reached → notes unresolved findings, continues to next phase
+- Combined inter-phase progress summary after each phase ships
+
+### Cross-Plan Consistency Review
+- Novel 2-agent review (plan-compliance-reviewer + bug-detector) examines ALL phase plans together
+- Catches bugs that per-phase reviews miss: field renames across phases, dependency chain breaks, file ownership conflicts
+- Validated in practice: caught `categories` → `categoryIngredientTypes` rename mismatch between backend and frontend phases
+
+### Review Quality Rules
+- Three new rules added to all review agent prompts: **Same-Class Completeness** (scan ALL similar constructs when finding one bug), **Edge Case Enumeration** (verify loop bounds, checkbox states, null paths), **Crash-Path Tracing** (trace what happens if session crashes at each state write)
+- `audit-bug-detector` added as 5th agent in `/bee:review-implementation` full spec mode — traces end-to-end flows across all executed phases
+- Agent count for full spec review-implementation: (3×N)+2 (was (3×N)+1)
+
+### Configuration
+- New `ship` section in config.json: `max_review_iterations` (default 3, independent from `review.max_loop_iterations`), `final_review` (default true)
+- Ship config documented in core SKILL.md with explicit distinction from interactive review settings
+- State template updated: structured Decisions Log format, all 10 phase-level statuses documented (PENDING through COMMITTED)
+- Init command updated: ship config in Step 4 JSON examples, inline STATE.md in Step 7
+
+### Tests
+- 174 new tests across 4 test files: ship-config-foundation (33), plan-all-command (48), ship-command (61), review-quality-rules (32)
+
 ## v3.2.1 — Full R3 Compliance
 
 ### Interactive Menus Everywhere

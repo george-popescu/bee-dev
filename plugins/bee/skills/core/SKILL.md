@@ -81,7 +81,7 @@ All of these mean: delete code, start over with TDD.
 All critical state lives on disk. Never rely on conversation memory.
 - `STATE.md` tracks current spec, phase progress, decisions, and last action
 - `TASKS.md` is the execution contract -- tasks, waves, research notes, agent notes, completion status
-- `config.json` holds project configuration (stacks with per-stack linter and test runner, CI, review settings)
+- `config.json` holds project configuration (stacks with per-stack linter and test runner, CI, review settings, ship settings)
 - `user.md` holds user preferences and work style rules (see User Preferences below)
 
 If it is not on disk, it does not exist.
@@ -184,4 +184,8 @@ For projects with multiple stacks, each agent should resolve library IDs for the
 - **TASKS.md:** Execution contract for each phase. See [templates/tasks.md](templates/tasks.md)
 - **STATE.md:** Project state tracking. See [templates/state.md](templates/state.md)
 - **config.json:** Project configuration. See [templates/project-config.json](templates/project-config.json)
+  - **`ship` section:** Controls the autonomous review loop used by `ship` and `plan-all` commands. Properties:
+    - `max_review_iterations` (int, default `3`) -- maximum number of autonomous review-fix cycles before stopping. **This is independent from `review.max_loop_iterations`**, which controls the interactive `/bee:review` command loop. The two settings govern different pipelines and do not affect each other.
+    - `final_review` (bool, default `true`) -- whether ship runs a final cross-phase implementation review after all phases complete.
+  - When the `ship` section is absent from config.json, both commands apply the defaults (`max_review_iterations=3`, `final_review=true`).
 - **Wave conventions:** Wave 1 = no dependencies (parallel). Wave N+1 depends on Wave N. No file conflicts within a wave.

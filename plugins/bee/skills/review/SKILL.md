@@ -168,6 +168,36 @@ Read the testing standards skill (`skills/standards/testing/SKILL.md`) for proje
 - [ ] Directory organization matches existing structure
 - [ ] Error handling pattern matches existing error handling
 
+## Review Quality Rules
+
+These three rules apply to ALL review agents. They address the most common classes of missed findings.
+
+### Same-Class Completeness
+
+When you find a bug or deviation in one location, IMMEDIATELY scan ALL similar constructs in the codebase for the same bug class. If you find an off-by-one in one loop, check EVERY loop. If you find a missing null check in one handler, check EVERY handler. Report ALL instances, not just the first.
+
+**Example:** You find that one checkbox parser misses the `[FAILED]` state. Scan every other checkbox/status parser in the codebase -- they likely have the same gap.
+
+### Edge Case Enumeration
+
+For each construct you review, systematically verify boundary conditions:
+- **Loops:** initialization, increment position, termination condition (> vs >=), off-by-one
+- **Status transitions:** verify ALL source states are handled (e.g., `[ ]`, `[x]`, `[FAILED]`, empty)
+- **String parsing:** empty string, missing delimiter, extra whitespace, special characters
+- **Numeric inputs:** zero, negative, overflow, NaN
+
+**Example:** A loop uses `i < array.length` but starts at index 1 -- the last element is processed but the first is skipped.
+
+### Crash-Path Tracing
+
+For each state write (STATE.md, TASKS.md, REVIEW.md, config files), trace:
+1. What is on disk before the write?
+2. What is on disk after the write?
+3. What if the session crashes between two sequential writes?
+4. Does the resume/recovery path handle this partial state correctly?
+
+**Example:** The command writes STATUS=EXECUTING to STATE.md, then writes TASKS.md checkboxes. If it crashes after the first write but before the second, resume sees EXECUTING but TASKS.md has no completed tasks -- does it re-execute everything or detect the gap?
+
 ## Output Format
 
 Write REVIEW.md to the phase directory (same location as TASKS.md).

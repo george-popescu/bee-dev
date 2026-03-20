@@ -6,7 +6,7 @@ A Claude Code plugin that enforces disciplined, spec-driven development with TDD
 
 Bee structures your development workflow into a lifecycle: **Spec > Plan > Execute > Review > Test > Commit**. Each step produces artifacts on disk, every feature goes through review gates, and 33 specialized agents handle different aspects of the work — including 11 dedicated audit agents for deep codebase analysis.
 
-## Commands (26)
+## Commands (28)
 
 ### Setup & Navigation
 | Command | Args | Description |
@@ -26,6 +26,7 @@ Bee structures your development workflow into a lifecycle: **Spec > Plan > Execu
 |---------|------|-------------|
 | `/bee:new-spec` | `[--amend] [--from-discussion PATH] [description]` | Create or amend a feature spec through brainstorming-style adaptive discovery (no fixed round limit) with spec review loop |
 | `/bee:plan-phase` | `[phase-number]` | Plan a phase with tasks, acceptance criteria, research, wave grouping, and auto-fix review loop |
+| `/bee:plan-all` | | Plan ALL phases sequentially with autonomous review per phase + cross-plan consistency review |
 | `/bee:plan-review` | `[phase-number]` | Standalone plan review — find gaps, auto-fix, re-review |
 | `/bee:add-phase` | | Append a new phase to the current spec |
 | `/bee:discuss` | `[topic description]` | Guided brainstorming-style codebase-grounded discussion before creating a spec |
@@ -34,13 +35,14 @@ Bee structures your development workflow into a lifecycle: **Spec > Plan > Execu
 | Command | Args | Description |
 |---------|------|-------------|
 | `/bee:execute-phase` | `[phase-number]` | Execute a phase with wave-based parallel TDD agents |
+| `/bee:ship` | | Autonomous pipeline: execute all phases → review loop each → final implementation review. Zero interaction. Full decision logging. |
 | `/bee:quick` | `[--fast] [--amend N] [--review] [description]` | Fast-track task — TDD default, `--fast` for direct, `--amend` to modify existing, `--review` for 4-agent review |
 
 ### Quality
 | Command | Args | Description |
 |---------|------|-------------|
 | `/bee:review` | | Multi-agent parallel review (4 specialists) with finding validation, escalation, auto-fix, and unlimited re-review |
-| `/bee:review-implementation` | | Context-aware review — full spec mode (4 agents per stack) or ad-hoc mode (3 agents) |
+| `/bee:review-implementation` | | Context-aware review — full spec mode (5 agents per stack including audit-bug-detector) or ad-hoc mode (3 agents) |
 | `/bee:fix-implementation` | `[path/to/REVIEW.md]` | Standalone fix — reads review output and fixes confirmed findings (parallel across files, sequential within same file) |
 | `/bee:test` | | Generate manual test scenarios and verify with developer |
 | `/bee:test-e2e` | `[description] [--run]` | Generate and run Playwright E2E tests with Page Object Model |
@@ -73,9 +75,22 @@ Bee structures your development workflow into a lifecycle: **Spec > Plan > Execu
 8. /bee:test-e2e                # Optional: Playwright E2E tests
 9. /bee:commit                  # Reviewed commit
    --- repeat steps 4-9 for each phase ---
-10. /bee:review-implementation  # Final spec compliance check
+10. /bee:review-implementation  # Final spec compliance check (5 agents including audit-bug-detector)
 11. /bee:archive-spec           # Archive and reset
 ```
+
+### Autonomous Pipeline Workflow (Walk Away)
+
+```
+1. /bee:init                    # One-time setup
+2. /bee:new-spec                # Adaptive discovery + spec creation
+3. /bee:plan-all                # Plan ALL phases + cross-plan consistency review (autonomous)
+4. /bee:ship                    # Execute all → review each → final review (fully autonomous)
+   --- walk away, come back to shipped feature ---
+5. /bee:commit                  # Review decision log, commit
+```
+
+`/bee:ship` is fully autonomous: zero AskUserQuestion during pipeline, structured decision logging, optimistic continuation on max review iterations, resumable after crash. Cross-plan review catches inter-phase bugs (data contract mismatches, dependency chain breaks) that per-phase reviews miss.
 
 ### Quick Task Workflow (No Spec)
 
@@ -249,6 +264,7 @@ Events: task completed (Stop), background agent finished (Notification), permiss
     "max_loop_iterations": 3
   },
   "phases": { "require_review_before_next": true },
+  "ship": { "max_review_iterations": 3, "final_review": true },
   "quick": { "review": false, "fast": false }
 }
 ```

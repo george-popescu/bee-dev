@@ -147,7 +147,11 @@ Phases: {phases.md path}
 TASKS.md: {phase_directory}/TASKS.md
 Phase number: {N}
 
-Read TASKS.md to understand the planned tasks, their acceptance criteria, and wave assignments. Read spec.md and phases.md to understand what the feature should do. Look for potential bugs in the plan: tasks that could introduce logic errors, missing error handling, security vulnerabilities, race conditions, or edge cases that the plan does not account for. Report only HIGH confidence findings in your standard output format.
+Read TASKS.md to understand the planned tasks, their acceptance criteria, and wave assignments. Read spec.md and phases.md to understand what the feature should do. Look for potential bugs in the plan: tasks that could introduce logic errors, missing error handling, security vulnerabilities, race conditions, or edge cases that the plan does not account for.
+
+Apply the Review Quality Rules from the review skill: same-class completeness (scan ALL similar constructs when finding one bug), edge case enumeration (verify loop bounds, all checkbox states, null paths), and crash-path tracing (for each state write, trace what happens if the session crashes here).
+
+Report only HIGH confidence findings in your standard output format.
 ```
 
 **Agent 2: Pattern Reviewer** (`bee:pattern-reviewer`) -- model set in 6.2 by implementation_mode
@@ -160,7 +164,11 @@ Phases: {phases.md path}
 TASKS.md: {phase_directory}/TASKS.md
 Phase number: {N}
 
-Read TASKS.md to understand the planned tasks. Search the codebase for similar existing implementations. Check whether the planned approach follows established project patterns or deviates from them. Report only HIGH confidence deviations in your standard output format.
+Read TASKS.md to understand the planned tasks. Search the codebase for similar existing implementations. Check whether the planned approach follows established project patterns or deviates from them.
+
+Apply same-class completeness: when you find a pattern deviation in one location, scan ALL similar constructs across the codebase for the same deviation. Report ALL instances, not just the first.
+
+Report only HIGH confidence deviations in your standard output format.
 ```
 
 **Agent 3: Plan Compliance Reviewer** (`bee:plan-compliance-reviewer`) -- model set in 6.2 by implementation_mode

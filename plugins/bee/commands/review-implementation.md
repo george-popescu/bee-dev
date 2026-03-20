@@ -45,7 +45,7 @@ If full spec mode applies:
 - Read `spec.md` from the spec path. If it does not exist, tell the user: "Spec file not found at {spec-path}/spec.md. STATE.md may be stale." Do NOT proceed.
 - Collect all executed phase directory paths (phases with status EXECUTED or beyond: REVIEWED, TESTED, COMMITTED)
 - Set output path: `{spec-path}/REVIEW-IMPLEMENTATION.md`
-- This mode spawns 4 agents: bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer
+- This mode spawns 5 agents: bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer, audit-bug-detector
 - Display: "Starting full spec implementation review against spec..."
 
 **Ad-hoc mode** applies when EITHER condition is NOT met (no spec, or no executed phases):
@@ -182,7 +182,11 @@ Stack: {stack.name}
 
 {false-positives list from Step 3.5}
 
-For EACH executed phase, read its TASKS.md to find the files created/modified. Scope your file search to files within the `{stack.path}` directory. Review those files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides (CLAUDE.md takes precedence over stack skill for project-specific conventions). Report only HIGH confidence findings in your standard output format.
+For EACH executed phase, read its TASKS.md to find the files created/modified. Scope your file search to files within the `{stack.path}` directory. Review those files for bugs, logic errors, null handling issues, race conditions, edge cases, and security vulnerabilities (OWASP). If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides (CLAUDE.md takes precedence over stack skill for project-specific conventions).
+
+Apply the Review Quality Rules from the review skill: same-class completeness (scan ALL similar constructs when finding one bug), edge case enumeration (verify loop bounds, all checkbox states, null paths), and crash-path tracing (for each state write, trace what happens if the session crashes here).
+
+Report only HIGH confidence findings in your standard output format.
 ```
 
 For ad-hoc mode:
@@ -222,7 +226,11 @@ Stack: {stack.name}
 
 {false-positives list from Step 3.5}
 
-For EACH executed phase, read its TASKS.md to find the files created/modified. Scope your file search to files within the `{stack.path}` directory. For each file, find 2-3 similar existing files in the codebase, extract their patterns, and compare. If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides. Report only HIGH confidence deviations in your standard output format.
+For EACH executed phase, read its TASKS.md to find the files created/modified. Scope your file search to files within the `{stack.path}` directory. For each file, find 2-3 similar existing files in the codebase, extract their patterns, and compare. If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides.
+
+Apply same-class completeness: when you find a pattern deviation in one location, scan ALL similar constructs across the codebase for the same deviation. Report ALL instances, not just the first.
+
+Report only HIGH confidence deviations in your standard output format.
 ```
 
 For ad-hoc mode:
@@ -299,9 +307,32 @@ Executed phases:
 Review mode: code review. Check implemented code against spec requirements and acceptance criteria across ALL executed phases. For EACH phase, read its TASKS.md and verify every acceptance criterion has corresponding implementation. Check for missing features, incorrect behavior, and over-scope additions. CRITICAL: Check cross-phase integration across ALL executed phases (not just adjacent phases) -- verify imports, data contracts, workflow connections, and shared state consistency between every pair of phases. If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides. Report findings in your standard code review mode output format.
 ```
 
+**Global Agent: Audit Bug Detector** (`bee:audit-bug-detector`) -- model set in 4.2 by implementation_mode -- spawned ONCE globally, full spec mode only. This agent is NOT spawned in ad-hoc mode.
+
+```
+You are tracing end-to-end feature flows across ALL executed phases to find bugs that category-specific reviewers miss.
+
+Spec: {spec.md path}
+Executed phases:
+- Phase {N}: {phase_directory_path}
+- Phase {M}: {phase_directory_path}
+...
+
+{false-positives list from Step 3.5}
+
+Trace complete user flows from entry point to completion. For each flow:
+1. Follow data from frontend to backend to database and back
+2. Check that types, field names, and contracts match at every boundary
+3. Verify error handling exists at every async boundary
+4. Check that state transitions are complete (no missing status values)
+5. Verify resume/crash recovery paths work end-to-end
+
+Report bugs that span multiple files or phases -- the kind that single-file reviewers miss. Report only HIGH confidence findings in your standard output format.
+```
+
 #### 4.2: Spawn agents
 
-In full spec mode, the total number of agents is `(3 x N) + 1` where N is the number of stacks (4 for single-stack: 3 per-stack agents + 1 global plan-compliance-reviewer).
+In full spec mode, the total number of agents is `(3 x N) + 2` where N is the number of stacks (5 for single-stack: 3 per-stack agents + 1 global plan-compliance-reviewer + 1 global audit-bug-detector).
 
 In ad-hoc mode, the total number of agents is `3 x N` where N is the number of stacks (3 for single-stack: bug-detector, pattern-reviewer, stack-reviewer -- no plan-compliance-reviewer).
 
@@ -336,6 +367,12 @@ After all agents complete, parse findings from each agent's final message. Each 
 - Each `- **[Rule category]:** [Violation description] - \`file:line\`` entry becomes one finding
 - Severity: Medium (stack violations default to Medium)
 - Category: "Standards"
+
+**Audit Bug Detector** findings (full spec mode only, from `## Bug Detection Summary` section):
+- Each finding uses a BUG-NNN ID prefix and includes a **Flow** trace, **Trace** path, and **Break point**
+- Severity: taken from the finding's severity field (CRITICAL/HIGH/MEDIUM)
+- Category: "Bug" (cross-layer bugs are categorized as bugs)
+- These findings represent cross-layer and cross-phase bugs that single-file reviewers miss
 
 If an agent reports no findings (e.g., "No bugs detected.", "No project pattern deviations found.", etc.), it contributes zero findings.
 
@@ -599,7 +636,7 @@ Review saved: {output_path}
 **Design Notes (do not display to user):**
 
 - This command unifies full spec review and ad-hoc review into a single context-aware command. Mode is detected automatically from STATE.md.
-- Full spec mode spawns 4 agent types: bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer. The plan-compliance-reviewer is the global agent (spawned once, not per-stack). Total agents: `(3 x N) + 1` where N = number of stacks.
+- Full spec mode spawns 5 agent types: bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer, audit-bug-detector. The plan-compliance-reviewer and audit-bug-detector are global agents (spawned once, not per-stack). Total agents: `(3 x N) + 2` where N = number of stacks.
 - Ad-hoc mode spawns 3 agent types: bug-detector, pattern-reviewer, stack-reviewer. No plan-compliance-reviewer because there is no spec or plan context. Total agents: `3 x N` where N = number of stacks.
 - Multi-stack logic follows the same pattern as review.md: per-stack agents (bug-detector, pattern-reviewer, stack-reviewer) with stack-specific fallback routing, plus one global plan-compliance-reviewer (full spec mode only).
 - The Build & Test Gate is identical for both modes -- a single step applied before agent spawning.
