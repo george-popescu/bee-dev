@@ -132,6 +132,18 @@ The conductor SHOULD assess each spawn and pass `model: "sonnet"` explicitly for
 
 `.bee/user.md` is the only persistent memory file. It contains user preferences, work style rules, and recurring decisions. It is injected to all agents via the SubagentStart hook. Only conductor commands write to it — agents never modify it directly.
 
+### Context isolation for agents
+
+When conductors spawn agents, they must provide focused context packets — not full session history. This prevents context pollution where one agent's mistakes influence another.
+
+**Implementer agents receive:** task description, acceptance criteria, research notes, context file paths, stack skill instruction, TDD instruction. For Wave 2+ tasks: dependency notes (task notes from prior wave tasks that this task depends on). For retry attempts: prior failure reasons. For phases with prior reviews: Phase Learnings (implementer-specific adjustments from LEARNINGS.md).
+**Implementer agents must NOT receive:** full review findings, unrelated agents' task notes, session conversation history, unrelated phase context.
+
+**Review agents receive:** the code to review, spec/requirements for the current phase, stack skill conventions, project context (CONTEXT.md), false-positives list, user preferences, dependency/consumer file paths from dependency scan.
+**Review agents must NOT receive:** implementation rationale, prior review findings from other review agents, fix history.
+
+**The principle:** each agent starts with a clean perspective. Cross-agent information flows through structured artifacts on disk (TASKS.md task notes, REVIEW.md findings, LEARNINGS.md adjustments), mediated by the conductor — never through inherited conversation context. Retry and cascading failure context is permitted because it flows within the same task, not across agents.
+
 ### Spec-driven development
 Work only on features and tasks defined in specs. No ad-hoc implementation.
 - Specs define WHAT to build (behavior, acceptance criteria)

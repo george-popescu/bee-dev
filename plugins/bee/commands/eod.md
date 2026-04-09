@@ -62,19 +62,20 @@ Use the Task tool to spawn the `integrity-auditor` agent. Provide context:
 - "Check .bee/STATE.md against disk reality. Verify all referenced files exist, phase statuses are consistent, and no orphaned directories exist. Report findings in your final message."
 - Include the spec path and all phase directory paths from STATE.md.
 
-**Agent 2: reviewer** (economy/quality: `model: "sonnet"`, premium: omit)
-Use the Task tool to spawn the `reviewer` agent. Provide context that OVERRIDES its default scope:
+**Agent 2: bug-detector** (economy/quality: `model: "sonnet"`, premium: omit)
+Use the Task tool to spawn the `bug-detector` agent. Provide context that OVERRIDES its default scope:
 - "EOD audit mode: Review ONLY the files shown in the git diff below (uncommitted changes). Do NOT write REVIEW.md to disk. Report findings in your final message as a brief summary. Focus on: standards violations, dead code, security concerns."
 - Include the list of changed files from the Git Status section above.
 - If no uncommitted changes exist, skip this agent and record Code Quality as "CLEAN -- no uncommitted changes".
+- Note: The bug-detector agent is reused from review workflows with an overridden scope (EOD mode reviews only uncommitted changes, not a full phase).
 
 **Agent 3: test-auditor** (economy/quality: `model: "sonnet"`, premium: omit)
 Use the Task tool to spawn the `test-auditor` agent. Provide context:
 - "Run the test suite once. Cross-reference acceptance criteria from all TASKS.md files. Report test health (pass/fail counts, stale tests, coverage gaps) in your final message."
 - Include the spec path and all phase directory paths.
 
-**Agent 4: project-reviewer** (economy/quality: `model: "sonnet"`, premium: omit)
-Use the Task tool to spawn the `project-reviewer` agent. Provide context:
+**Agent 4: plan-compliance-reviewer** (economy/quality: `model: "sonnet"`, premium: omit)
+Use the Task tool to spawn the `plan-compliance-reviewer` agent. Provide context:
 - "EOD audit mode: Provide a spec compliance SUMMARY in your final message. Do NOT write REVIEW-PROJECT.md to disk. Report per-phase compliance status and overall percentage."
 - Include the spec path and all phase directory paths.
 
@@ -88,16 +89,16 @@ Build the report by replacing template placeholders:
 - `{DATE}` -> today's date (YYYY-MM-DD format)
 - `{INTEGRITY_STATUS}` -> CLEAN or ISSUES (from integrity-auditor's Overall status)
 - `{INTEGRITY_FINDINGS}` -> bullet list of integrity-auditor's check results
-- `{CODE_STATUS}` -> CLEAN or N FINDINGS (from reviewer's finding count)
-- `{CODE_FINDINGS}` -> bullet list of reviewer's findings (or "No findings" if clean)
+- `{CODE_STATUS}` -> CLEAN or N FINDINGS (from bug-detector's finding count)
+- `{CODE_FINDINGS}` -> bullet list of bug-detector's findings (or "No findings" if clean)
 - `{TEST_STATUS}` -> HEALTHY or ISSUES (from test-auditor's Overall status)
 - `{PASS_COUNT}` -> passing test count from test-auditor
 - `{FAIL_COUNT}` -> failing test count from test-auditor
 - `{STALE_COUNT}` -> stale test count from test-auditor
 - `{GAP_COUNT}` -> coverage gap count from test-auditor
 - `{GAP_DETAILS}` -> bullet list of specific coverage gaps (or empty if none)
-- `{COMPLIANCE_STATUS}` -> ON TRACK or GAPS (from project-reviewer's Overall status)
-- `{COMPLIANCE_SUMMARY}` -> per-phase compliance summary from project-reviewer
+- `{COMPLIANCE_STATUS}` -> ON TRACK or GAPS (from plan-compliance-reviewer's Overall status)
+- `{COMPLIANCE_SUMMARY}` -> per-phase compliance summary from plan-compliance-reviewer
 - `{FILE_COUNT}` -> count of uncommitted files from Git Status above
 - `{UNCOMMITTED_FILE_LIST}` -> bullet list of uncommitted file paths from Git Status (or "No uncommitted changes" if clean)
 - `{ACTION_ITEMS}` -> derive numbered action items from ALL findings across all 4 audits
@@ -248,7 +249,7 @@ AskUserQuestion(
 **Design Notes (do not display to user):**
 
 - The 4 audit agents are spawned in parallel via simultaneous Task tool calls. This is the fastest execution pattern -- all audits are fully independent.
-- The reviewer agent is reused from Phase 5 with an overridden scope (EOD mode reviews only uncommitted changes, not a full phase). If there are no uncommitted changes, the reviewer is skipped entirely.
+- The bug-detector agent reviews only uncommitted changes in EOD mode (not a full phase). If there are no uncommitted changes, it is skipped entirely.
 - The EOD report template in `skills/core/templates/eod-report.md` defines the report structure. The command fills in the placeholders from agent results.
 - Running `/bee:eod` twice on the same day overwrites the previous report (same date-based filename).
 - The report is saved to `.bee/eod-reports/` which is outside the spec directory. EOD reports are project-level, not spec-level.

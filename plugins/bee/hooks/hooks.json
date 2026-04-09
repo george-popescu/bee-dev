@@ -53,11 +53,11 @@
     ],
     "SubagentStop": [
       {
-        "matcher": "implementer$",
+        "matcher": "(?<!quick-)implementer$",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Validate implementer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) TDD red-green cycle verified: test files exist BEFORE implementation code, and agent output shows tests were run and FAILED before implementation was written, then PASSED after 2) Task-specific tests run and passing (agent should run ONLY its test file(s), not the full suite -- full suite is run by the conductor post-wave) 3) Structured task notes written (files created, patterns used, decisions) 4) Task reported complete ('Task complete. [X] tests passing.') OR agent output contains BLOCKED: signal (both are valid completion states -- a blocked agent is not abandoned) 5) If task notes contain a `## Deviations` section, verify each deviation entry has: rule number (1-4), type (Bug/Critical functionality/Blocking/Architectural), and description. If no `## Deviations` section exists and agent did NOT output BLOCKED:, flag as missing 6) If agent output contains `BLOCKED:` signal, validate it includes: Description, Proposed change, Why needed, Impact, Alternatives fields.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "prompt": "Validate implementer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) TDD red-green cycle verified: test files exist BEFORE implementation code, and agent output shows tests were run and FAILED before implementation was written, then PASSED after 2) Task-specific tests run and passing (agent should run ONLY its test file(s), not the full suite -- full suite is run by the conductor post-wave) 3) Structured task notes written (files created, patterns used, decisions) 4) Task reported complete ('Task complete. [X] tests passing.') OR agent output contains BLOCKED: signal (both are valid completion states -- a blocked agent is not abandoned) 5) If task notes contain a `## Deviations` section, verify each deviation entry has: rule number (1-4), type (Bug/Critical functionality/Blocking/Architectural), and description. If no `## Deviations` section exists and agent did NOT output BLOCKED:, flag as missing 6) If agent output contains `BLOCKED:` signal, validate it includes: Description, Proposed change, Why needed, Impact, Alternatives fields 7) Verification evidence: the agent's message MUST include actual test runner output (the pass/fail lines from the test framework, not just a count claim). If the message only says 'X tests passing' without showing the test runner output, flag as missing verification evidence.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
             "timeout": 30
           }
         ]
@@ -103,7 +103,7 @@
         ]
       },
       {
-        "matcher": "^bug-detector$",
+        "matcher": "(?<!audit-)bug-detector$",
         "hooks": [
           {
             "type": "prompt",
@@ -113,7 +113,7 @@
         ]
       },
       {
-        "matcher": "^pattern-reviewer$",
+        "matcher": "pattern-reviewer$",
         "hooks": [
           {
             "type": "prompt",
@@ -133,7 +133,7 @@
         ]
       },
       {
-        "matcher": "^stack-reviewer$",
+        "matcher": "stack-reviewer$",
         "hooks": [
           {
             "type": "prompt",
@@ -147,7 +147,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Validate quick-implementer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) TDD red-green cycle verified: test files exist BEFORE implementation code, and agent output shows tests were run and FAILED before implementation was written, then PASSED after 2) Tests run and passing 3) Structured task notes written (files created, patterns used, decisions) 4) Task reported complete with the exact signal: 'Task complete. [X] tests passing.'\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
+            "prompt": "Validate quick-implementer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) TDD red-green cycle verified: test files exist BEFORE implementation code, and agent output shows tests were run and FAILED before implementation was written, then PASSED after 2) Tests run and passing 3) Structured task notes written (files created, patterns used, decisions) 4) Task reported complete with the exact signal: 'Task complete. [X] tests passing.' 5) Verification evidence: the agent's message MUST include actual test runner output (the pass/fail lines from the test framework, not just a count claim). If the message only says 'X tests passing' without showing the test runner output, flag as missing verification evidence.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
             "timeout": 30
           }
         ]

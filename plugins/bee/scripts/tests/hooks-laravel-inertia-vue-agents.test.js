@@ -62,13 +62,20 @@ for (const name of staleAgentNames) {
 // Test 2: Generic counterpart entries still exist
 // ============================================================
 console.log('\nTest 2: Generic counterpart entries still exist');
-const genericBugDetector = stopEntries.find(e => e.matcher === '^bug-detector$');
-const genericPatternReviewer = stopEntries.find(e => e.matcher === '^pattern-reviewer$');
-const genericImplementer = stopEntries.find(e => e.matcher === '^implementer$');
+// Use regex test instead of exact match (matchers use lookbehind patterns)
+const genericBugDetectorFound = stopEntries.some(e => {
+  try { return new RegExp(e.matcher).test('bug-detector'); } catch { return false; }
+});
+const genericPatternReviewerFound = stopEntries.some(e => {
+  try { return new RegExp(e.matcher).test('pattern-reviewer'); } catch { return false; }
+});
+const genericImplementerFound = stopEntries.some(e => {
+  try { return new RegExp(e.matcher).test('implementer'); } catch { return false; }
+});
 
-assert(genericBugDetector !== undefined, 'Generic bug-detector entry still exists');
-assert(genericPatternReviewer !== undefined, 'Generic pattern-reviewer entry still exists');
-assert(genericImplementer !== undefined, 'Generic implementer entry still exists');
+assert(genericBugDetectorFound, 'Generic bug-detector matched by a SubagentStop entry');
+assert(genericPatternReviewerFound, 'Generic pattern-reviewer matched by a SubagentStop entry');
+assert(genericImplementerFound, 'Generic implementer matched by a SubagentStop entry');
 
 // ============================================================
 // Test 3: No stale agent references anywhere in hooks

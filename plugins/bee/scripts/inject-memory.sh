@@ -11,18 +11,26 @@ fi
 INPUT=$(cat)
 AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty' | sed 's/^bee://')
 
-# Only inject memory for known bee agents
-case "$AGENT_TYPE" in
-  implementer|fixer|researcher|spec-writer|phase-planner|plan-reviewer|spec-shaper|finding-validator|integrity-auditor|test-auditor|testing-auditor|test-planner|context-builder|quick-implementer|discuss-partner|bug-detector|pattern-reviewer|stack-reviewer|plan-compliance-reviewer|spec-reviewer|assumptions-analyzer|debug-investigator|dependency-auditor|ui-auditor|integration-checker|swarm-consolidator|api-auditor|architecture-auditor|audit-bug-detector|audit-finding-validator|audit-report-generator|database-auditor|error-handling-auditor|frontend-auditor|performance-auditor|security-auditor)
-    ;;
-  *)
-    if [ -f "$CLAUDE_PROJECT_DIR/.claude/bee-extensions/agents/${AGENT_TYPE}.md" ]; then
-      :
-    else
-      exit 0
-    fi
-    ;;
-esac
+# Only inject memory for known bee agents (generic + stack-specific variants)
+# Stack-specific agents use suffix matching (e.g., laravel-inertia-vue-implementer)
+is_bee_agent() {
+  case "$1" in
+    implementer|fixer|researcher|spec-writer|phase-planner|plan-reviewer|spec-shaper|finding-validator|integrity-auditor|test-auditor|testing-auditor|test-planner|context-builder|quick-implementer|discuss-partner|bug-detector|pattern-reviewer|stack-reviewer|plan-compliance-reviewer|spec-reviewer|assumptions-analyzer|debug-investigator|dependency-auditor|ui-auditor|integration-checker|swarm-consolidator|api-auditor|architecture-auditor|audit-bug-detector|audit-finding-validator|audit-report-generator|database-auditor|error-handling-auditor|frontend-auditor|performance-auditor|security-auditor)
+      return 0 ;;
+    *-implementer|*-bug-detector|*-pattern-reviewer|*-stack-reviewer)
+      return 0 ;;
+    *)
+      return 1 ;;
+  esac
+}
+
+if ! is_bee_agent "$AGENT_TYPE"; then
+  if [ -f "$CLAUDE_PROJECT_DIR/.claude/bee-extensions/agents/${AGENT_TYPE}.md" ]; then
+    :
+  else
+    exit 0
+  fi
+fi
 
 BEE_DIR="$CLAUDE_PROJECT_DIR/.bee"
 

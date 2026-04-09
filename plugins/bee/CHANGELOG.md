@@ -4,6 +4,66 @@ All notable changes to the Bee plugin are documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
+## v4.0.0 — Bee Sentinel: Debug & Recovery Intelligence
+
+### New Commands
+- **`/bee:forensics`** — Read-only workflow forensics with 4-factor severity escalation, cross-phase dependency tracing, and rollback path generation. Hands off to `/bee:debug` with pre-populated symptoms.
+- **`/bee:debug`** — Systematic bug investigation with 3-7 dynamic hypotheses, auto-pruning, persistent sessions (`--resume`), and pattern library for cross-session learning.
+- **`/bee:health`** — 13-check project health diagnostics with historical baselining (per-check mode after 5 entries) and 3+ consecutive degradation trend detection.
+- **`/bee:autonomous`** — Fully autonomous pipeline: plan + execute + review per phase, zero user interaction.
+- **`/bee:swarm-review`** — Deep multi-agent review with segmented parallel execution.
+- **`/bee:seed`** / **`/bee:backlog`** — Capture ideas with trigger conditions, manage seed lifecycle.
+- **`/bee:complete-spec`** — Full spec completion ceremony (audit + changelog + tag + archive).
+- **`/bee:workspace`** — Parallel worktrees for independent features.
+- **`/bee:insert-phase`** — Insert urgent phases mid-spec with decimal numbering.
+- **`/bee:ui-spec`** / **`/bee:ui-review`** — UI design contracts and 6-pillar visual audits.
+- **`/bee:test-gen`** — Requirement-driven test generation from acceptance criteria.
+- **`/bee:audit-spec`** — Spec traceability matrix.
+- **`/bee:next`** / **`/bee:pause`** / **`/bee:note`** / **`/bee:thread`** / **`/bee:profile`** — Session and idea management.
+- **`/bee:do`** / **`/bee:help`** — Natural language intent routing and command reference.
+
+### Sentinel Intelligence (5-phase milestone)
+- **Forensics Intelligence** — 4-factor severity escalation capped at CRITICAL, 5-step cross-phase dependency tracing, 1-3 rollback paths (safest-to-aggressive)
+- **Debug Enhancement** — Dynamic 3-7 hypothesis range with symptom complexity scaling, 20% auto-pruning into archived_hypotheses, dual-file sessions (state.json + report.md), pattern archive with `.archived` extension
+- **Health Intelligence** — 4 new checks (workflow health, code quality trends, productivity metrics, forensic cross-reference), health-history.json with 20-entry cap
+- **Error Recovery** — Failure classification (transient/persistent/architectural), cascading failure detection for Wave 2+ tasks, adaptive retry budgets, `$RECLASSIFIED_PERSISTENT` flag
+- **Cross-System Bridges** — Forensics-to-debug handoff, pattern library extraction on resolution, forensic cross-reference in health checks
+
+### Bee Mastery Guide
+- New skill (`skills/guide/SKILL.md`) teaching Claude how to use Bee intelligently
+- 6 sections: workflow decision tree, command reference by intent (49 commands), smart feature suggestions, 13 anti-patterns, ecosystem model, self-referencing triggers
+- Dual delivery: compact excerpt at SessionStart (always in context) + full guide on-demand
+
+### Scoped Testing
+- Parallel implementer agents run ONLY their task-specific tests (`--filter`, `--testPathPattern`)
+- Conductor validates full suite + linter + static analysis ONCE per wave after all agents complete
+- ~70% wave execution time reduction validated in production
+
+### Verification & Quality
+- SubagentStop hooks require actual test runner output (verification evidence), not just count claims
+- Context isolation documented in core skill: what agents receive vs must NOT receive
+- Negative lookbehind matchers prevent double-match validation (`(?<!quick-)implementer$`, `(?<!audit-)bug-detector$`)
+- `inject-memory.sh` refactored to support stack-specific agents via suffix matching
+
+### Bug Fixes
+- EOD command used non-existent agents (`reviewer` -> `bug-detector`, `project-reviewer` -> `plan-compliance-reviewer`)
+- 5 agents referenced non-existent `skills/testing/SKILL.md` (fixed to `skills/standards/testing/SKILL.md`)
+- Stack-specific agents not receiving user preferences from inject-memory.sh
+- `quick-implementer` triggering incompatible `implementer$` SubagentStop validation
+- `audit-bug-detector` triggering incompatible `bug-detector$` SubagentStop validation
+- `pre-commit-gate.sh` block paths used stderr + exit 2 (fixed to stdout + exit 0)
+- `session-end-summary.sh` git diff HEAD~0 when COMMITS=0
+- `ship.md` read success criteria from wrong file (phases.md -> ROADMAP.md)
+- `seed.md` counted archived seeds toward 20 limit
+- Romanian text in 6 command templates replaced with English
+
+### Honeycomb Statusline
+- New design: `Opus bee 4.0 | hexhex P3/5 EXEC | gauge 48% | d7`
+- Filled/empty hexagons for phase progress, heavy-line context gauge, thin dotted separators
+
+### Numbers
+- 49 commands (was 26), 39 agents (was 33), 22 skills, 27 SubagentStop validators (was 24), 8 hooks driving 8 scripts
+
 ## v3.3.0 — Ship & Plan-All: Autonomous Pipeline Orchestration
 
 ### New Commands

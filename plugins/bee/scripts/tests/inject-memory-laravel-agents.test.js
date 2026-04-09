@@ -43,7 +43,7 @@ assert(content.startsWith('#!/bin/bash'), 'Script starts with #!/bin/bash sheban
 // Test 2: Case statement exists and is properly closed
 // ============================================================
 console.log('\nTest 2: Case statement structure');
-const caseMatch = content.match(/case\s+"\$AGENT_TYPE"\s+in\s*\n([\s\S]*?)\n\s*\*\)/);
+const caseMatch = content.match(/case\s+"\$(?:AGENT_TYPE|1)"\s+in\s*\n([\s\S]*?)\n\s*\*\)/);
 assert(caseMatch !== null, 'case statement for AGENT_TYPE exists');
 assert(content.includes('esac'), 'Case statement is properly closed with esac');
 

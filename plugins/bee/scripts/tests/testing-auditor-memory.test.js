@@ -40,7 +40,7 @@ assert(
 );
 
 // Find the case statement line
-const caseMatch = content.match(/case\s+"\$AGENT_TYPE"\s+in\s*\n\s*(.*?\))/s);
+const caseMatch = content.match(/case\s+"\$(?:AGENT_TYPE|1)"\s+in\s*\n\s*(.*?\))/s);
 if (caseMatch) {
   const caseLine = caseMatch[1];
   assert(

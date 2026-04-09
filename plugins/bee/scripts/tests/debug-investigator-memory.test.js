@@ -42,7 +42,7 @@ assert(
 );
 
 // Verify it's in the actual case statement (not just a comment)
-const caseMatch = content.match(/case\s+"\$AGENT_TYPE"\s+in\s*\n\s*([\s\S]*?)\)/);
+const caseMatch = content.match(/case\s+"\$(?:AGENT_TYPE|1)"\s+in\s*\n\s*([\s\S]*?)\)/);
 if (caseMatch) {
   assert(
     caseMatch[1].includes('debug-investigator'),

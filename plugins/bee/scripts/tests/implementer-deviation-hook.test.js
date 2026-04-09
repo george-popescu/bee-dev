@@ -41,11 +41,13 @@ try {
 console.log('\nTest 2: implementer SubagentStop checks for Deviations');
 
 const subagentStopEntries = hooks.hooks.SubagentStop;
-const implementerEntry = subagentStopEntries.find(e => e.matcher === '^implementer$');
+const implementerEntry = subagentStopEntries.find(e => {
+  try { return new RegExp(e.matcher).test('implementer') && !new RegExp(e.matcher).test('quick-implementer'); } catch { return false; }
+});
 
 assert(
   implementerEntry !== undefined,
-  '^implementer$ matcher exists in SubagentStop'
+  'implementer matcher exists in SubagentStop (matches implementer but not quick-implementer)'
 );
 
 const implementerPrompt = implementerEntry ? implementerEntry.hooks[0].prompt : '';
@@ -76,33 +78,21 @@ assert(
 );
 
 // Spot-check key matchers that must still exist
-const requiredMatchers = [
-  '^implementer$',
-  '^fixer$',
-  '^researcher$',
-  '^bug-detector$',
-  '^pattern-reviewer$',
-  '^plan-compliance-reviewer$',
-  '^stack-reviewer$',
-  '^quick-implementer$',
-  '^spec-reviewer$',
-  '^discuss-partner$',
-  '^security-auditor$',
-  '^error-handling-auditor$',
-  '^database-auditor$',
-  '^architecture-auditor$',
-  '^api-auditor$',
-  '^frontend-auditor$',
-  '^performance-auditor$',
-  '^testing-auditor$',
-  '^audit-bug-detector$',
-  '^audit-finding-validator$',
-  '^audit-report-generator$'
+// Check required agent names are covered by matchers (using endsWith for suffix patterns)
+const requiredAgents = [
+  'implementer', 'fixer', 'researcher', 'bug-detector', 'pattern-reviewer',
+  'plan-compliance-reviewer', 'stack-reviewer', 'quick-implementer',
+  'spec-reviewer', 'discuss-partner', 'security-auditor', 'error-handling-auditor',
+  'database-auditor', 'architecture-auditor', 'api-auditor', 'frontend-auditor',
+  'performance-auditor', 'testing-auditor', 'audit-bug-detector',
+  'audit-finding-validator', 'audit-report-generator'
 ];
 
-for (const matcher of requiredMatchers) {
-  const found = subagentStopEntries.some(e => e.matcher === matcher);
-  assert(found, `Matcher "${matcher}" still present`);
+for (const agent of requiredAgents) {
+  const found = subagentStopEntries.some(e => {
+    try { return new RegExp(e.matcher).test(agent); } catch { return false; }
+  });
+  assert(found, `Agent "${agent}" matched by a SubagentStop matcher`);
 }
 
 // ============================================================

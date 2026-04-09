@@ -4,6 +4,54 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.0.0] - 2026-04-09 -- Bee Sentinel: Debug & Recovery Intelligence
+
+### Added
+- **Forensics command** (`/bee:forensics`) -- Read-only workflow diagnostics with 4-factor severity escalation (CRITICAL/HIGH/MEDIUM/LOW), 5-step cross-phase dependency tracing, rollback path generation (1-3 paths, safest-to-aggressive ordering), and forensics-to-debug handoff
+- **Debug enhancement** (`/bee:debug`) -- Dynamic 3-7 hypothesis range with 20% auto-pruning, persistent session directories (state.json + report.md), `--resume` flag for interrupted sessions, pattern library with 40% keyword overlap matching for cross-session learning
+- **Health intelligence** (`/bee:health`) -- 13 checks (up from 9): added workflow health, code quality trends, productivity metrics, forensic cross-reference. Historical baselining in health-history.json with per-check mode after 5 entries. 3+ consecutive degradation trend detection.
+- **Error recovery** in `/bee:execute-phase` -- Failure classification (transient/persistent/architectural), cascading failure detection for Wave 2+ tasks, adaptive retry budgets (unlimited+backoff for transient, 3-attempt for persistent, 1+escalate for architectural), `$RECLASSIFIED_PERSISTENT` flag prevents classification loops
+- **Cross-system bridges** -- Forensics-to-debug handoff with pre-populated symptoms, debug pattern library extraction on resolution, forensic cross-reference in health checks
+- **Bee Mastery Guide** (`skills/guide/SKILL.md`) -- 205-line workflow intelligence skill with 6 sections: decision tree (spec + phase + multi-phase), command reference by intent (49 commands in 9 groups), smart feature suggestions (IF-THEN proactive rules), 13 anti-patterns, ecosystem model, self-referencing triggers. Dual delivery: compact excerpt at SessionStart + full guide on-demand.
+- **Honeycomb statusline** -- New design with `bee` emoji, `hex` hexagons for phase progress, heavy-line context gauge, thin dotted separators
+- **Scoped testing for parallel agents** -- Agents run ONLY their task-specific tests; conductor validates full suite + linter + static analysis once per wave (~70% time reduction)
+- **Verification evidence** in SubagentStop hooks -- Implementer and quick-implementer agents must include actual test runner output, not just count claims
+- **Context isolation docs** in core skill -- Defines what each agent type receives vs must NOT receive, with exceptions for retries and cascading failures
+- **23 new commands**: autonomous, backlog, complete-spec, debug, forensics, health, insert-phase, next, note, pause, plan-all, profile, seed, ship, swarm-review, test-gen, thread, ui-review, ui-spec, workspace, audit-spec, do, help
+- **7 new agents**: debug-investigator, dependency-auditor, assumptions-analyzer, integration-checker, swarm-consolidator, ui-auditor, testing-auditor
+- **Post-wave full validation** (Step 5d.0 in execute-phase) -- Runs full test suite, linter, and static analysis ONCE per wave after all agents complete
+- **Model escalation** in execute-phase -- Sonnet agents escalated to opus after 3 failures
+
+### Changed
+- Plugin version: 3.3.0 -> 4.0.0
+- Command count: 26 -> 49
+- Agent count: 33 -> 39 (36 generic + 3 stack-specific)
+- SubagentStop validators: 24 -> 27 (with negative lookbehind patterns for stack-specific agent support)
+- Skills: 7 categories -> 22 SKILL.md files across 6 categories
+- EOD command uses `bug-detector` and `plan-compliance-reviewer` agents (was `reviewer` and `project-reviewer` which didn't exist)
+- EOD report template updated with dynamic Seed Health, Velocity, and Sentinel Status sections
+- 5 agent skill references fixed: `testing` -> `standards/testing` (implementer, quick-implementer, test-auditor, test-planner, laravel-inertia-vue/implementer)
+- `inject-memory.sh` refactored to `is_bee_agent()` function with suffix matching for stack-specific agents (`*-implementer`, `*-bug-detector`, `*-pattern-reviewer`, `*-stack-reviewer`)
+- SubagentStop matchers use negative lookbehind to prevent double-match: `(?<!quick-)implementer$`, `(?<!audit-)bug-detector$`
+- `pattern-reviewer$` and `stack-reviewer$` matchers unanchored to support stack-specific variants
+- Guide ecosystem model: "7 scripts" -> "8 scripts" (was missing setup-statusline.js)
+- Guide command reference: added 8 missing commands (init, update, profile, refresh-context, help, do, create-agent, create-skill)
+- Romanian text removed from 6 command templates (review, plan-phase, new-spec, plan-review, review-implementation, audit)
+- `autonomous.md` handles REVIEWING status, passes max_review_iterations from config, documents LEARNINGS.md as resume-only
+- `ship.md` reads success criteria from ROADMAP.md (was phases.md)
+- `seed.md` counts only active seeds toward 20 limit (was counting all including archived)
+- `workspace.md` routes conflicted status directly to recovery
+- `test.md`, `plan-review.md`, `test-gen.md` use Glob wildcard for phase directory lookup
+
+### Fixed
+- EOD command referenced non-existent agents (`reviewer`, `project-reviewer`)
+- Skill resolution for 5 agents pointed to non-existent `skills/testing/SKILL.md`
+- Stack-specific agents not receiving user preferences from inject-memory.sh
+- `quick-implementer` triggering `implementer$` SubagentStop hook (incompatible validation format)
+- `audit-bug-detector` triggering `bug-detector$` SubagentStop hook (incompatible output format)
+- `pre-commit-gate.sh` block paths used stderr + exit 2 (changed to stdout + exit 0)
+- `session-end-summary.sh` git diff HEAD~0 when COMMITS=0
+
 ## [3.1.0] - 2026-03-17 -- Audit System & Quality Expansion
 
 ### Added

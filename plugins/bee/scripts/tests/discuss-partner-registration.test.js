@@ -147,7 +147,7 @@ try {
   process.exit(1);
 }
 
-const caseMatch = scriptContent.match(/case\s+"\$AGENT_TYPE"\s+in\s*\n([\s\S]*?)\nesac/);
+const caseMatch = scriptContent.match(/case\s+"\$(?:AGENT_TYPE|1)"\s+in\s*\n([\s\S]*?)\nesac/);
 assert(caseMatch !== null, 'case statement for AGENT_TYPE exists');
 
 if (caseMatch) {
@@ -189,17 +189,19 @@ assert(hooks.hooks.PreToolUse !== undefined, 'hooks.json PreToolUse preserved');
 assert(hooks.hooks.SessionEnd !== undefined, 'hooks.json SessionEnd preserved');
 
 // Verify existing SubagentStop entries still exist
-const existingStopMatchers = [
-  '^implementer$', '^fixer$', '^researcher$',
-  '^bug-detector$', '^pattern-reviewer$',
-  '^plan-compliance-reviewer$', '^stack-reviewer$',
-  '^quick-implementer$', '^discuss-partner$',
+const requiredAgentsCoverage = [
+  'implementer', 'fixer', 'researcher',
+  'bug-detector', 'pattern-reviewer',
+  'plan-compliance-reviewer', 'stack-reviewer',
+  'quick-implementer', 'discuss-partner',
 ];
-for (const matcher of existingStopMatchers) {
-  const entry = subagentStopEntries.find((e) => e.matcher === matcher);
+for (const agent of requiredAgentsCoverage) {
+  const found = subagentStopEntries.some((e) => {
+    try { return new RegExp(e.matcher).test(agent); } catch { return false; }
+  });
   assert(
-    entry !== undefined,
-    `SubagentStop still has entry with matcher "${matcher}"`
+    found,
+    `SubagentStop has matcher covering agent "${agent}"`
   );
 }
 

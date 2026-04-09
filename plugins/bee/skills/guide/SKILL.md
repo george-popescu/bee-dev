@@ -121,6 +121,18 @@ This guide teaches you to use Bee intelligently -- when to suggest commands, wha
 | Quick archive (skip ceremony) | `/bee:archive-spec` |
 | Manage seed backlog | `/bee:backlog` |
 
+### Setup and Maintenance
+| Intent | Command |
+|--------|---------|
+| Initialize Bee for project | `/bee:init` |
+| Update Bee plugin | `/bee:update` |
+| View/edit user profile | `/bee:profile` |
+| Rebuild codebase context | `/bee:refresh-context` |
+| Get help and command list | `/bee:help` |
+| Natural language intent routing | `/bee:do` |
+| Create custom agent | `/bee:create-agent` |
+| Create custom skill | `/bee:create-skill` |
+
 ## 3. Smart Feature Suggestions
 
 Proactively suggest these when conditions are met -- don't wait for the user to ask.
@@ -176,7 +188,7 @@ Proactively suggest these when conditions are met -- don't wait for the user to 
 
 **Commands -> Agents:** Commands are orchestrators. They read state from disk, validate guards, spawn specialized agents via Task tool. 49 commands orchestrate 36 agents. Agents inherit the parent model unless the conductor explicitly passes `model: "sonnet"` for structured/economy tasks.
 
-**Hooks -> Scripts:** 8 lifecycle events drive 7 scripts. SessionStart loads project state (load-context.sh). PostToolUse auto-lints (auto-lint.sh). SubagentStart injects user preferences (inject-memory.sh). SubagentStop validates agent output (per-agent prompts in hooks.json). PreToolUse gates commits (pre-commit-gate.sh). PreCompact saves session context. Stop reminds about unreviewed work. SessionEnd writes session metrics.
+**Hooks -> Scripts:** 8 lifecycle events drive 8 scripts. SessionStart loads project state (load-context.sh) and configures statusline (setup-statusline.js). PostToolUse auto-lints (auto-lint.sh). SubagentStart injects user preferences (inject-memory.sh). SubagentStop validates agent output (per-agent prompts in hooks.json). PreToolUse gates commits (pre-commit-gate.sh). PreCompact saves session context. Stop reminds about unreviewed work. SessionEnd writes session metrics.
 
 **Skills -> Knowledge:** Skills are composable knowledge packs. Core skill provides workflow rules (TDD, disk-is-truth). Stack skills (10 stacks) provide framework conventions. Standards skills (global, frontend, backend, testing) provide universal practices. This guide provides workflow intelligence. Skills load into agent context via frontmatter `skills:` arrays.
 
