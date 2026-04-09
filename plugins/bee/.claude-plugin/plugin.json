@@ -1,6 +1,6 @@
 {
   "name": "bee",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "description": "Spec-driven development workflow with TDD enforcement, parallel agent execution, autonomous pipeline orchestration, interactive flow control, review gates, comprehensive code auditing, workflow metrics, debug intelligence, health baselining, and adaptive error recovery",
   "author": {
     "name": "Beecoded",

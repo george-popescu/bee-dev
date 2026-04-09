@@ -174,16 +174,18 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 | Infrastructure | 4 | assumptions-analyzer, dependency-auditor, integration-checker |
 | Stack-Specific | 3 | laravel-inertia-vue-implementer, laravel-inertia-vue-bug-detector, laravel-inertia-vue-pattern-reviewer |
 
-## Skills (22)
+## Skills (41)
 
 | Category | Skills |
 |----------|--------|
-| Core | core (TDD, disk-is-truth, firm rules), guide (workflow intelligence) |
-| Quality | audit (finding format, severity), review (quality rules), context7 (live docs) |
-| Standards | global, frontend, backend, testing |
+| Core | core (TDD, disk-is-truth, firm rules R1-R9), guide (workflow intelligence) |
+| Quality | audit (finding format, severity calibration), review (quality rules, spec compliance), context7 (live docs, version-aware) |
+| Standards (10) | global, frontend, backend, testing, auth, realtime, ci-cd, docker, monorepo, i18n |
 | Stacks (10) | laravel-inertia-vue, laravel-inertia-react, nestjs, vue, nextjs, react, angular, react-native-expo, kmp-compose, claude-code-plugin |
-| Libraries | shadcn-ui, nestjs-rabbitmq |
-| Testing | playwright |
+| Libraries (14) | prisma, drizzle, tailwind-v4, tanstack-query, supabase, stripe, zustand, trpc, shadcn-ui, shadcn-vue, nestjs-rabbitmq, sentry, storybook, email, s3-storage |
+| Testing | playwright (a11y, API testing, POM) |
+
+All library skills load conditionally based on `package.json` detection. Zero overhead when not used.
 
 ## Supported Stacks (10)
 

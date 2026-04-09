@@ -4,6 +4,34 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.1.0] - 2026-04-10 -- Skills Expansion & Quality Optimization
+
+### Added
+- **18 new conditional library/standards skills** -- prisma, drizzle, tailwind-v4, tanstack-query, supabase, stripe, zustand, trpc, shadcn-vue, sentry, storybook, email, s3-storage, auth-patterns, realtime, ci-cd, docker, monorepo, i18n. All load conditionally based on package.json/config detection.
+- **Firm rules R8 + R9** -- R8: no completion claims without evidence (paste actual test output). R9: HIGH confidence only for review findings (exact file:line, traceable impact, 5-15 per phase).
+- **Async testing patterns** in standards/testing -- promises, timers, waitFor, error rejection, PHP queue fakes, flaky test prevention (86 lines)
+- **Severity calibration table** in audit skill -- 7 borderline examples with "3 AM test" heuristic
+- **Version-aware queries + result disambiguation** in context7 skill
+- **Spec compliance procedure** in review skill -- list ACs by task ID, map to tests, trace code paths
+- **FP staleness check** in review skill -- verify code unchanged before excluding false positives
+- **Dark mode section** in frontend standards -- semantic tokens, Tailwind v3/v4 guidance
+- **400 vs 422 clarification** in backend standards
+
+### Changed
+- Skills count: 22 -> 41 (19 new, all conditional)
+- Core skill compressed: rationalizations table (12 -> 6 lines), Context7 section (28 -> 5 lines), model delegation (10 -> 3 lines). Net -20 lines while adding R8+R9.
+- **react-native-expo** major rewrite (300 -> 527): expo-image, Reanimated 3, forms+keyboard, error recovery, SDK upgrade pattern
+- **kmp-compose** expanded: SQLDelight (setup+driver+queries), Coil 3 image loading, Ktor interceptors+retry
+- **claude-code-plugin** expanded: hook script patterns, SubagentStop validators, agent context packets, test patterns
+- **laravel-inertia-react** expanded: DataTable with TanStack Table (columns, row actions, server pagination)
+- **nestjs** expanded: Security Hardening (Helmet, CORS, Throttler, csrf-csrf, structured logging)
+- **angular** expanded: NgRx Signal Store example (signalStore, withState, withComputed, withMethods)
+- **react** expanded: concurrent rendering (startTransition, useDeferredValue, memoization guide)
+- **nextjs** expanded: enhanced Image section (static, remote, fill, priority, blur, sizes)
+- **playwright** expanded: accessibility testing (aria snapshots, axe-core), API testing, debugging
+- **nestjs-rabbitmq** expanded: connection management, reconnection, RPC timeouts, competing consumers
+- **shadcn-ui** and **shadcn-vue**: hardcoded colors in variant examples replaced with semantic tokens
+
 ## [4.0.0] - 2026-04-09 -- Bee Sentinel: Debug & Recovery Intelligence
 
 ### Added

@@ -167,6 +167,8 @@ Common libraries and their best practices:
 
 **Key rule:** Match the project. If the project uses Redux, write Redux. If it uses Zustand, write Zustand. Never mix state libraries without explicit user direction.
 
+**For new projects (no state library installed yet):** Recommend **Zustand** for client state (simple, minimal boilerplate, great TypeScript support) + **TanStack Query** for server state (caching, refetching, optimistic updates). This combination covers most needs without Redux complexity. Context API + useReducer is fine for small apps with minimal shared state.
+
 ```tsx
 // Pattern: context with split read/write to prevent unnecessary re-renders
 const StateContext = createContext<AppState | null>(null);

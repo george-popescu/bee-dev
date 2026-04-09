@@ -152,6 +152,38 @@ Context7 provides live documentation lookups. Agents with Context7 tools in thei
 
 **When unavailable:** Fall back to stack skill rules and codebase patterns. Never hard-fail. Note in output that documentation verification was skipped.
 
+## Library Skill Detection
+
+When starting work on a project, check `package.json` (or equivalent) for known libraries and read the matching skill if present. This is in addition to the stack skill loaded from config.
+
+| Detect in package.json | Read Skill |
+|----------------------|------------|
+| `@prisma/client` or `prisma/` dir | `skills/libraries/prisma/SKILL.md` |
+| `drizzle-orm` or `drizzle.config.ts` | `skills/libraries/drizzle/SKILL.md` |
+| `tailwindcss` >= 4.0 or `@import "tailwindcss"` in CSS | `skills/libraries/tailwind-v4/SKILL.md` |
+| `@tanstack/react-query` or `@tanstack/vue-query` | `skills/libraries/tanstack-query/SKILL.md` |
+| `@supabase/supabase-js` or `supabase/` dir | `skills/libraries/supabase/SKILL.md` |
+| `stripe` or `@stripe/stripe-js` | `skills/libraries/stripe/SKILL.md` |
+| `zustand` | `skills/libraries/zustand/SKILL.md` |
+| `@trpc/server` or `@trpc/client` | `skills/libraries/trpc/SKILL.md` |
+| `@sentry/*` packages | `skills/libraries/sentry/SKILL.md` |
+| `storybook` or `.storybook/` dir | `skills/libraries/storybook/SKILL.md` |
+| `resend` or `@sendgrid/mail` or `nodemailer` | `skills/libraries/email/SKILL.md` |
+| `@aws-sdk/client-s3` or `minio` | `skills/libraries/s3-storage/SKILL.md` |
+
+Detection also applies to infrastructure:
+
+| Detect | Read Skill |
+|--------|------------|
+| `Dockerfile` or `docker-compose.yml` | `skills/standards/docker/SKILL.md` |
+| `.github/workflows/` dir | `skills/standards/ci-cd/SKILL.md` |
+| `turbo.json` or `pnpm-workspace.yaml` | `skills/standards/monorepo/SKILL.md` |
+| `react-intl`, `vue-i18n`, `next-intl`, `i18next` | `skills/standards/i18n/SKILL.md` |
+
+Standards skills `auth` and `realtime` are loaded based on task context (implementing auth flows or live features), not package detection.
+
+Read only the skills relevant to the current project — do not load all of them.
+
 ## File Format References
 
 - **TASKS.md:** Execution contract for each phase. See [templates/tasks.md](templates/tasks.md)

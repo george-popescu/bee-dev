@@ -4,6 +4,35 @@ All notable changes to the Bee plugin are documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
+## v4.1.0 — Skills Expansion & Quality Optimization
+
+### 18 New Conditional Skills
+- **Libraries (14):** prisma, drizzle, tailwind-v4, tanstack-query, supabase, stripe, zustand, trpc, shadcn-vue, sentry, storybook, email, s3-storage
+- **Standards (5):** auth-patterns, realtime, ci-cd, docker, monorepo, i18n
+- All skills load conditionally based on `package.json` / config file detection. Zero context overhead when not used.
+
+### Skill Quality Optimization (all 23 existing skills)
+- **Core:** Added R8 (verification evidence) + R9 (HIGH confidence threshold). Compressed waste (-20 lines).
+- **Testing standards:** +86 lines async testing (promises, timers, waitFor, error rejection, flaky prevention)
+- **Audit:** Severity calibration table with 7 borderline examples + "3 AM test"
+- **Review:** Spec compliance procedure (AC-to-test mapping), FP staleness check, enum completeness with Grep
+- **Context7:** Version-aware queries, result disambiguation guide
+- **Frontend standards:** Dark mode section, shadcn-vue reference, Tailwind v3/v4 version awareness
+- **Backend standards:** 400 vs 422 distinction clarified
+- **React:** Concurrent rendering (startTransition, useDeferredValue, memoization guide)
+- **Next.js:** Enhanced Image section (static import, remote, fill, priority, blur, sizes)
+- **Angular:** NgRx Signal Store example with rxMethod
+- **React Native Expo:** Major rewrite 300→527 lines (expo-image, Reanimated 3, forms, error recovery)
+- **KMP Compose:** SQLDelight + Coil 3 + Ktor interceptors/retry
+- **Claude Code Plugin:** Hook patterns, context packets, test patterns
+- **Laravel Inertia React:** DataTable + TanStack Table section
+- **NestJS:** Security Hardening (Helmet, CORS, Throttler, logging)
+- **Playwright:** Accessibility testing (axe-core), API testing, debugging
+- **NestJS RabbitMQ:** Connection management, reconnection, RPC timeouts, competing consumers
+
+### Numbers
+- 41 skills (was 22), 49 commands, 39 agents, 27 SubagentStop validators, 9 firm rules (was 7)
+
 ## v4.0.0 — Bee Sentinel: Debug & Recovery Intelligence
 
 ### New Commands
