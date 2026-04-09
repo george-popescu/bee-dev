@@ -13,30 +13,30 @@ These standards apply when the project uses shadcn/ui. **Detection:** check for 
 
 ### How shadcn/ui Works
 
-shadcn/ui is NOT a dependency — it's a **code distribution platform**. Components are copied into your project and become YOUR code. This means:
+shadcn/ui is NOT a dependency -- it's a **code distribution platform**. Components are copied into your project and become YOUR code. This means:
 
 - Components live in `@/components/ui/` (or wherever `aliases.ui` points in `components.json`)
-- You OWN the code — modify, extend, delete as needed
+- You OWN the code -- modify, extend, delete as needed
 - Updates are manual (`npx shadcn@latest add <component>` overwrites your file)
-- No `node_modules` shadcn package — only the underlying primitives (Radix UI, etc.)
+- No `node_modules` shadcn package -- only the underlying primitives (Radix UI, etc.)
 
 ### Project Structure
 
 ```
-components.json              ← shadcn configuration (aliases, style, base color)
+components.json              <- shadcn configuration (aliases, style, base color)
 src/
   components/
-    ui/                      ← shadcn primitives (DO NOT put custom components here)
+    ui/                      <- shadcn primitives (DO NOT put custom components here)
       button.tsx
       dialog.tsx
       input.tsx
       ...
-    custom/                  ← your composed components using shadcn primitives
+    custom/                  <- your composed components using shadcn primitives
       user-form.tsx
       data-table-toolbar.tsx
       ...
   lib/
-    utils.ts                 ← cn() utility function
+    utils.ts                 <- cn() utility function
 ```
 
 ### The `cn()` Utility
@@ -50,7 +50,57 @@ import { cn } from "@/lib/utils"
 <div className={cn("px-4 py-2", variant === "ghost" && "bg-transparent", className)} />
 ```
 
-**NEVER** use raw string concatenation for classes. **ALWAYS** use `cn()`.
+Use `cn()` for all dynamic class merging -- never raw string concatenation.
+
+## Styling Rules
+
+### Semantic Colors Only
+
+All colors reference CSS variable tokens, never raw Tailwind palette colors. Hardcoded colors break theming and dark mode:
+
+```tsx
+// Correct -- theme tokens
+<p className="text-muted-foreground">Helper text</p>
+<div className="bg-card border border-border rounded-lg">...</div>
+<span className="text-destructive">Error message</span>
+
+// Wrong -- hardcoded colors
+<p className="text-gray-500">Helper text</p>
+<div className="bg-white border border-gray-200 rounded-lg">...</div>
+<span className="text-red-500">Error message</span>
+```
+
+### Spacing: `gap` over `space`
+
+Use `flex gap-*` instead of `space-x-*` / `space-y-*`. Gap works with wrapping, is more predictable, and doesn't add margins to children:
+
+```tsx
+// Correct
+<div className="flex flex-col gap-4">
+
+// Avoid
+<div className="space-y-4">
+```
+
+### Size Shorthand
+
+Use `size-*` when width and height are equal:
+
+```tsx
+// Correct
+<Avatar className="size-10">
+
+// Verbose
+<Avatar className="w-10 h-10">
+```
+
+### Other Styling Rules
+
+- Use `truncate` as shorthand for text overflow
+- Use `className` for layout positioning only -- never override component internal styling
+- No manual `dark:` color overrides -- semantic tokens auto-switch in dark mode
+- No manual `z-index` on overlay components (Dialog, Sheet, Popover) -- they manage stacking internally
+- Use `cn()` for all conditional classes -- never ternary string concatenation
 
 ## Component Usage Patterns
 
@@ -62,15 +112,117 @@ Always import from `@/components/ui/`:
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 ```
 
-### Composition Pattern
+### Variant Props
 
-shadcn components are composition-first. Complex UI is built by nesting primitives:
+Most components use `variant` and `size` props powered by `cva` (class-variance-authority):
 
 ```tsx
-// Pattern: composed form field with label, input, and error
+<Button variant="default" />     // primary action
+<Button variant="secondary" />   // secondary action
+<Button variant="destructive" /> // dangerous action
+<Button variant="outline" />     // bordered, no fill
+<Button variant="ghost" />       // no border, no fill
+<Button variant="link" />        // text-only, underlined
+
+<Button size="default" />  <Button size="sm" />  <Button size="lg" />  <Button size="icon" />
+```
+
+Use built-in variants before adding custom styles.
+
+### Extending Components
+
+When you need custom variants, extend the existing component file in `ui/`:
+
+```tsx
+// In @/components/ui/button.tsx -- add a new variant
+const buttonVariants = cva("...", {
+    variants: {
+        variant: {
+            default: "...",
+            success: "bg-success text-success-foreground hover:bg-success/90",  // added — define --success in CSS variables
+        },
+    },
+});
+```
+
+Do not create wrapper components just to add a className -- extend the variant system instead.
+
+### The `asChild` Pattern
+
+Many shadcn components support `asChild` (from Radix UI Slot). This renders the child element instead of the default, merging props:
+
+```tsx
+// Link that looks like a button
+<Button asChild>
+    <Link href="/dashboard">Go to Dashboard</Link>
+</Button>
+
+// Custom trigger for a dialog
+<DialogTrigger asChild>
+    <Button variant="outline">Open Settings</Button>
+</DialogTrigger>
+```
+
+### Icon Patterns
+
+Icons inside shadcn components use the `data-icon` attribute for proper sizing and spacing:
+
+```tsx
+// Correct -- data-icon, no sizing classes on the icon
+<Button>
+    <SearchIcon data-icon="inline-start" />
+    Search
+</Button>
+
+// Wrong -- manual icon sizing
+<Button>
+    <SearchIcon className="w-4 h-4 mr-2" />
+    Search
+</Button>
+```
+
+Pass icons as component objects, not string keys. No sizing classes on icons inside shadcn components -- the component handles icon sizing via `data-icon`.
+
+## Component Selection Guide
+
+Before building custom UI, check this table -- shadcn likely has what you need:
+
+| Need | Use |
+|------|-----|
+| Button/action | `Button` with appropriate variant |
+| Form inputs | `Input`, `Select`, `Combobox`, `Switch`, `Checkbox`, `RadioGroup`, `Textarea`, `InputOTP`, `Slider` |
+| Toggle 2-5 options | `ToggleGroup` + `ToggleGroupItem` |
+| Data display | `Table`, `Card`, `Badge`, `Avatar` |
+| Navigation | `Sidebar`, `NavigationMenu`, `Breadcrumb`, `Tabs`, `Pagination` |
+| Overlays | `Dialog` (modal), `Sheet` (side panel), `Drawer` (bottom), `AlertDialog` (confirmation) |
+| Feedback | `sonner` (toast), `Alert` (callout), `Progress`, `Skeleton` (loading), `Spinner` |
+| Command palette | `Command` inside `Dialog` |
+| Charts | `ChartContainer` (wraps Recharts) |
+| Layout | `Card`, `Separator`, `Resizable`, `ScrollArea`, `Accordion`, `Collapsible` |
+| Empty states | `Empty` component |
+| Menus | `DropdownMenu`, `ContextMenu`, `Menubar` |
+| Tooltips/info | `Tooltip`, `HoverCard`, `Popover` |
+| Status/labels | `Badge` with variant (not custom styled spans) |
+| Dividers | `Separator` (not `<hr>` or border divs) |
+
+## Accessibility Requirements
+
+These are non-negotiable -- shadcn builds on Radix UI's accessibility:
+
+- `Dialog`, `Sheet`, `Drawer` require `DialogTitle` / `SheetTitle` / `DrawerTitle` -- screen readers need it
+- `Avatar` always needs `AvatarFallback` -- displays when image fails to load
+- `TabsTrigger` must be inside `TabsList` -- ARIA role hierarchy
+- Never remove ARIA attributes or keyboard handlers from shadcn components
+- Use `asChild` on triggers (Dialog, Sheet, Tooltip, Popover) when wrapping custom elements -- avoids nested `<button>` violations
+
+## Composition Pattern
+
+Complex UI is built by nesting primitives:
+
+```tsx
+// Composed form field with label, input, and error
 function FormField({ label, error, ...inputProps }: FormFieldProps) {
     return (
         <div className="space-y-2">
@@ -82,67 +234,39 @@ function FormField({ label, error, ...inputProps }: FormFieldProps) {
 }
 ```
 
-### Variant Props
+### Button Loading State
 
-Most shadcn components use `variant` and `size` props powered by `cva` (class-variance-authority):
-
-```tsx
-<Button variant="default" />     // primary action
-<Button variant="secondary" />   // secondary action
-<Button variant="destructive" /> // dangerous action
-<Button variant="outline" />     // bordered, no fill
-<Button variant="ghost" />       // no border, no fill
-<Button variant="link" />        // text-only, underlined
-
-<Button size="default" />        // standard
-<Button size="sm" />             // compact
-<Button size="lg" />             // prominent
-<Button size="icon" />           // square, for icon-only buttons
-```
-
-### Extending Components
-
-When you need custom variants, extend the existing component file in `ui/`:
+Button has no `isPending` or `isLoading` prop -- compose with Spinner:
 
 ```tsx
-// In @/components/ui/button.tsx — add a new variant
-const buttonVariants = cva("...", {
-    variants: {
-        variant: {
-            default: "...",
-            // ... existing variants
-            success: "bg-green-600 text-white hover:bg-green-700",  // ← added
-        },
-    },
-});
-```
-
-**DO NOT** create wrapper components just to add a className. Extend the variant system instead.
-
-### The `asChild` Pattern
-
-Many shadcn components support `asChild` prop (from Radix UI Slot). This renders the child element instead of the default element, merging props:
-
-```tsx
-// Render a link that looks like a button
-<Button asChild>
-    <Link href="/dashboard">Go to Dashboard</Link>
+<Button disabled={isPending}>
+    {isPending && <Spinner data-icon="inline-start" />}
+    {isPending ? "Saving..." : "Save"}
 </Button>
+```
 
-// Render a custom trigger for a dialog
-<DialogTrigger asChild>
-    <Button variant="outline">Open Settings</Button>
-</DialogTrigger>
+### Card Composition
+
+Use the full Card composition -- don't skip parts:
+
+```tsx
+<Card>
+    <CardHeader>
+        <CardTitle>Title</CardTitle>
+        <CardDescription>Description</CardDescription>
+    </CardHeader>
+    <CardContent>{/* content */}</CardContent>
+    <CardFooter>{/* actions */}</CardFooter>
+</Card>
 ```
 
 ## Theming
 
-### CSS Variables (Default)
+### CSS Variables
 
 shadcn uses CSS variables for theming. All colors reference semantic tokens:
 
 ```css
-/* Semantic tokens — defined in globals.css */
 --background          /* page background */
 --foreground          /* default text */
 --primary             /* primary actions, buttons */
@@ -157,33 +281,17 @@ shadcn uses CSS variables for theming. All colors reference semantic tokens:
 --ring                /* focus ring */
 ```
 
-### Using Theme Colors in Code
-
-**ALWAYS** use semantic color classes, **NEVER** raw Tailwind colors:
-
-```tsx
-// ✅ Correct — uses theme tokens
-<p className="text-muted-foreground">Helper text</p>
-<div className="bg-card border border-border rounded-lg">...</div>
-<span className="text-destructive">Error message</span>
-
-// ❌ Wrong — hardcoded colors bypass theming
-<p className="text-gray-500">Helper text</p>
-<div className="bg-white border border-gray-200 rounded-lg">...</div>
-<span className="text-red-500">Error message</span>
-```
-
 ### Dark Mode
 
-shadcn supports dark mode via `.dark` class on `<html>` or `<body>`. When implementing dark mode:
+shadcn supports dark mode via `.dark` class on `<html>`. When implementing:
 
-- Use the semantic CSS variables (they auto-switch in dark mode)
-- If you must add custom colors, define both `:root` and `.dark` variants
+- Use semantic CSS variables (auto-switch in dark mode)
+- If custom colors needed, define both `:root` and `.dark` variants
 - Use `@custom-variant dark (&:is(.dark *))` in Tailwind v4
 
 ### Custom Themes
 
-To customize the theme, modify CSS variables in `globals.css`. Use oklch color space (shadcn default since v2):
+Modify CSS variables in `globals.css`. Use oklch color space (shadcn default since v2):
 
 ```css
 :root {
@@ -192,7 +300,20 @@ To customize the theme, modify CSS variables in `globals.css`. Use oklch color s
 }
 ```
 
-Use the shadcn themes tool (ui.shadcn.com/themes) to generate color palettes, then paste into your CSS.
+Use shadcn themes tool (ui.shadcn.com/themes) to generate palettes.
+
+### Chart Theming
+
+Use `var(--chart-N)` CSS variables for chart colors -- never hardcoded hex values:
+
+```tsx
+const chartConfig = {
+    desktop: { label: "Desktop", color: "var(--chart-1)" },
+    mobile: { label: "Mobile", color: "var(--chart-2)" },
+} satisfies ChartConfig;
+
+<Bar dataKey="desktop" fill="var(--color-desktop)" radius={4} />
+```
 
 ## Common Component Patterns
 
@@ -220,8 +341,6 @@ Use `Dialog` for focused actions. Use `Sheet` for side panels with more content.
 
 ### Form with React Hook Form + Zod
 
-shadcn provides a `Form` component that integrates with React Hook Form:
-
 ```tsx
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -247,23 +366,19 @@ const form = useForm<z.infer<typeof schema>>({
 
 ### Data Table with TanStack Table
 
-shadcn's DataTable pattern uses `@tanstack/react-table`:
-
 ```tsx
 import { ColumnDef } from "@tanstack/react-table"
 import { DataTable } from "@/components/ui/data-table"
 
 const columns: ColumnDef<Payment>[] = [
     { accessorKey: "status", header: "Status" },
-    { accessorKey: "email", header: "Email" },
-    {
-        accessorKey: "amount",
-        header: () => <div className="text-right">Amount</div>,
-        cell: ({ row }) => {
-            const amount = parseFloat(row.getValue("amount"));
-            const formatted = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
-            return <div className="text-right font-medium">{formatted}</div>;
-        },
+    { accessorKey: "amount",
+      header: () => <div className="text-right">Amount</div>,
+      cell: ({ row }) => {
+          const formatted = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+              .format(parseFloat(row.getValue("amount")));
+          return <div className="text-right font-medium">{formatted}</div>;
+      },
     },
 ];
 
@@ -271,8 +386,6 @@ const columns: ColumnDef<Payment>[] = [
 ```
 
 ### Sidebar
-
-shadcn provides a Sidebar component with its own CSS variables (`--sidebar-*`):
 
 ```tsx
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarMenuItem } from "@/components/ui/sidebar"
@@ -282,7 +395,6 @@ import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarMenuItem
         <SidebarContent>
             <SidebarGroup>
                 <SidebarMenuItem>Dashboard</SidebarMenuItem>
-                <SidebarMenuItem>Orders</SidebarMenuItem>
             </SidebarGroup>
         </SidebarContent>
     </Sidebar>
@@ -290,88 +402,60 @@ import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarMenuItem
 </SidebarProvider>
 ```
 
-### Charts (Recharts)
+## CLI Workflow
 
-shadcn wraps Recharts with themed components:
+### Adding Components
 
-```tsx
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
+```bash
+# Search registries before building custom
+npx shadcn@latest search @shadcn -q "sidebar"
 
-const chartConfig = {
-    desktop: { label: "Desktop", color: "var(--chart-1)" },
-    mobile: { label: "Mobile", color: "var(--chart-2)" },
-} satisfies ChartConfig;
+# Get docs and examples
+npx shadcn@latest docs button dialog select
 
-<ChartContainer config={chartConfig}>
-    <BarChart data={data}>
-        <CartesianGrid vertical={false} />
-        <XAxis dataKey="month" tickLine={false} axisLine={false} />
-        <ChartTooltip content={<ChartTooltipContent />} />
-        <Bar dataKey="desktop" fill="var(--color-desktop)" radius={4} />
-    </BarChart>
-</ChartContainer>
+# Preview before adding
+npx shadcn@latest add button --dry-run
+
+# Add components
+npx shadcn@latest add button card dialog
 ```
 
-## Common Pitfalls -- NEVER Rules
+### Safe Update Workflow
 
-- **NEVER** install shadcn as a npm package — use `npx shadcn@latest add <component>` to copy components into your project.
-- **NEVER** put custom/composed components in `@/components/ui/` — that directory is for shadcn primitives only. Custom components go in `@/components/custom/` or feature directories.
-- **NEVER** use raw Tailwind colors (`text-gray-500`, `bg-blue-600`) when semantic tokens exist (`text-muted-foreground`, `bg-primary`). Hardcoded colors break theming.
-- **NEVER** use string concatenation for class names — always use `cn()` from `@/lib/utils`.
-- **NEVER** create wrapper components just to add a className — extend the variant system in the `ui/` file instead.
-- **NEVER** modify `ui/` files AND forget to check if `npx shadcn add` will overwrite your changes — document custom modifications.
-- **NEVER** use `onClick` on `DialogTrigger` or `SheetTrigger` — use `asChild` and put the handler on the child element.
-- **NEVER** forget `asChild` when wrapping a custom element inside a shadcn trigger/slot component.
-- **NEVER** hardcode chart colors — use `var(--chart-N)` CSS variables that auto-adapt to dark mode.
+When updating components that you've customized:
 
-## Must-Haves
+1. Preview: `npx shadcn@latest add <component> --dry-run`
+2. Diff per file: `npx shadcn@latest add <component> --diff <file>`
+3. Decide per file based on the diff
+4. Never use `--overwrite` without explicit user approval
 
-- **`cn()` for all class merging.** Every dynamic className uses `cn()`. No exceptions.
-- **Semantic color tokens.** All colors reference CSS variables (`text-foreground`, `bg-card`, `border-border`), never raw Tailwind palette colors.
-- **`components.json` configuration.** Project has a valid `components.json` with correct aliases, style, and Tailwind CSS path.
-- **Separate `ui/` from custom components.** shadcn primitives in `ui/`, composed components elsewhere.
-- **`asChild` on triggers.** When using custom elements as triggers (Dialog, Sheet, Tooltip, Popover), always use `asChild`.
-- **Accessible by default.** shadcn components are built on Radix UI — preserve their accessibility by not removing ARIA attributes or keyboard handlers.
+### Registries
 
-## Good Practices
+shadcn supports multiple registries: `@shadcn` (official), `@magicui`, `@tailark`, and community presets. Always ask the user which registry when ambiguous.
 
-- **Use the CLI to add components.** `npx shadcn@latest add button dialog input` — don't manually copy files.
-- **Extend variants, don't wrap.** Need a "success" button? Add a variant to `button.tsx`, don't create `SuccessButton.tsx`.
-- **Compose complex UI from primitives.** A settings form = `Dialog` + `Form` + `Input` + `Select` + `Button`. Don't build monolithic components.
-- **Use `Sheet` for mobile navigation.** On small screens, swap `Sidebar` for `Sheet` with the same content.
-- **Check existing components before building custom.** shadcn has 50+ components — search before building from scratch.
-- **Use `Sonner` for toasts.** shadcn integrates with `sonner` — don't build custom toast systems.
-- **Leverage chart theming.** Use `ChartConfig` + CSS variables for consistent chart styling across light/dark modes.
+## Common Pitfalls
 
-## Common Bugs
-
-- **Missing `cn()` import.** Forgetting to import `cn` from `@/lib/utils` when adding dynamic classes.
-- **Hardcoded colors in custom components.** Using `text-gray-500` instead of `text-muted-foreground` — works in light mode, breaks in dark mode.
-- **Missing `asChild` on triggers.** `DialogTrigger` without `asChild` renders an extra button element, causing nested `<button>` HTML violations.
-- **Overwriting customized `ui/` files.** Running `npx shadcn add button` overwrites your custom variants. Use `--diff` flag to preview changes first.
-- **Wrong import paths.** Importing from `@radix-ui/react-dialog` directly instead of `@/components/ui/dialog`. Always use the shadcn wrapper.
-- **Sidebar CSS variable conflicts.** Sidebar uses `--sidebar-*` variables. If you override `--background` globally, sidebar may look wrong.
-- **Form validation not showing.** Forgetting `<FormMessage />` inside `<FormField>` — errors exist but aren't displayed.
-- **Data table pagination state.** Not controlling pagination state externally when using server-side pagination with TanStack Table.
-
-## Anti-Patterns
-
-- **Component soup in `ui/`.** Putting everything in `@/components/ui/` — it should only contain shadcn primitives, not your business components.
-- **Wrapping every shadcn component.** Creating `MyButton`, `MyInput`, `MyDialog` wrappers that just pass props through — extend variants instead.
-- **Ignoring the `components.json` aliases.** Importing from hardcoded paths instead of using the configured aliases.
-- **Building custom components that shadcn already provides.** Check the component list (ui.shadcn.com/docs/components) before building custom modals, popovers, or dropdowns.
-- **Mixing Radix UI direct usage with shadcn wrappers.** Pick one. shadcn wraps Radix — don't also import Radix directly for the same component.
-- **Ignoring dark mode.** Using colors that look good in light mode only. Test both modes.
-- **Static chart colors.** Using `fill="#2563eb"` instead of `fill="var(--color-desktop)"` — breaks theming and dark mode.
+- **Missing `cn()` import** -- forgetting to import from `@/lib/utils` when adding dynamic classes
+- **Hardcoded colors in custom components** -- `text-gray-500` works in light mode, breaks in dark mode
+- **Missing `asChild` on triggers** -- renders an extra button element, causing nested `<button>` HTML violations
+- **Overwriting customized `ui/` files** -- `npx shadcn add button` overwrites your variants. Use `--diff` first.
+- **Wrong import paths** -- importing from `@radix-ui/react-dialog` directly instead of `@/components/ui/dialog`
+- **Sidebar CSS variable conflicts** -- Sidebar uses `--sidebar-*` variables separate from main theme
+- **Form validation not showing** -- forgetting `<FormMessage />` inside `<FormField>`
+- **DataTable pagination state** -- not controlling pagination externally with server-side pagination
+- **Component soup in `ui/`** -- putting business components in `ui/` directory (reserved for shadcn primitives)
+- **Wrapping every component** -- creating `MyButton`, `MyInput` wrappers that just pass props (extend variants instead)
+- **Mixing Radix UI direct usage with shadcn wrappers** -- pick one per component type
+- **Using `onClick` on triggers** -- use `asChild` and put the handler on the child element
+- **Static chart colors** -- `fill="#2563eb"` instead of `fill="var(--color-desktop)"` breaks theming
 
 ## Context7 Instructions
 
 When looking up shadcn/ui documentation, use these Context7 library identifiers:
 
-- **shadcn/ui:** `/websites/ui_shadcn` — components, theming, configuration, patterns
-- **Radix UI:** `radix-ui/primitives` — underlying primitives, accessibility, composition API
-- **TanStack Table:** `tanstack/table` — data table patterns, sorting, filtering, pagination
-- **Recharts:** `recharts/recharts` — chart components used by shadcn charts
+- **shadcn/ui:** `/websites/ui_shadcn` -- components, theming, configuration, patterns
+- **Radix UI:** `radix-ui/primitives` -- underlying primitives, accessibility, composition API
+- **TanStack Table:** `tanstack/table` -- data table patterns, sorting, filtering, pagination
+- **Recharts:** `recharts/recharts` -- chart components used by shadcn charts
 
-Always check Context7 for component APIs — shadcn updates frequently and component props may change between versions.
+Always check Context7 for component APIs -- shadcn updates frequently and component props may change between versions.

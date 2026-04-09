@@ -182,28 +182,6 @@ val appModule = module {
 
 ## Networking — Ktor Client
 
-### HttpClient Configuration
-
-```kotlin
-fun createHttpClient(json: Json, sessionManager: SessionManager): HttpClient {
-    return HttpClient {
-        install(ContentNegotiation) { json(json) }
-        install(HttpTimeout) {
-            requestTimeoutMillis = 30_000
-            connectTimeoutMillis = 15_000
-        }
-        install(Auth) {
-            bearer {
-                loadTokens { sessionManager.token?.let { BearerTokens(it, "") } }
-            }
-        }
-        HttpResponseValidator {
-            handleResponseExceptionWithRequest { exception, _ -> /* log */ }
-        }
-    }
-}
-```
-
 ### ApiClient Pattern
 
 Wrap Ktor with a typed API client:
@@ -221,6 +199,35 @@ class ApiClient(private val httpClient: HttpClient) {
         Result.Success(response.body<T>())
     } catch (e: Exception) {
         Result.Error(e, e.message)
+    }
+}
+```
+
+### Interceptors and Retry
+
+```kotlin
+fun createHttpClient(json: Json, sessionManager: SessionManager): HttpClient {
+    return HttpClient {
+        install(ContentNegotiation) { json(json) }
+        install(HttpTimeout) { requestTimeoutMillis = 30_000; connectTimeoutMillis = 15_000 }
+        install(Auth) {
+            bearer { loadTokens { sessionManager.token?.let { BearerTokens(it, "") } } }
+        }
+        // Logging interceptor
+        install(Logging) { level = LogLevel.HEADERS; logger = Logger.DEFAULT }
+        // Retry on transient failures
+        install(HttpRequestRetry) {
+            retryOnServerErrors(maxRetries = 3)
+            exponentialDelay()
+        }
+        // 401 handling — clear session and redirect
+        HttpResponseValidator {
+            handleResponseExceptionWithRequest { exception, _ ->
+                if (exception is ClientRequestException && exception.response.status.value == 401) {
+                    sessionManager.clearSession()
+                }
+            }
+        }
     }
 }
 ```
@@ -267,6 +274,112 @@ fun AppNavigator() {
 - `navigator.push(DetailScreen(id))` for forward navigation.
 - `navigator.pop()` to go back.
 - Koin integration: `getScreenModel<MyScreenModel>()` in Voyager screens.
+
+## Local Persistence — SQLDelight
+
+Use SQLDelight for type-safe local database access across platforms. It generates Kotlin APIs from SQL statements.
+
+### Setup
+
+```kotlin
+// build.gradle.kts (shared module)
+plugins {
+    alias(libs.plugins.sqldelight)
+}
+
+sqldelight {
+    databases {
+        create("AppDatabase") {
+            packageName.set("com.app.cache")
+        }
+    }
+}
+
+// Dependencies per source set
+commonMain.dependencies {
+    implementation("app.cash.sqldelight:runtime:2.1.0")
+    implementation("app.cash.sqldelight:coroutines-extensions:2.1.0")
+}
+androidMain.dependencies {
+    implementation("app.cash.sqldelight:android-driver:2.1.0")
+}
+iosMain.dependencies {
+    implementation("app.cash.sqldelight:native-driver:2.1.0")
+}
+```
+
+### Driver Factory (expect/actual)
+
+```kotlin
+// commonMain
+interface DatabaseDriverFactory {
+    fun createDriver(): SqlDriver
+}
+
+// androidMain
+class AndroidDatabaseDriverFactory(private val context: Context) : DatabaseDriverFactory {
+    override fun createDriver(): SqlDriver = AndroidSqliteDriver(AppDatabase.Schema, context, "app.db")
+}
+
+// iosMain
+class IosDatabaseDriverFactory : DatabaseDriverFactory {
+    override fun createDriver(): SqlDriver = NativeSqliteDriver(AppDatabase.Schema, "app.db")
+}
+```
+
+### SQL files and queries
+
+Place `.sq` files in `shared/src/commonMain/sqldelight/`:
+
+```sql
+-- Invoice.sq
+CREATE TABLE Invoice (
+    id TEXT PRIMARY KEY,
+    clientId TEXT NOT NULL,
+    amount REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    createdAt TEXT NOT NULL
+);
+
+selectByClient:
+SELECT * FROM Invoice WHERE clientId = ? ORDER BY createdAt DESC;
+
+insert:
+INSERT OR REPLACE INTO Invoice(id, clientId, amount, status, createdAt) VALUES (?, ?, ?, ?, ?);
+```
+
+SQLDelight generates type-safe Kotlin functions from these queries. Use `asFlow().mapToList()` from coroutines-extensions for reactive queries.
+
+## Image Loading — Coil 3
+
+Use Coil 3 for async image loading in Compose Multiplatform (supports KMP):
+
+```kotlin
+// build.gradle.kts
+commonMain.dependencies {
+    implementation("io.coil-kt.coil3:coil-compose:3.2.0")
+    implementation("io.coil-kt.coil3:coil-network-ktor3:3.2.0")
+}
+```
+
+```kotlin
+import coil3.compose.AsyncImage
+
+@Composable
+fun UserAvatar(imageUrl: String?, modifier: Modifier = Modifier) {
+    AsyncImage(
+        model = imageUrl,
+        contentDescription = "User avatar",
+        contentScale = ContentScale.Crop,
+        modifier = modifier.size(48.dp).clip(CircleShape),
+    )
+}
+```
+
+- Use `AsyncImage` for all remote images — it handles caching, placeholders, and error states
+- Configure `ImageLoader` with Ktor engine for KMP: `ImageLoader.Builder(context).components { add(KtorNetworkFetcherFactory()) }`
+- Set `placeholder` and `error` composables for loading/error states
+- Use `ContentScale.Crop` for avatars, `ContentScale.Fit` for detail views
 
 ## Repository Pattern
 
@@ -410,7 +523,8 @@ class HomeViewModelTest {
 
 When looking up framework documentation, use these Context7 library identifiers:
 
-- **Kotlin Multiplatform:** `/websites/kotlinlang_multiplatform` — expect/actual, shared code, platform configuration
+- **Kotlin Multiplatform:** `/jetbrains/kotlin-multiplatform-dev-docs` or `/websites/kotlinlang_multiplatform` — expect/actual, shared code, platform configuration
+- **SQLDelight:** search for `sqldelight` — database, queries, migrations, drivers
 - **Compose Multiplatform:** `/jetbrains/compose-multiplatform` — UI components, state, navigation
 - **Ktor:** `ktor-io/ktor` — HTTP client, serialization, authentication, WebSocket
 - **Koin:** `InsertKoinIO/koin` — DI modules, ViewModel injection, multiplatform setup

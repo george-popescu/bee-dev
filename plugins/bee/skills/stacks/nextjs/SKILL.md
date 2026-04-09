@@ -352,8 +352,33 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
 
 ## Images and Metadata
 
-- Use `next/image` for all images. Automatic optimization, lazy loading, responsive sizing, WebP/AVIF conversion.
-- Specify `width`/`height` or use `fill` with a sized parent to prevent layout shift.
+### next/image
+
+Use `next/image` for all images — it provides automatic optimization, lazy loading, responsive sizing, and WebP/AVIF conversion:
+
+```tsx
+import Image from 'next/image';
+
+// Static import — width/height inferred automatically
+import heroImage from '@/public/hero.jpg';
+<Image src={heroImage} alt="Hero" placeholder="blur" priority />
+
+// Remote image — explicit sizing required
+<Image src={user.avatarUrl} alt={user.name} width={96} height={96} className="rounded-full" />
+
+// Fill mode — parent must be positioned (relative/absolute)
+<div className="relative aspect-video">
+  <Image src={product.imageUrl} alt={product.name} fill className="object-cover rounded-lg" />
+</div>
+```
+
+- `priority` — set on above-the-fold images (hero, LCP). Disables lazy loading and preloads.
+- `placeholder="blur"` — static imports auto-generate blur. For remote images, provide `blurDataURL`.
+- `sizes` — responsive hints: `sizes="(max-width: 768px) 100vw, 50vw"` for proper srcset selection.
+- Configure `remotePatterns` in `next.config.js` for allowed external image domains.
+
+### Metadata and Fonts
+
 - `metadata` export for static metadata; `generateMetadata` for dynamic. Include title, description, Open Graph.
 - `next/font` for font optimization. Fonts are self-hosted automatically.
 - In Next.js 15, `params` in `generateMetadata` is a Promise and must be awaited.

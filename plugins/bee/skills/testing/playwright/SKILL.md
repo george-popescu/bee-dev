@@ -391,6 +391,68 @@ playwright/
 - **NEVER** test implementation details — don't assert on component state, Redux stores, or internal function calls.
 - **NEVER** ignore the trace viewer — when tests fail, `trace: 'on-first-retry'` captures everything. Use `npx playwright show-trace` to debug.
 
+## Accessibility Testing
+
+Playwright includes built-in accessibility assertions. Use them on every critical page:
+
+```typescript
+test('homepage has no accessibility violations', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toMatchAriaSnapshot(`
+    - banner:
+      - navigation "Main"
+    - main:
+      - heading "Welcome" [level=1]
+    - contentinfo
+  `);
+});
+```
+
+For comprehensive a11y audits, use `@axe-core/playwright`:
+
+```typescript
+import AxeBuilder from '@axe-core/playwright';
+
+test('should not have any a11y violations', async ({ page }) => {
+  await page.goto('/dashboard');
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+});
+```
+
+Add a11y checks to your CI pipeline -- run on every page test, not as a separate suite.
+
+## API Testing
+
+Playwright's `request` fixture enables API testing without a browser:
+
+```typescript
+test.describe('Orders API', () => {
+  test('creates an order', async ({ request }) => {
+    const response = await request.post('/api/orders', {
+      data: { product: 'Widget', quantity: 3 },
+    });
+    expect(response.ok()).toBeTruthy();
+    const order = await response.json();
+    expect(order.product).toBe('Widget');
+  });
+
+  test('returns 401 without auth', async ({ request }) => {
+    const response = await request.get('/api/orders');
+    expect(response.status()).toBe(401);
+  });
+});
+```
+
+Use API tests for: test data setup (create users/orders before E2E), backend contract verification, and auth flow validation.
+
+## Debugging
+
+- **`page.pause()`** — stops execution and opens Playwright Inspector for interactive debugging
+- **Trace viewer:** `npx playwright show-trace trace.zip` — step through actions, network, screenshots
+- **`--debug` flag:** `npx playwright test --debug` — runs in headed mode with inspector
+- **Console logs:** `page.on('console', msg => console.log(msg.text()))` — capture browser console
+
 ## Good Practices
 
 - **Page Object Model for every page.** Encapsulate locators and actions. Reuse via fixtures.

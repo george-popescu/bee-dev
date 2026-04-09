@@ -710,6 +710,63 @@ Test guards by providing a mock `ExecutionContext`. Test interceptors by providi
 - Validate environment variables with Joi or class-validator schemas in `ConfigModule.forRoot({ validationSchema })`.
 - Use `registerAs()` for namespaced config: `registerAs('database', () => ({ host: process.env.DB_HOST }))`.
 
+## Security Hardening
+
+### Helmet + CORS
+
+```typescript
+import helmet from 'helmet';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.use(helmet()); // Security headers (XSS, CSP, HSTS, etc.)
+  app.enableCors({
+    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? [],
+    credentials: true,
+  });
+  await app.listen(3000);
+}
+```
+
+### Rate Limiting
+
+```typescript
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+
+@Module({
+  imports: [
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]), // 100 req/min
+  ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+})
+export class AppModule {}
+```
+
+Override per-route with `@Throttle({ default: { limit: 5, ttl: 60_000 } })` for sensitive endpoints (login, password reset).
+
+### CSRF Protection
+
+For session-based auth, use `csrf-csrf` or `lusca` middleware (the `csurf` package is deprecated). For JWT/Bearer auth, CSRF protection is not needed because tokens are not auto-sent by browsers.
+
+### Structured Logging
+
+```typescript
+import { Logger } from '@nestjs/common';
+
+@Injectable()
+export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
+  async createOrder(dto: CreateOrderDto) {
+    this.logger.log(`Creating order for client ${dto.clientId}`);
+    // ... logic
+    this.logger.warn(`Order total exceeds threshold: ${total}`);
+  }
+}
+```
+
+For production, integrate with Pino (`nestjs-pino`) for JSON structured logging.
+
 ## Common Pitfalls -- NEVER Rules
 
 - **NEVER** put business logic in controllers -- controllers delegate to services.

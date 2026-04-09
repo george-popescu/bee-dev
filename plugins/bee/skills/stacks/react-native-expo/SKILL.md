@@ -7,18 +7,19 @@ description: React Native + Expo managed workflow conventions and patterns
 
 These standards apply when the project stack is `react-native-expo`. All agents and implementations must follow these conventions. This is a MOBILE-FIRST stack.
 
-**Also read `skills/standards/frontend/SKILL.md`** for universal frontend standards (component architecture, accessibility, design quality) that apply alongside these React Native-specific conventions. Note: responsive design and CSS methodology sections are web-focused — for mobile, follow the patterns in this skill instead.
+**Also read `skills/standards/frontend/SKILL.md`** for universal frontend standards (component architecture, accessibility, design quality) that apply alongside these React Native-specific conventions. Note: responsive design and CSS methodology sections are web-focused -- for mobile, follow the patterns in this skill instead.
 
 ## Expo Configuration
 
-- Use **Expo managed workflow** as the default. Eject to bare workflow only when a native module is unavailable.
+- Use **Expo managed workflow** as the default. Use prebuild for custom native code, eject only as last resort.
 - `app.json` or `app.config.js` for static/dynamic configuration (app name, slug, version, splash, icons).
 - Use `app.config.js` when configuration needs environment variables or dynamic values.
 - **EAS Build** for production builds: `eas build --platform ios` / `eas build --platform android`.
 - **EAS Submit** for app store distribution: `eas submit --platform ios` / `eas submit --platform android`.
 - **Prebuild** (`npx expo prebuild`) for custom native code that Expo Go cannot support.
 - **Expo Go** for development: fast iteration without native rebuilds. Use `npx expo start`.
-- Keep `expo` SDK version consistent across all `expo-*` packages. Upgrade together.
+- Keep `expo` SDK version consistent across all `expo-*` packages. Upgrade together via `npx expo install --fix`.
+- Expo SDK releases 3 times per year, each targeting the latest stable React Native version.
 
 ```json
 {
@@ -27,24 +28,33 @@ These standards apply when the project stack is `react-native-expo`. All agents 
     "slug": "my-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "sdkVersion": "52.0.0",
     "plugins": ["expo-camera", "expo-location"]
   }
 }
 ```
 
+### SDK Upgrade Pattern
+
+When upgrading Expo SDK versions:
+
+1. Read the SDK changelog on expo.dev/changelog
+2. Run `npx expo install expo@latest --fix` to update all expo packages together
+3. Run `npx expo-doctor` to check for compatibility issues
+4. Update `app.json` plugins if any changed configuration
+5. Run prebuild if using custom native code: `npx expo prebuild --clean`
+6. Test on both iOS and Android before committing
+
 ## Component Patterns
 
 - Use **React Native core components**, not HTML elements. There is no DOM.
-- `View` replaces `div`. `Text` replaces `span`, `p`, `h1`, etc. `Image` replaces `img`.
+- `View` replaces `div`. `Text` replaces `span`, `p`, `h1`, etc.
 - `ScrollView` for short scrollable content. `FlatList` for long lists (virtualized, performant).
 - `Pressable` for all touchable elements. `TouchableOpacity` is deprecated -- do not use it.
 - **All text must be inside `<Text>` components.** Raw strings outside `<Text>` cause crashes.
 - `SectionList` for grouped data. `FlatList` for flat data. Never use `ScrollView` + `.map()` for lists.
-- `KeyboardAvoidingView` to handle keyboard overlap on forms.
 
 ```tsx
-// Pattern: list with FlatList, not ScrollView + map
+// Pattern: list with FlatList
 const OrderList = ({ orders }: { orders: Order[] }) => (
   <FlatList
     data={orders}
@@ -61,6 +71,30 @@ const OrderList = ({ orders }: { orders: Order[] }) => (
   />
 );
 ```
+
+## Image Loading (expo-image)
+
+Use `expo-image` instead of React Native's `Image` component. It provides caching, blurhash placeholders, smooth transitions, and better performance:
+
+```tsx
+import { Image } from 'expo-image';
+
+// Pattern: image with blurhash placeholder and transition
+<Image
+  source={{ uri: 'https://example.com/photo.jpg' }}
+  placeholder={{ blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj' }}
+  contentFit="cover"
+  transition={300}
+  style={styles.image}
+/>
+```
+
+- `contentFit`: `'cover'` (fill + crop), `'contain'` (fit inside), `'fill'` (stretch), `'none'`
+- `placeholder`: Use `{ blurhash }` for low-res preview while loading
+- `transition`: Duration in ms for smooth fade-in when image loads
+- Always set explicit `width` and `height` for remote images (bundler cannot infer dimensions)
+- expo-image handles caching automatically -- no manual cache management needed
+- Use `recyclingKey` on `FlatList` items to prevent image flickering during scroll
 
 ## Navigation
 
@@ -89,16 +123,153 @@ export default function TabLayout() {
 }
 ```
 
+## Forms and Keyboard Handling
+
+Forms in React Native require explicit keyboard management. The keyboard covers input fields by default on iOS.
+
+### Basic forms with KeyboardAvoidingView
+
+```tsx
+import { KeyboardAvoidingView, Platform, TextInput } from 'react-native';
+
+<KeyboardAvoidingView
+  behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+  style={{ flex: 1 }}
+>
+  <TextInput placeholder="Email" />
+  <TextInput placeholder="Password" secureTextEntry />
+</KeyboardAvoidingView>
+```
+
+### Complex forms with react-native-keyboard-controller
+
+For multi-input forms, use `KeyboardAwareScrollView` from `react-native-keyboard-controller` -- it auto-scrolls to focused inputs with native-feel performance:
+
+```tsx
+import { KeyboardAwareScrollView, KeyboardToolbar } from 'react-native-keyboard-controller';
+
+export default function FormScreen() {
+  return (
+    <>
+      <KeyboardAwareScrollView bottomOffset={62} contentContainerStyle={{ gap: 16, padding: 16 }}>
+        <TextInput placeholder="Name" style={styles.input} />
+        <TextInput placeholder="Email" style={styles.input} keyboardType="email-address" />
+        <TextInput placeholder="Phone" style={styles.input} keyboardType="phone-pad" />
+        <TextInput placeholder="Notes" style={styles.input} multiline numberOfLines={4} />
+      </KeyboardAwareScrollView>
+      <KeyboardToolbar />
+    </>
+  );
+}
+```
+
+### Form validation with React Hook Form + Zod
+
+```tsx
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const schema = z.object({
+  email: z.string().email('Invalid email'),
+  password: z.string().min(8, 'Min 8 characters'),
+});
+
+type FormData = z.infer<typeof schema>;
+
+export default function LoginForm() {
+  const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  });
+
+  const onSubmit = (data: FormData) => { /* login logic */ };
+
+  return (
+    <View style={{ gap: 12 }}>
+      <Controller
+        control={control}
+        name="email"
+        render={({ field: { onChange, value } }) => (
+          <View>
+            <TextInput
+              value={value}
+              onChangeText={onChange}
+              placeholder="Email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={[styles.input, errors.email && styles.inputError]}
+            />
+            {errors.email && <Text style={styles.error}>{errors.email.message}</Text>}
+          </View>
+        )}
+      />
+      <Pressable onPress={handleSubmit(onSubmit)} style={styles.button}>
+        <Text style={styles.buttonText}>Login</Text>
+      </Pressable>
+    </View>
+  );
+}
+```
+
+## Animations (React Native Reanimated)
+
+Use **Reanimated 3** for performant animations that run on the UI thread. Install via `npx expo install react-native-reanimated`.
+
+### Shared values and animated styles
+
+```tsx
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+
+export default function AnimatedBox() {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = () => {
+    scale.value = withSpring(scale.value === 1 ? 1.5 : 1);
+  };
+
+  return (
+    <Pressable onPress={handlePress}>
+      <Animated.View style={[styles.box, animatedStyle]} />
+    </Pressable>
+  );
+}
+```
+
+### Layout animations (entering/exiting)
+
+```tsx
+import Animated, { FadeIn, FadeOut, SlideInRight, SlideOutLeft } from 'react-native-reanimated';
+
+// Items animate in/out automatically
+{items.map(item => (
+  <Animated.View key={item.id} entering={SlideInRight} exiting={SlideOutLeft}>
+    <Text>{item.name}</Text>
+  </Animated.View>
+))}
+```
+
+Available animations: `FadeIn`, `FadeOut`, `SlideInRight`, `SlideOutLeft`, `ZoomIn`, `ZoomOut`, `BounceIn`, `BounceOut`, `FlipInXUp`, `StretchInX`, and more. All customizable with `.duration()`, `.delay()`, `.springify()`.
+
+### When to use what
+
+- **`withSpring`** -- natural, bouncy feel (buttons, toggles, interactive elements)
+- **`withTiming`** -- precise, linear transitions (progress bars, opacity fades, slides)
+- **Layout animations** -- automatic enter/exit for list items, modals, conditional content
+- **LayoutAnimation** (built-in) -- simple layout transitions without Reanimated (use sparingly)
+
 ## Platform-Specific Code
 
 - `Platform.OS` returns `'ios'` | `'android'` | `'web'` for runtime checks.
 - `Platform.select({ ios: value, android: value, default: value })` for inline value selection.
 - **File extensions** for platform-specific files: `Component.ios.tsx`, `Component.android.tsx`. The bundler resolves the correct file automatically.
-- Use platform checks sparingly -- prefer cross-platform components. Platform-specific code should be an exception.
-- Common platform differences: status bar styling, shadow vs elevation, haptics, date pickers.
+- Use platform checks sparingly -- prefer cross-platform components.
+- Common differences: status bar, shadow vs elevation, haptics, date pickers.
 
 ```tsx
-// Pattern: platform-specific styling
 const styles = StyleSheet.create({
   card: {
     ...Platform.select({
@@ -114,44 +285,20 @@ const styles = StyleSheet.create({
 
 ## Styling
 
-- **`StyleSheet.create()`** for ALL styles. Never pass inline style objects -- they cause unnecessary re-renders.
+- **`StyleSheet.create()`** for ALL styles. Never pass inline style objects -- they cause re-renders.
 - Flexbox is the layout model. Default `flexDirection` is `column` (not `row` like web CSS).
-- Use `useWindowDimensions()` or `Dimensions.get('window')` for responsive sizing.
+- Use `useWindowDimensions()` for responsive sizing.
 - **SafeAreaView** and `useSafeAreaInsets()` from `react-native-safe-area-context` for notch/home indicator handling.
-- Units are density-independent pixels (dp). No `px`, `em`, `rem`, `%` (except in flex ratios).
-- No CSS classes, no Tailwind (unless using NativeWind). All styling is via style objects.
+- Units are density-independent pixels (dp). No `px`, `em`, `rem`.
 - `gap` property works in React Native for spacing between flex children.
-
-```tsx
-// Pattern: responsive layout with safe area
-const { width } = useWindowDimensions();
-const insets = useSafeAreaInsets();
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: insets.top,
-    paddingBottom: insets.bottom,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    padding: 16,
-  },
-  card: {
-    width: width > 600 ? (width - 48 - 12) / 2 : width - 32,
-  },
-});
-```
+- No CSS classes, no Tailwind (unless using NativeWind). All styling is via style objects.
 
 ## Native Modules
 
 - Use **Expo SDK modules** for device capabilities. Install via `npx expo install`.
-- Common modules: `expo-camera`, `expo-location`, `expo-notifications`, `expo-image-picker`, `expo-file-system`, `expo-secure-store`, `expo-haptics`, `expo-av`.
+- Common modules: `expo-camera`, `expo-location`, `expo-notifications`, `expo-image-picker`, `expo-file-system`, `expo-secure-store`, `expo-haptics`, `expo-av`, `expo-image`.
 - **Always request permissions before use.** Use `requestPermissionsAsync()` from each module.
 - Handle **permission denied** gracefully -- show a message explaining why the permission is needed with a link to settings.
-- For modules not in Expo SDK, use `npx expo install` and add to `app.json` plugins if native config is needed.
 - Some modules require **prebuild** (custom dev client) -- Expo Go has limited native module support.
 
 ```tsx
@@ -175,14 +322,12 @@ return <CameraView style={styles.camera} facing="back" />;
 ## State Management
 
 - **React hooks** work identically: `useState`, `useReducer`, `useContext`, `useEffect`, `useMemo`, `useCallback`.
-- External state libraries (Zustand, Jotai, Redux Toolkit) work without modification.
+- External state libraries (Zustand, Jotai, Redux Toolkit, TanStack Query) work without modification.
 - **AsyncStorage** for persistent local data (replaces `localStorage`). Install via `@react-native-async-storage/async-storage`.
 - **SecureStore** (`expo-secure-store`) for sensitive data: auth tokens, API keys, credentials.
 - Never store sensitive data in AsyncStorage -- it is not encrypted.
-- For server state, use **TanStack Query** (React Query) -- same API as web React.
 
 ```tsx
-// Pattern: secure token storage
 import * as SecureStore from 'expo-secure-store';
 
 async function saveToken(token: string) {
@@ -191,6 +336,62 @@ async function saveToken(token: string) {
 
 async function getToken(): Promise<string | null> {
   return SecureStore.getItemAsync('auth_token');
+}
+```
+
+## Error Recovery
+
+### Error boundaries for screens
+
+Wrap screen-level components in error boundaries to catch rendering errors and show a fallback UI instead of a white screen crash:
+
+```tsx
+import { ErrorBoundary } from 'react-error-boundary';
+
+function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
+  return (
+    <View style={styles.errorContainer}>
+      <Text style={styles.errorTitle}>Something went wrong</Text>
+      <Text style={styles.errorMessage}>{error.message}</Text>
+      <Pressable onPress={resetErrorBoundary} style={styles.retryButton}>
+        <Text>Try Again</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+// In _layout.tsx
+<ErrorBoundary FallbackComponent={ErrorFallback}>
+  <Stack />
+</ErrorBoundary>
+```
+
+### Network error handling
+
+```tsx
+// Pattern: fetch with retry and error state
+function useApi<T>(url: string) {
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      setData(await response.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }, [url]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  return { data, error, loading, retry: fetchData };
 }
 ```
 
@@ -204,8 +405,7 @@ async function getToken(): Promise<string | null> {
 - Mock navigation with `jest.mock('expo-router')` for testing navigation calls.
 
 ```tsx
-// Pattern: component test with RNTL
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 
 describe('OrderCard', () => {
   it('displays order name and status', () => {
@@ -223,77 +423,105 @@ describe('OrderCard', () => {
 });
 ```
 
+### Mocking Expo modules
+
+```tsx
+// jest.setup.js
+jest.mock('expo-image', () => ({
+  Image: 'Image',
+}));
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: jest.fn(), back: jest.fn() }),
+  useLocalSearchParams: () => ({}),
+  Link: 'Link',
+  Redirect: 'Redirect',
+}));
+
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(),
+  setItemAsync: jest.fn(),
+  deleteItemAsync: jest.fn(),
+}));
+```
+
 ## Common Pitfalls -- NEVER Rules
 
-- **NEVER** use HTML elements (`div`, `span`, `p`, `h1`, `button`) -- use `View`, `Text`, `Pressable`, etc.
+- **NEVER** use HTML elements (`div`, `span`, `p`, `button`) -- use `View`, `Text`, `Pressable`, etc.
 - **NEVER** put raw text outside `<Text>` components -- this causes a runtime crash.
 - **NEVER** use `TouchableOpacity` -- it is deprecated. Use `Pressable` instead.
 - **NEVER** use `ScrollView` with `.map()` for long lists -- use `FlatList` for virtualized rendering.
-- **NEVER** use inline style objects (`style={{ padding: 10 }}`) -- use `StyleSheet.create()` to avoid re-renders.
-- **NEVER** assume `flexDirection` is `row` -- React Native defaults to `column` (opposite of web CSS).
-- **NEVER** skip permission requests for camera, location, notifications, etc. -- the app will crash or silently fail.
+- **NEVER** use inline style objects (`style={{ padding: 10 }}`) -- use `StyleSheet.create()`.
+- **NEVER** assume `flexDirection` is `row` -- React Native defaults to `column`.
+- **NEVER** skip permission requests for camera, location, notifications.
 - **NEVER** use `localStorage` -- it does not exist in React Native. Use `AsyncStorage` or `SecureStore`.
-- **NEVER** ignore Safe Area insets -- content will be hidden behind the notch, dynamic island, or home indicator.
-- **NEVER** forget to handle both iOS and Android in platform-specific code -- test and verify on both platforms.
-- **NEVER** use `userEvent` from RNTL -- React Native Testing Library uses `fireEvent`, not `userEvent`.
+- **NEVER** ignore Safe Area insets -- content will be hidden behind the notch or home indicator.
+- **NEVER** use React Native's `Image` for new code -- use `expo-image` (better caching, blurhash, transitions).
+- **NEVER** use `userEvent` from RNTL -- React Native Testing Library uses `fireEvent`.
+- **NEVER** use `setTimeout`/`sleep` in animations -- use Reanimated's `withDelay()` instead.
 
 ## Must-Haves
 
-- **TypeScript everywhere.** All files use `.ts` / `.tsx` extensions. Define typed props interfaces for every component. No untyped code.
-- **Function components only.** All React components are plain functions with typed props. Class components are forbidden.
-- **TDD with Jest and Expo.** Write tests before implementation using Jest with `jest-expo` preset and React Native Testing Library. Follow Red-Green-Refactor.
-- **`Platform.select` for platform-specific values.** Use `Platform.select({ ios: value, android: value, default: value })` instead of ternary expressions with `Platform.OS`.
-- **Typed navigation with Expo Router.** Define navigation parameter types for all routes. Use `useLocalSearchParams<{ id: string }>()` and typed `router.push()` calls for type-safe navigation.
-- **Strict null checks.** Enable `strict` mode in `tsconfig.json`. Handle nullable values explicitly -- no implicit `undefined` access.
-- **Permission handling before native API access.** Always call `requestPermissionsAsync()` and handle the denied case before accessing camera, location, notifications, or media library.
+- **TypeScript everywhere.** All files use `.ts` / `.tsx`. Define typed props for every component.
+- **Function components only.** Class components are forbidden.
+- **TDD with Jest and Expo.** Write tests before implementation using `jest-expo` preset and RNTL.
+- **`expo-image` for all images.** Replaces React Native `Image`. Use blurhash placeholders and contentFit.
+- **Reanimated for animations.** All animations run on the UI thread via shared values.
+- **Permission handling before native API access.** Always request and handle the denied case.
+- **Error boundaries on screen layouts.** Catch rendering errors instead of white screen crashes.
+- **Keyboard handling on all form screens.** Use `KeyboardAwareScrollView` or `KeyboardAvoidingView`.
 
 ## Good Practices
 
-- **`StyleSheet.create()` for all styles.** Define styles outside the component body. This avoids creating new style objects on every render and enables style validation.
-- **`FlatList` for all list rendering.** Use `FlatList` with `keyExtractor` and `renderItem` for virtualized, performant scrolling. Reserve `ScrollView` for non-list scrollable content.
-- **`useMemo` for expensive computations.** Memoize filtered lists, sorted data, and complex derived values to avoid recalculating on every render.
-- **Error boundaries for graceful crash recovery.** Wrap screen-level components in error boundaries to catch rendering errors and show a fallback UI instead of a white screen crash.
-- **Expo SDK APIs over third-party alternatives.** Prefer `expo-camera`, `expo-location`, `expo-image-picker`, `expo-file-system`, `expo-haptics`, `expo-notifications` and other Expo SDK modules. They are tested against the managed workflow and upgrade cleanly with the SDK.
-- **`useCallback` for stable callback references.** Wrap event handlers passed to child components or `FlatList` `renderItem` with `useCallback` to prevent unnecessary re-renders.
-- **Skeleton screens over spinners.** Show content-shaped placeholders while data loads to reduce perceived loading time and avoid layout shifts.
+- **`StyleSheet.create()` for all styles.** Define outside the component body.
+- **`FlatList` for all list rendering.** With `keyExtractor` and `renderItem`.
+- **`useMemo` for expensive computations.** Memoize filtered lists, sorted data.
+- **Skeleton screens over spinners.** Show content-shaped placeholders while loading.
+- **Expo SDK APIs over third-party alternatives.** They upgrade cleanly with the SDK.
+- **`useCallback` for stable callbacks.** Wrap handlers passed to `FlatList` renderItem.
+- **`react-hook-form` + Zod for form validation.** Controller pattern with TextInput.
+- **expo-haptics for tactile feedback.** Add haptics to important interactions (submit, delete, toggle).
 
 ## Common Bugs
 
-- **Missing `KeyboardAvoidingView` on form screens.** The keyboard covers input fields on iOS. Wrap form screens in `KeyboardAvoidingView` with `behavior="padding"` on iOS and `behavior="height"` on Android.
-- **AsyncStorage operations not awaited.** `AsyncStorage.getItem()` and `setItem()` return promises. Forgetting to `await` these calls leads to reading `undefined` instead of stored values and silently dropping writes.
-- **Android hardware back button not handled.** Android users expect the back button to navigate or close modals. Use `BackHandler.addEventListener('hardwareBackPress', handler)` in `useEffect` with cleanup, or handle via Expo Router's back behavior.
-- **Missing `GestureHandlerRootView` at app root.** Gesture-based components (swipeable rows, bottom sheets, drawer navigation) silently fail without `GestureHandlerRootView` wrapping the app root. Add it in the root `_layout.tsx`.
-- **Shadow props not working cross-platform.** iOS uses `shadowColor`, `shadowOffset`, `shadowOpacity`, `shadowRadius`. Android ignores these and uses `elevation` instead. Always provide both via `Platform.select` or the shadow styles will be invisible on one platform.
-- **Stale closures in `useEffect` and event handlers.** Referencing state variables inside callbacks without listing them in the dependency array causes handlers to capture outdated values. Always include dependencies or use `useRef` for mutable values.
-- **Images not loading on Android with HTTP URLs.** Android blocks cleartext HTTP by default. Use HTTPS URLs or configure `android:usesCleartextTraffic` in `app.json` network security config.
+- **Missing `KeyboardAvoidingView` on forms.** Keyboard covers inputs on iOS. Use `behavior="padding"` on iOS.
+- **AsyncStorage not awaited.** `getItem()`/`setItem()` return promises. Forgetting `await` causes undefined reads.
+- **Android back button not handled.** Use `BackHandler.addEventListener` with cleanup.
+- **Missing `GestureHandlerRootView` at app root.** Gesture components silently fail without it.
+- **Shadow not working cross-platform.** iOS uses shadow*, Android uses `elevation`. Always provide both.
+- **Stale closures in useEffect/handlers.** Include dependencies or use `useRef` for mutable values.
+- **HTTP images not loading on Android.** Android blocks cleartext HTTP. Use HTTPS or configure network security.
+- **expo-image recycling in FlatList.** Use `recyclingKey` prop to prevent image flickering during scroll.
 
 ## Anti-Patterns
 
-- **Class components.** Never use `class extends React.Component`. All components must be function components with hooks. Class components are incompatible with modern React patterns and Expo conventions.
-- **Using `any` type.** Never use `any` as a type annotation. Define explicit interfaces, union types, or generics. `any` disables TypeScript checking and hides bugs at compile time.
-- **Storing sensitive data in AsyncStorage unencrypted.** AsyncStorage is plaintext storage. Never store auth tokens, API keys, passwords, or secrets in AsyncStorage. Use `expo-secure-store` for all sensitive data.
-- **Blocking the JS thread with synchronous operations.** Never run heavy computation, large JSON parsing, or synchronous file I/O on the main JavaScript thread. Use `InteractionManager.runAfterInteractions()`, web workers, or move work to native modules.
-- **Ignoring platform differences in UI and behavior.** Never assume iOS and Android behave identically. Test on both platforms. Handle differences in status bar, navigation gestures, keyboard behavior, permissions flow, and date/time pickers.
-- **Inline style objects in JSX.** Never write `style={{ marginTop: 10 }}` in JSX. Inline objects are re-created on every render, causing unnecessary re-renders of child components. Use `StyleSheet.create()`.
-- **Using `index` as `key` in dynamic lists.** Never use array index as the `key` prop for lists where items can be reordered, inserted, or deleted. Use a stable unique identifier from the data.
+- **Class components.** All components must be function components with hooks.
+- **Using `any` type.** Define explicit interfaces, union types, or generics.
+- **Sensitive data in AsyncStorage.** Use `expo-secure-store` for tokens, keys, credentials.
+- **Blocking the JS thread.** Never run heavy computation synchronously. Use `InteractionManager.runAfterInteractions()`.
+- **Ignoring platform differences.** Test on both iOS and Android.
+- **Inline style objects.** Use `StyleSheet.create()` to avoid re-renders.
+- **Using `index` as key in dynamic lists.** Use stable unique identifiers from the data.
+- **Manual animation timing.** Use Reanimated spring/timing instead of setTimeout chains.
 
 ## Standards
 
-- **PascalCase for components and screens.** Component files and directories use PascalCase: `OrderCard.tsx`, `ProfileScreen.tsx`. Hooks use camelCase with `use` prefix: `useAuth.ts`.
-- **`app/` directory for Expo Router file-based routing.** All screens and layouts live in the `app/` directory. File names map directly to URL paths. Use `_layout.tsx` for navigation structure.
-- **`components/` directory for shared UI components.** Reusable components live in a top-level `components/` directory (or `src/components/`), organized by feature or domain.
-- **`snake_case` API responses mapped to `camelCase` in the app.** Backend APIs typically return `snake_case` keys. Transform them to `camelCase` at the API boundary (in the fetch/axios layer) so all app code uses consistent camelCase naming.
-- **`hooks/` directory for custom hooks.** Extract reusable logic into custom hooks stored in `hooks/` (or `src/hooks/`). Each hook file exports a single `use*` function.
-- **`constants/` directory for app-wide constants.** Colors, spacing values, API endpoints, and configuration constants live in a `constants/` directory, not scattered across components.
-- **One component per file.** Each component gets its own file. Co-locate the component's styles at the bottom of the same file using `StyleSheet.create()`.
+- **PascalCase for components.** `OrderCard.tsx`, `ProfileScreen.tsx`. Hooks: `useAuth.ts`.
+- **`app/` directory for Expo Router.** File names map to URL paths. `_layout.tsx` for navigation.
+- **`components/` for shared UI.** Organized by feature or domain.
+- **`hooks/` for custom hooks.** Each exports a single `use*` function.
+- **`constants/` for app-wide constants.** Colors, spacing, API endpoints.
+- **One component per file.** Styles co-located at bottom with `StyleSheet.create()`.
+- **snake_case API → camelCase in app.** Transform at the API boundary.
 
 ## Context7 Instructions
 
 When looking up framework documentation, use these Context7 library identifiers:
 
-- **React Native:** `facebook/react-native` -- core components, APIs, styling, platform modules
-- **Expo:** `expo/expo` -- SDK modules, configuration, EAS Build, Expo Router
-- **Expo Router:** `expo/router` -- file-based routing, layouts, navigation, deep linking
-- **React Native Testing Library:** `callstack/react-native-testing-library` -- render, screen, fireEvent, queries
+- **Expo:** `/expo/expo` or `/websites/expo_dev_versions_v55_0_0` (SDK 55) -- SDK modules, configuration, EAS, Router
+- **React Native:** `facebook/react-native` -- core components, APIs, styling
+- **React Native Reanimated:** `/websites/swmansion_react-native-reanimated` -- animations, shared values, layout animations
+- **React Native Testing Library:** `callstack/react-native-testing-library` -- render, screen, fireEvent
+- **React Native Keyboard Controller:** search for `react-native-keyboard-controller` -- KeyboardAwareScrollView, KeyboardToolbar
 
-Always check Context7 for the latest API when working with Expo SDK version-specific features. Training data may be outdated for recent Expo SDK releases.
+Always query Context7 for latest APIs -- Expo SDK releases 3 times per year and patterns change.

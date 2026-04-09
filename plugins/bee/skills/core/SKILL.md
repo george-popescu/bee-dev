@@ -36,15 +36,17 @@ After writing a test, run it and confirm:
 
 Test passes immediately? You're testing existing behavior. Fix the test.
 
-**Verification before completion:**
-Before claiming work is done, verify with fresh evidence:
+**Verification before completion (evidence required):**
+Before claiming work is done, run tests fresh and paste the actual test runner output as proof. Never claim "X tests passing" without showing the output block. This applies to ALL agents that run tests — implementer, quick-implementer, fixer.
+
+Checklist:
 - [ ] Every new function/method has a test
-- [ ] Watched each test fail before implementing
-- [ ] Tests fail for expected reason
+- [ ] Watched each test fail before implementing (and showed the failure output)
+- [ ] Tests fail for expected reason (missing implementation, not test logic errors)
 - [ ] Wrote minimal code to pass
-- [ ] All tests pass (fresh run, not cached)
+- [ ] All tests pass (fresh run — paste the output block as proof)
 - [ ] Output is clean (no errors, no warnings)
-- [ ] Tests use real code (mocks only when unavoidable)
+- [ ] Tests use real code (mocks only for external dependencies)
 - [ ] Edge cases and error paths covered
 
 **Testing anti-patterns (avoid these):**
@@ -54,30 +56,13 @@ Before claiming work is done, verify with fresh evidence:
 - Incomplete mocks with partial data — mirror real data structures completely
 - Tests added after implementation — tests-after prove nothing; they pass immediately
 
-**Common rationalizations (all wrong):**
-
-| Excuse | Reality |
-|--------|---------|
-| "Too simple to test" | Simple code breaks. Test takes 30 seconds. |
-| "I'll test after" | Tests-after pass immediately and prove nothing. |
-| "Already manually tested" | Manual testing is not systematic and cannot be re-run. |
-| "Deleting my code is wasteful" | Sunk cost fallacy. Unverified code is technical debt. |
-| "Keep code as reference" | You'll adapt it. That's testing-after in disguise. |
-| "Need to explore first" | Fine. Throw away exploration, then start with TDD. |
-| "Hard to test = skip test" | Hard to test = hard to use. Listen to the test. |
-| "TDD will slow me down" | TDD is faster than debugging. Always. |
-| "Existing code has no tests" | You're improving it. Start with tests for your changes. |
-
-**Red flags — STOP and start over:**
-- Code written before test
-- Test passes immediately (no red phase)
-- Can't explain why test failed
-- "Just this once" rationalization
-- "I already manually tested it"
-- "Tests after achieve the same purpose"
-- "This is different because..."
-
-All of these mean: delete code, start over with TDD.
+**If any of these happen, STOP — delete code, start over with TDD:**
+- Code exists before its test → delete, write test first
+- Test passes immediately (no red phase) → test is wrong or behavior already exists
+- Exploration code on disk → throw it away, start fresh with TDD
+- "Hard to test" → hard to test = hard to use. Refactor the design until it's testable.
+- "Existing code has no tests" → start with tests for YOUR changes. You're improving it.
+- "Too simple to test" → simple code breaks. A test takes 30 seconds.
 
 ### Disk is truth
 All critical state lives on disk. Never rely on conversation memory.
@@ -114,19 +99,14 @@ These rules are non-negotiable and apply to ALL commands and agents.
 
 **R7: user.md is the only persistent memory.** Injected to all agents at SubagentStart. Contains preferences, rules, work style. Only conductors write to it, never agents.
 
+**R8: No completion claims without evidence.** When claiming work is done, paste actual tool output (test results, lint output, command results). "X tests passing" without showing the test runner output is not evidence — it is a claim.
+
+**R9: HIGH confidence only for findings.** Review agents report only findings they are certain about. HIGH confidence means: exact file:line, 1-2 sentence explanation of why it's wrong, traceable user-facing impact or test that would catch it. Skip anything conditional ("might be wrong if..."), aesthetic ("looks unusual"), or theoretical ("could cause problems"). Target 5-15 findings per phase, not per file.
+
 ### Smart model delegation
 When spawning agents via the Task tool, the conductor (parent command) chooses the model based on the agent's work complexity. All agents use `model: inherit` in their frontmatter -- the conductor overrides at spawn time.
 
-**Model selection guide:**
-
-| Model | When to use | Examples |
-|-------|-------------|---------|
-| `model: "sonnet"` | Structured/template work, scanning, classification, validation, comparison | researcher, spec-writer, phase-planner, plan-reviewer, finding-validator, integrity-auditor, test-auditor, test-planner, assumptions-analyzer, reviewer (ad-hoc mode — focused scope scan). Note: ui-auditor, integration-checker, testing-auditor, dependency-auditor, and swarm-consolidator default to sonnet in economy mode but may use inherit (opus) in quality/premium mode per their parent command's delegation table (testing-auditor in generate mode writes code, so quality/premium uses opus). |
-| (omit / inherit) | Production code, complex reasoning, deep analysis, interactive sessions | implementer, fixer, reviewer (full phase review — deep multi-category analysis), spec-shaper |
-
-**Decision principle:** If the agent follows a template, does read-only scanning, runs tools mechanically, or classifies into fixed categories -- pass `model: "sonnet"`. If the agent writes production code, makes architectural decisions, or needs deep nuanced analysis -- omit the model parameter (inherits parent model).
-
-The conductor SHOULD assess each spawn and pass `model: "sonnet"` explicitly for structured work, or omit the model for reasoning-heavy work. This is not optional -- it is how Bee manages cost and speed.
+**Model selection principle:** If the agent follows a template, does read-only scanning, runs tools mechanically, or classifies into fixed categories — pass `model: "sonnet"`. If the agent writes production code, makes architectural decisions, or needs deep nuanced analysis — omit the model parameter (inherits parent model). Each command's documentation specifies the model for each agent spawn. The conductor MUST assess each spawn — this is how Bee manages cost and speed.
 
 ### User Preferences
 
@@ -166,41 +146,16 @@ Phases must be reviewed before advancing to the next phase (`phases.require_revi
 
 ## Context7 Integration
 
-Context7 provides live documentation lookups for framework APIs and best practices. Several agents (researcher, bug-detector, stack-reviewer, security-auditor, api-auditor, audit-bug-detector) have Context7 tools in their frontmatter.
+Context7 provides live documentation lookups. Agents with Context7 tools in their frontmatter should read `skills/context7/SKILL.md` for the full usage guide (library ID resolution, query patterns, per-stack table).
 
-### How to use Context7
+**When to use:** Verifying API usage matches current framework version, checking security best practices, resolving ambiguity in stack skill conventions.
 
-1. Read `skills/context7/SKILL.md` for the **Library IDs Per Stack** table — this maps stack names to Context7 library names
-2. Resolve the library ID: `mcp__context7__resolve-library-id` with the library name from the table
-3. Query documentation: `mcp__context7__query-docs` with the resolved `libraryId` and a specific question
-
-### When to use Context7
-
-- Verifying that an API call matches the current version of a framework
-- Checking whether a flagged pattern is actually the recommended approach in the latest version
-- Looking up security best practices (CSRF, XSS prevention, auth middleware)
-- Resolving ambiguity when a stack skill describes a convention but you need confirmation
-- Checking for known vulnerability patterns in specific library versions
-
-### When Context7 is unavailable
-
-Context7 MCP tools may not be available in all environments. If the tools are missing or fail:
-- Fall back to the stack skill rules and codebase patterns
-- Never hard-fail because Context7 is unavailable
-- Note in your output that documentation verification was skipped
-
-### Context7 in multi-stack projects
-
-For projects with multiple stacks, each agent should resolve library IDs for the specific stack it's working with. The researcher agent resolves libraries for ALL configured stacks when doing broad research.
+**When unavailable:** Fall back to stack skill rules and codebase patterns. Never hard-fail. Note in output that documentation verification was skipped.
 
 ## File Format References
 
 - **TASKS.md:** Execution contract for each phase. See [templates/tasks.md](templates/tasks.md)
 - **STATE.md:** Project state tracking. See [templates/state.md](templates/state.md)
-- **config.json:** Project configuration. See [templates/project-config.json](templates/project-config.json)
-  - **`ship` section:** Controls the autonomous review loop used by `ship` and `plan-all` commands. Properties:
-    - `max_review_iterations` (int, default `3`) -- maximum number of autonomous review-fix cycles before stopping. **This is independent from `review.max_loop_iterations`**, which controls the interactive `/bee:review` command loop. The two settings govern different pipelines and do not affect each other.
-    - `final_review` (bool, default `true`) -- whether ship runs a final cross-phase implementation review after all phases complete.
-  - When the `ship` section is absent from config.json, both commands apply the defaults (`max_review_iterations=3`, `final_review=true`).
+- **config.json:** Project configuration. See [templates/project-config.json](templates/project-config.json). Note: `ship.max_review_iterations` (default 3) is independent from `review.max_loop_iterations` — they govern different pipelines.
 - **Wave conventions:** Wave 1 = no dependencies (parallel). Wave N+1 depends on Wave N. No file conflicts within a wave.
 - **Bee Mastery Guide:** Workflow intelligence, decision trees, command routing by intent, smart feature suggestions. See [guide/SKILL.md](../guide/SKILL.md)

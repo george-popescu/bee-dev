@@ -54,6 +54,22 @@ Improvements that make the codebase better but aren't causing problems today.
 - Console.log statements left in code
 - TODO comments without tracking
 
+### Borderline Calibration
+
+When unsure between severity levels, use these borderline examples:
+
+| Finding | Correct Severity | Why NOT the other |
+|---------|-----------------|-------------------|
+| Missing `updated_at` on a model | LOW (not MEDIUM) | Functional without it. Not causing bugs today. |
+| API returns 500 on empty search | HIGH (not CRITICAL) | Incorrect behavior but no data loss or security risk |
+| JWT stored in localStorage | HIGH (not CRITICAL) | XSS could steal it, but requires XSS first (chained vulnerability) |
+| Missing rate limit on login | CRITICAL (not HIGH) | Enables brute force NOW without any other prerequisite |
+| Unused import | LOW (not MEDIUM) | No runtime impact. Tree-shaking handles it. |
+| N+1 on a page with 10 items | MEDIUM (not HIGH) | Works fine at current scale. HIGH only if endpoint serves 100+ items |
+| `catch (e) {}` swallowing errors | HIGH (not MEDIUM) | Silent failures hide real bugs and corrupt data flows |
+
+**The test:** "Would I wake someone up at 3 AM for this?" CRITICAL = yes. HIGH = morning standup. MEDIUM = next sprint. LOW = backlog.
+
 ## Finding Format
 
 Every finding from every audit agent MUST use this exact format:

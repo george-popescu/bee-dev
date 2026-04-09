@@ -59,3 +59,20 @@ Keep queries focused and practical:
 Prefer specific framework features over general queries. A targeted query returns more useful context than a broad one.
 
 If a query returns no useful results, refine it with more specific terms rather than broadening it.
+
+## Version-Aware Queries
+
+Context7 may return docs from multiple versions. When working with version-specific APIs:
+
+- **Include version in query** when it matters: "Next.js 15 async params page component" not just "Next.js page component"
+- **Check for version-specific library IDs:** `resolve-library-id` may return versioned entries (e.g., `/vercel/next.js/v14.3.0`). Use the version matching your project.
+- **When results conflict with stack skill:** The stack skill represents YOUR project's conventions. Context7 shows the LATEST docs. If they differ, check your project's package versions to decide which is correct.
+- **Outdated pattern detection:** If Context7 returns a pattern different from what the codebase uses, verify whether the codebase is using a deprecated pattern or an intentional older API.
+
+## Result Disambiguation
+
+When Context7 returns ambiguous or conflicting information:
+
+1. **Multiple approaches shown:** Pick the one matching existing codebase patterns. Consistency > latest API.
+2. **No results returned:** Refine query with more specific terms. If still nothing, fall back to stack skill rules.
+3. **Results contradict stack skill:** The stack skill is authoritative for project conventions. Context7 supplements with API details. If the API itself changed (deprecation, new syntax), note it as a potential upgrade.

@@ -71,6 +71,87 @@ async function bootstrap() {
 - **`persistent: true` on messages.** Messages survive broker restarts when in durable queues.
 - **`prefetchCount: 1`** for ordered processing. Increase for throughput when order doesn't matter.
 
+## Connection Management
+
+### Automatic reconnection
+
+Use `amqp-connection-manager` for production deployments — it handles reconnection automatically:
+
+```typescript
+// In microservice bootstrap
+const app = await NestFactory.createMicroservice<MicroserviceOptions>(AppModule, {
+  transport: Transport.RMQ,
+  options: {
+    urls: [process.env.RABBITMQ_URL],
+    queue: 'orders_queue',
+    queueOptions: { durable: true },
+    // Connection manager handles reconnection internally
+    socketOptions: {
+      heartbeatIntervalInSeconds: 30,
+      reconnectTimeInSeconds: 5,
+    },
+  },
+});
+```
+
+### Connection error handling
+
+```typescript
+// In main.ts after app creation
+app.listen().then(() => {
+  console.log('Microservice connected to RabbitMQ');
+}).catch((err) => {
+  console.error('Failed to connect to RabbitMQ:', err);
+  process.exit(1);
+});
+```
+
+### RPC Timeout handling
+
+`send()` calls can hang indefinitely if the consumer is down. Always set a timeout:
+
+```typescript
+// In client module
+ClientsModule.register([{
+  name: 'ORDERS_SERVICE',
+  transport: Transport.RMQ,
+  options: {
+    urls: [process.env.RABBITMQ_URL],
+    queue: 'orders_queue',
+    queueOptions: { durable: true },
+  },
+}]),
+
+// In service — add timeout with rxjs
+import { timeout, catchError } from 'rxjs';
+
+@Injectable()
+export class OrdersClientService {
+  constructor(@Inject('ORDERS_SERVICE') private client: ClientProxy) {}
+
+  getOrder(id: string): Observable<Order> {
+    return this.client.send({ cmd: 'get_order' }, { id }).pipe(
+      timeout(10_000), // 10 second timeout
+      catchError(err => {
+        if (err.name === 'TimeoutError') {
+          throw new RequestTimeoutException('Order service did not respond within 10s');
+        }
+        throw err;
+      }),
+    );
+  }
+}
+```
+
+### Competing consumers (scaling)
+
+To scale consumer throughput, run multiple instances of the same microservice. RabbitMQ distributes messages across consumers automatically (round-robin).
+
+- Set `prefetchCount` to control how many unacknowledged messages each consumer holds
+- Use `prefetchCount: 1` for fair dispatch (slow consumers don't get overloaded)
+- Use `prefetchCount: 10-50` for throughput when processing is fast and order doesn't matter
+- All instances connect to the same queue — no configuration change needed for horizontal scaling
+
 ## Message Patterns
 
 ### Request-Response (`@MessagePattern`)
@@ -81,7 +162,7 @@ Synchronous-style RPC where the sender waits for a response:
 // Consumer — handles the message and returns a response
 @Controller()
 export class OrdersController {
-    private readonly orderService = inject(OrderService);
+    constructor(private readonly orderService: OrderService) {}
 
     @MessagePattern('order.create')
     async createOrder(@Payload() data: CreateOrderDto, @Ctx() context: RmqContext) {

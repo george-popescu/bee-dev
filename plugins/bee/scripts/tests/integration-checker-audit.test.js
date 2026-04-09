@@ -125,7 +125,7 @@ if (auditSkillContent) {
 }
 
 // ============================================================
-// Test 8: core/SKILL.md model delegation includes integration-checker
+// Test 8: core/SKILL.md has model delegation section
 // ============================================================
 console.log('\nTest 8: core/SKILL.md model delegation');
 let coreSkillContent;
@@ -138,8 +138,8 @@ try {
 }
 if (coreSkillContent) {
   assert(
-    coreSkillContent.includes('integration-checker'),
-    'core/SKILL.md sonnet row includes integration-checker'
+    coreSkillContent.includes('model: "sonnet"') && coreSkillContent.includes('Model selection principle'),
+    'core/SKILL.md has model delegation principle with sonnet guidance'
   );
 }
 

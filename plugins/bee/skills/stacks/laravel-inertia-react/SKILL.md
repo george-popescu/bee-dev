@@ -698,6 +698,97 @@ resources/js/
 - **Components** are reusable UI building blocks. They receive data via props, never via `usePage()` (exception: layout components that need auth data).
 - **Layouts** wrap pages and provide persistent chrome (navigation, sidebar, footer). They use the persistent layout pattern to avoid re-mounting on navigation.
 
+## DataTable with TanStack Table
+
+Use `@tanstack/react-table` for all tabular data. Define columns in a separate `columns.tsx` file for reusability.
+
+### Column definitions
+
+```tsx
+// columns.tsx
+import { ColumnDef } from '@tanstack/react-table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { formatDate } from '@/utils/dates';
+
+export const columns: ColumnDef<Order>[] = [
+  {
+    accessorKey: 'reference',
+    header: 'Reference',
+    cell: ({ row }) => (
+      <Link href={`/orders/${row.original.id}`} className="font-medium hover:underline">
+        {row.getValue('reference')}
+      </Link>
+    ),
+  },
+  {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ row }) => (
+      <Badge variant={row.getValue('status') === 'active' ? 'default' : 'secondary'}>
+        {row.getValue('status')}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: 'total',
+    header: () => <div className="text-right">Total</div>,
+    cell: ({ row }) => (
+      <div className="text-right font-medium">
+        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(row.getValue('total'))}
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'created_at',
+    header: 'Date',
+    cell: ({ row }) => formatDate(row.getValue('created_at')),
+  },
+];
+```
+
+### Table actions (row actions, bulk actions)
+
+```tsx
+// Row actions with dropdown
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { MoreHorizontal } from 'lucide-react';
+
+{
+  id: 'actions',
+  cell: ({ row }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => router.visit(`/orders/${row.original.id}/edit`)}>Edit</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleVoid(row.original.id)} className="text-destructive">Void</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ),
+}
+```
+
+### Server-side pagination with Inertia
+
+```tsx
+// Controller passes paginated data
+// React component controls page state via Inertia router
+const handlePageChange = (page: number) => {
+  router.get(window.location.pathname, { page, ...filters }, { preserveState: true, preserveScroll: true });
+};
+```
+
+### Table action patterns (Golden Rule)
+
+| Action Scope | Pattern | Backend Route |
+|-------------|---------|---------------|
+| Single row | Dropdown menu item → `router.post()` | `POST /orders/{order}/actions/void` |
+| Bulk selection | Toolbar button → `router.post()` with IDs | `POST /orders/actions/void` (body: `{ ids: [...] }`) |
+| Navigate | Link or `router.visit()` | `GET /orders/{order}/edit` |
+| Inline edit | Cell with editable state | `PATCH /orders/{order}` |
+
 ## TailwindCSS Conventions
 
 - Use Tailwind utility classes directly in JSX. This is the primary styling approach.

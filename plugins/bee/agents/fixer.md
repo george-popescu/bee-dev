@@ -48,10 +48,13 @@ Read the entire file at the specified path, not just the finding's line range. U
 Before applying the fix, verify you understand the root cause — not just the symptom:
 
 1. **Is the suggested fix obviously correct?** (single line change, clear typo, missing field) → proceed to Step 4
-2. **Is the code complex or the fix non-obvious?** → investigate:
-   - Trace data flow backward: where does the bad value originate?
+2. **Is the code complex or the fix non-obvious?** → trace backward 2-3 layers:
+   - **Layer 1:** Where does the bad value come from? Read the function that produces it.
+   - **Layer 2:** Is the producer correct? If the value was SUPPOSED to come from here, why is it wrong? Check the producer's inputs.
+   - **Layer 3:** Was this ever correct? Grep for other uses of this variable/function. If it works elsewhere, the bug is in how THIS caller uses it.
    - Find working examples in the codebase for comparison (Grep for similar patterns)
    - Check git diff for recent changes that could have caused this
+   - **Symptom test:** If your fix is "add a null check" or "add a validation" — that's likely a symptom fix. The root cause is WHY the value is null/invalid. If the root cause is in the SAME file as the finding, fix that instead. If the root cause is in a DIFFERENT file, do not touch that file — escalate via step 3 (multi-location rule).
 3. **Does the fix require changes in multiple locations?** → this signals an architectural issue, not a simple bug. Report to user: "Finding F-{NNN} appears to require changes in N locations, suggesting an architectural issue. Recommend systematic debugging before attempting a multi-location fix." Do NOT attempt a multi-location fix without user guidance.
 
 ## 4. Apply the Minimal Fix

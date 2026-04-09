@@ -352,7 +352,34 @@ function passwordMatchValidator(group: AbstractControl): ValidationErrors | null
 **Detect what the project uses** — check `package.json` for installed state management libraries and follow THAT library's conventions.
 
 - **NgRx Store** — if installed, use feature stores with `createFeature()`, `createActionGroup()`, typed selectors. Never dispatch actions from services directly — use effects.
-- **NgRx Signal Store** — modern alternative. Use `signalStore()` with `withState()`, `withComputed()`, `withMethods()`. Preferred for new NgRx projects.
+- **NgRx Signal Store** — modern alternative preferred for new projects:
+
+```typescript
+import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
+
+type OrdersState = { orders: Order[]; loading: boolean; error: string | null };
+
+export const OrdersStore = signalStore(
+  withState<OrdersState>({ orders: [], loading: false, error: null }),
+  withComputed(({ orders }) => ({
+    activeOrders: computed(() => orders().filter(o => o.status === 'active')),
+    totalCount: computed(() => orders().length),
+  })),
+  withMethods((store, ordersService = inject(OrdersService)) => ({
+    loadOrders: rxMethod<void>(pipe(
+      tap(() => patchState(store, { loading: true })),
+      switchMap(() => ordersService.getAll().pipe(
+        tapResponse({
+          next: (orders) => patchState(store, { orders, loading: false }),
+          error: (err: Error) => patchState(store, { error: err.message, loading: false }),
+        }),
+      )),
+    )),
+  })),
+);
+
+// Usage in component: inject(OrdersStore), call store.loadOrders(), read store.activeOrders()
+```
 - **Signals only** — for simple apps, plain signals in services are sufficient. No external library needed.
 - **Akita / Elf** — if installed, follow their store patterns.
 

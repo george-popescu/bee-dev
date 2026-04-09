@@ -127,7 +127,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Sem
 - user.md is the only persistent memory — contains user preferences and work style
 - Simplified inject-memory.sh and memory command
 
-### Firm Rules (R1-R7)
+### Firm Rules (R1-R9, R8-R9 added in v4.0)
 - R1: No auto-commit
 - R2: No clear/compact suggestions
 - R3: Interactive menus everywhere

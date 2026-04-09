@@ -439,6 +439,62 @@ test('shows skeleton while loading', async () => {
 });
 ```
 
+## Concurrent Rendering
+
+React 19 includes concurrent features that improve responsiveness for heavy UI updates:
+
+### `startTransition` — mark non-urgent updates
+
+```tsx
+import { startTransition, useState } from 'react';
+
+function SearchPage() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Item[]>([]);
+
+  const handleSearch = (value: string) => {
+    setQuery(value); // Urgent: update input immediately
+    startTransition(() => {
+      setResults(filterItems(value)); // Non-urgent: can be interrupted
+    });
+  };
+
+  return (
+    <>
+      <input value={query} onChange={(e) => handleSearch(e.target.value)} />
+      <ResultsList items={results} />
+    </>
+  );
+}
+```
+
+### `useDeferredValue` — defer expensive re-renders
+
+```tsx
+import { useDeferredValue } from 'react';
+
+function SearchResults({ query }: { query: string }) {
+  const deferredQuery = useDeferredValue(query);
+  const isStale = query !== deferredQuery;
+
+  return (
+    <div style={{ opacity: isStale ? 0.6 : 1 }}>
+      <ExpensiveList query={deferredQuery} />
+    </div>
+  );
+}
+```
+
+Use `startTransition` when you CONTROL the state update. Use `useDeferredValue` when you RECEIVE a value from a parent and want to defer the re-render it causes.
+
+### Performance: when to memoize
+
+- **`React.memo()`** — wrap pure child components that receive stable primitive props but re-render due to parent state changes
+- **`useMemo()`** — expensive computations (filtering large arrays, complex derivations). Do NOT memoize cheap operations.
+- **`useCallback()`** — callback passed to memoized children or added to dependency arrays. Not needed for every handler.
+
+The rule: profile first, memoize second. Premature memoization adds complexity without measurable benefit.
+
 ## Common Pitfalls -- NEVER Rules
 
 - **NEVER** use class components -- always use function components with hooks.

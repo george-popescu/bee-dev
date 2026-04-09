@@ -7,7 +7,7 @@ description: Universal frontend standards -- component architecture, accessibili
 
 These standards apply to ALL frontend code regardless of framework (Vue, React, Svelte, etc.). They define stack-agnostic principles -- the "what" and "why" of frontend quality. Framework-specific "how" belongs in stack skills.
 
-**Library detection:** If the project uses shadcn/ui (check for `components.json` at project root OR `@/components/ui/` directory), **also read `skills/libraries/shadcn-ui/SKILL.md`** for component usage patterns, theming, and composition conventions.
+**Library detection:** If the project uses shadcn/ui (check for `components.json` at project root OR `@/components/ui/` directory), read the appropriate shadcn skill: **`skills/libraries/shadcn-ui/SKILL.md`** for React projects, **`skills/libraries/shadcn-vue/SKILL.md`** for Vue/Nuxt projects. Check `components.json` `"framework"` field to determine which.
 
 ## Component Architecture
 
@@ -165,6 +165,15 @@ These standards apply to ALL frontend code regardless of framework (Vue, React, 
 
 - When a utility combination repeats across components, extract to a reusable component (not a CSS class).
 - Component extraction > CSS extraction: styles stay colocated with behavior and markup.
+
+### Dark Mode
+
+- Define all colors as CSS custom properties with both light and dark variants
+- Use `prefers-color-scheme` media query for system preference, or `.dark` class for manual toggle
+- Test every component in both modes -- hardcoded colors that look fine in light mode break in dark mode
+- Semantic tokens that switch values: `:root { --bg: #fff; }` / `.dark { --bg: #111; }`
+- With Tailwind v3: `dark:` variant, configure `darkMode: 'class'` in config. With Tailwind v4: `@custom-variant dark` in CSS (see tailwind-v4 skill)
+- Never assume light mode -- always check contrast ratios against both backgrounds
 
 ### Avoid
 

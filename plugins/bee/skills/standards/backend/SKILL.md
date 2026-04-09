@@ -25,13 +25,15 @@ Use correct HTTP status codes consistently:
 | 200  | OK                | Successful GET, PUT, PATCH                         |
 | 201  | Created           | Successful POST that creates a resource            |
 | 204  | No Content        | Successful DELETE with no response body            |
-| 400  | Bad Request       | Malformed request syntax, invalid JSON             |
+| 400  | Bad Request       | Malformed request syntax, invalid JSON, missing required headers |
 | 401  | Unauthorized      | Missing or invalid authentication credentials      |
 | 403  | Forbidden         | Authenticated but insufficient permissions         |
 | 404  | Not Found         | Resource does not exist                            |
 | 422  | Unprocessable     | Validation failed (well-formed but semantically wrong) |
-| 429  | Too Many Requests | Rate limit exceeded                                |
+| 429  | Too Many Requests | Rate limit exceeded (include Retry-After header)   |
 | 500  | Server Error      | Unexpected server failure                          |
+
+**400 vs 422 distinction:** Use 400 when the request is structurally malformed (invalid JSON, missing Content-Type, unparseable body). Use 422 when the request is structurally valid but fails business validation (email already taken, amount exceeds limit, date in the past). If the server can parse the body and identify which field is wrong, it's 422. If it can't even parse the body, it's 400.
 
 ### Error Response Format
 

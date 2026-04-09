@@ -221,7 +221,7 @@ Set via `config.implementation_mode` in `.bee/config.json` or during `/bee:new-s
 | Skill | Scope | Notes |
 |-------|-------|-------|
 | **frontend-standards** | All frontend stacks | Component architecture, a11y, responsive, design quality, CSS methodology |
-| **core** | All agents | TDD Iron Law, disk-is-truth, no auto-commit, firm rules R1-R7, model delegation, Context7 integration |
+| **core** | All agents | TDD Iron Law, disk-is-truth, no auto-commit, firm rules R1-R9, model delegation, Context7 integration |
 
 ## Hooks
 

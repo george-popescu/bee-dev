@@ -101,6 +101,115 @@ Skills are Markdown files in `skills/` subdirectories with YAML frontmatter. The
 - Skills contain prose instructions and examples, not pseudocode. Code examples are concrete and copy-ready.
 - New stack skills are added by creating `skills/stacks/{stack-name}/SKILL.md` and adding the stack identifier to the init command's detection table.
 
+## Hook Script Patterns
+
+### Command hooks (shell/JS scripts)
+
+Hook scripts receive data via stdin and output JSON to stdout. Exit 0 always — non-zero blocks the lifecycle event.
+
+```bash
+#!/bin/bash
+# Pattern: SubagentStart hook script
+INPUT=$(cat)  # Read stdin JSON
+AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty' | sed 's/^bee://')
+
+# Do work (inject context, validate, etc.)
+CONTEXT="Additional context for agent"
+
+# Output JSON with hookSpecificOutput
+printf '%s' "$CONTEXT" | jq -Rs '{
+  hookSpecificOutput: {
+    hookEventName: "SubagentStart",
+    additionalContext: .
+  }
+}'
+exit 0
+```
+
+### Prompt hooks (SubagentStop validators)
+
+SubagentStop hooks use `type: "prompt"` to validate agent output. The prompt receives `$ARGUMENTS` (JSON with agent metadata and `last_assistant_message`). Must respond with `{"ok": true}` or `{"ok": false, "reason": "..."}`.
+
+```json
+{
+  "matcher": "^agent-name$",
+  "hooks": [{
+    "type": "prompt",
+    "prompt": "Validate agent output. $ARGUMENTS\n\nCheck: 1) Has required heading 2) Has structured data 3) No unauthorized modifications.\n\nRespond {\"ok\": true} or {\"ok\": false, \"reason\": \"...\"}.",
+    "timeout": 30
+  }]
+}
+```
+
+Key validator checks per agent type:
+- **Implementer:** TDD red-green verified, test output evidence pasted, deviations section present, completion signal
+- **Reviewers (read-only):** Finding format correct (ID, severity, file:line, evidence, impact), no files modified
+- **Fixer:** Fix report with finding ID, status, files changed, root cause, test results
+
+### Matcher patterns
+
+Matchers are JavaScript regex. Use suffix patterns for stack-variant coverage:
+- `(?<!quick-)implementer$` — matches `implementer` and `laravel-inertia-vue-implementer` but NOT `quick-implementer`
+- `(?<!audit-)bug-detector$` — matches `bug-detector` and stack variants but NOT `audit-bug-detector`
+- `^fixer$` — exact match only
+
+## Agent Context Packets
+
+When a conductor spawns an agent via the Task tool, it assembles a context packet in the prompt. The packet structure varies by agent type:
+
+### Implementer context packet
+
+```
+Task: {task_id} — {task_description}
+Phase: {phase_number} — {phase_name}
+Acceptance Criteria: {criteria from TASKS.md}
+Research Notes: {research section from TASKS.md}
+Context Files: {list of file paths to read}
+Stack: {stack_name} — read skills/stacks/{stack}/SKILL.md
+Dependency Notes (Wave 2+ only): {task notes from dependency tasks}
+```
+
+### Review agent context packet
+
+```
+Phase: {phase_number} — {phase_name}
+Files to Review: {list of created/modified file paths from TASKS.md}
+Spec: {spec path}
+Stack: {stack_name}
+Context Cache: {stack skill path, CONTEXT.md path, false-positives.md path, user.md path}
+```
+
+Conductors pass file PATHS, not contents. Agents read files in their own context window at runtime.
+
+## Test Patterns
+
+Plugin tests are plain Node.js scripts with no test runner dependency:
+
+```js
+#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+
+let passed = 0, failed = 0;
+
+function assert(condition, name) {
+  if (condition) { passed++; console.log(`  PASS: ${name}`); }
+  else { failed++; console.log(`  FAIL: ${name}`); }
+}
+
+// Read the file under test
+const content = fs.readFileSync(path.join(__dirname, '../../commands/my-command.md'), 'utf8');
+
+// Assertions
+assert(content.includes('## Instructions'), 'Has Instructions section');
+assert(content.includes('AskUserQuestion'), 'Uses interactive menu');
+
+console.log(`\nResults: ${passed} passed, ${failed} failed`);
+process.exit(failed > 0 ? 1 : 0);
+```
+
+Test files live in `scripts/tests/`. Run all: `find scripts/tests -name "*.test.js" -exec node {} \;`
+
 ## Must-Haves
 
 - Read-only agents (reviewers, detectors, validators, auditors) must not write code -- their tools list excludes Write, Edit, and Bash (except when Bash is needed for read-only operations). Agents must not create or modify source files.

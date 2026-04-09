@@ -137,6 +137,93 @@ describe('OrderForm', () => {
 - Never hardcode test data inline if it is used across multiple tests -- extract to factories.
 - Use meaningful test data: `User::factory()->create(['name' => 'Jane Doe'])` not `User::factory()->create()` when the name matters.
 
+## Async Testing Patterns
+
+Most production code involves asynchronous operations. Tests must handle them correctly to avoid flakiness and false passes.
+
+### Promises and async/await
+
+Always `await` async operations and assert on the resolved value, not the promise:
+
+```js
+// Correct — awaits result
+it('fetches user data', async () => {
+    const user = await userService.findById(1);
+    expect(user.name).toBe('Alice');
+});
+
+// Wrong — asserts on promise object
+it('fetches user data', () => {
+    const user = userService.findById(1);
+    expect(user).toBeDefined(); // passes — user is a Promise, which is defined
+});
+```
+
+### Timers and debounce
+
+Use fake timers for time-dependent code. Never use real `setTimeout` in tests:
+
+```js
+// Correct — fake timers
+it('debounces search input', async () => {
+    vi.useFakeTimers();
+    const onSearch = vi.fn();
+    render(<SearchInput onSearch={onSearch} />);
+    await userEvent.type(screen.getByRole('textbox'), 'hello');
+    vi.advanceTimersByTime(300);
+    expect(onSearch).toHaveBeenCalledWith('hello');
+    vi.useRealTimers();
+});
+```
+
+### Waiting for UI updates
+
+Use `waitFor` for assertions that depend on async state changes. Never use `sleep()` or fixed timeouts:
+
+```js
+// Correct — condition-based waiting
+await waitFor(() => {
+    expect(screen.getByText('Loaded')).toBeInTheDocument();
+});
+
+// Wrong — arbitrary timeout
+await new Promise(r => setTimeout(r, 500));
+expect(screen.getByText('Loaded')).toBeInTheDocument();
+```
+
+### Testing error rejection
+
+Always test async error paths — they are the most common source of unhandled exceptions:
+
+```js
+it('throws on invalid ID', async () => {
+    await expect(userService.findById(-1)).rejects.toThrow('Invalid ID');
+});
+```
+
+### PHP async (queues, jobs)
+
+```php
+it('dispatches order confirmation email', function () {
+    Mail::fake();
+    $order = Order::factory()->create();
+    (new ProcessOrder)->handle($order);
+    Mail::assertSent(OrderConfirmation::class, fn ($mail) => $mail->order->is($order));
+});
+```
+
+Use Laravel fakes (`Queue::fake()`, `Mail::fake()`, `Event::fake()`) to test dispatch without execution. Assert on what was dispatched, not on side effects.
+
+### Flaky test prevention
+
+Tests that sometimes pass and sometimes fail are worse than no tests — they erode trust:
+
+- Never depend on execution order between tests
+- Never depend on real time (`Date.now()`, `time()`) — mock the clock
+- Never depend on network state — mock all HTTP calls
+- Never depend on file system order — sort results before asserting
+- If a test is flaky, fix it immediately or delete it. A flaky test is not a test.
+
 ## Gap Analysis
 
 After the TDD cycle completes for a feature, run a gap analysis to identify missing coverage.

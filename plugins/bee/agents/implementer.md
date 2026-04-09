@@ -55,6 +55,7 @@ For each deliverable in your task, follow this exact sequence. No exceptions.
 - Run ONLY your task's test file(s) -- they MUST fail. If they pass, the tests are wrong or the behavior already exists
 - Test files MUST exist on disk BEFORE any production code files
 - Follow testing standards skill for test naming, structure, and mocking patterns
+- **Checkpoint (MANDATORY):** After running tests, paste the failure output in your response BEFORE writing any implementation code. This proves the RED phase happened. Do not proceed to GREEN without showing this output.
 - Target 2-8 tests per logical feature (happy path first, then critical error cases)
 - **Verify failure reason:** After running, confirm tests fail because the feature is MISSING, not because of test logic errors
 - **For async operations:** Use condition-based waiting patterns, NOT setTimeout/sleep
@@ -110,7 +111,13 @@ Trigger: Something prevents completing the current task -- missing dependency, w
 Action: Fix immediately at any phase. Re-run your task's test file(s) after fix. Note as deviation.
 
 **RULE 4: STOP for architectural changes**
-Trigger: Fix requires significant structural modification -- new DB table (not column), major schema change, new service layer, new external dependency, changing auth approach, breaking API changes.
+Trigger: Fix requires significant structural modification. Ask these questions — if ANY answer is YES, this is Rule 4:
+1. Does this need a new database TABLE (not just a column)?
+2. Does this need a new service/module that doesn't exist yet?
+3. Does this change how authentication works across multiple files?
+4. Does this need an external dependency not in the project?
+5. Does this break how existing code calls an API?
+
 Action: Do NOT proceed. End your response with:
 ```
 BLOCKED: Architectural decision needed.
@@ -125,7 +132,10 @@ Alternatives: [other approaches]
 
 **Scope boundary:** Only fix issues DIRECTLY caused by your current task. Pre-existing errors in unrelated files -- log in Task Notes under "Pre-existing issues observed" but do NOT fix.
 
-**Deviation budget:** Max 2 deviation fixes per task. If you hit 3 deviations, treat the third as Rule 4 (STOP) regardless of its type.
+**Deviation budget (running count):**
+- 1st deviation: Fix inline. Note it. Continue.
+- 2nd deviation: Fix inline. Note it. Continue.
+- 3rd deviation detected: STOP. Do NOT fix. Emit BLOCKED: signal. Three deviations means the plan is incomplete.
 
 **When in doubt:** "Does this affect correctness, security, or ability to complete the task?" YES --> Rules 1-3. MAYBE --> Rule 4 (ask).
 

@@ -95,17 +95,23 @@ Recognize these patterns as potential false positives -- findings that look wron
 **Matching against `.bee/false-positives.md`:** Each entry in false-positives.md has a file path, finding description, and reason. When you encounter a potential finding, check:
 1. Does the file match (same file or same pattern of file)?
 2. Does the issue match (same type of concern)?
-3. Does the reason still apply (has the code changed since the FP was documented)?
+3. **Staleness check (mandatory):** Read the current file referenced by the FP. Check if the code relevant to the FP description still exists and is unchanged. If the file was refactored, the relevant code moved or was rewritten, the FP is STALE — include the finding because the original reason may no longer apply.
 
-If all three match, exclude the finding. If the code has changed since the FP was documented, include the finding -- the FP may no longer be valid.
+If all three match AND the relevant code is unchanged, exclude the finding. If code changed, include it — stale FPs hide regressions.
 
 **When in doubt, include the finding.** The finding-validator will classify it as FALSE POSITIVE or STYLISTIC if appropriate. Better to report a borderline case than miss a real bug.
 
 ## Review Checklist
 
-### 1. Spec Compliance
+### 1. Spec Compliance (mandatory active verification)
 
-Read spec.md and TASKS.md acceptance criteria first. For each criterion, verify the implementation delivers the specified behavior.
+Read spec.md and TASKS.md acceptance criteria first. Do NOT skip this — it is the primary review responsibility.
+
+**Procedure:**
+1. Read TASKS.md and list every task's `acceptance:` criteria (identified by task ID: T1.1, T1.2, etc.)
+2. For each criterion, find the test that covers it. If no test → finding (TDD category)
+3. For each criterion, trace the code path that implements it. If behavior differs from spec → finding (Spec Gap category)
+4. Report coverage: "X of Y acceptance criteria verified, Z gaps found"
 
 - [ ] All acceptance criteria from TASKS.md have corresponding implementation
 - [ ] Behavior matches spec.md requirements (not just structure -- actual behavior)
@@ -175,6 +181,8 @@ These three rules apply to ALL review agents. They address the most common class
 ### Same-Class Completeness
 
 When you find a bug or deviation in one location, IMMEDIATELY scan ALL similar constructs in the codebase for the same bug class. If you find an off-by-one in one loop, check EVERY loop. If you find a missing null check in one handler, check EVERY handler. Report ALL instances, not just the first.
+
+**Procedure:** After finding a bug, use Grep to search for the PATTERN, not just the file. For example, if you find a missing status case in one switch statement, Grep for all switch statements on that enum across the project. A single-location finding for a repeating construct is incomplete — the same class of bug likely exists in 3-5 other places.
 
 **Example:** You find that one checkbox parser misses the `[FAILED]` state. Scan every other checkbox/status parser in the codebase -- they likely have the same gap.
 

@@ -142,8 +142,8 @@ assert(
 console.log('\nTest 9: Deviation budget');
 
 assert(
-  content.includes('Max 2 deviation fixes per task'),
-  'Contains "Max 2 deviation fixes per task" budget'
+  content.includes('Deviation budget') && (content.includes('3rd deviation') || content.includes('Max 2')),
+  'Contains deviation budget with limit of 2 before BLOCKED'
 );
 
 // ============================================================
