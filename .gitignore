@@ -6,3 +6,8 @@
 archive/
 .claude/
 
+# Bee Hive Dashboard
+plugins/bee/dashboard/node_modules/
+plugins/bee/dashboard/.vite/
+.env
+
