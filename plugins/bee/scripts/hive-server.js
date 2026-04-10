@@ -98,6 +98,212 @@ function setConfigHandler(fn) {
   configHandler = fn;
 }
 
+// ========== File handler (GET /api/file?path=<relative>) ==========
+//
+// Reads a single text file from inside the .bee/ directory and returns its
+// content as JSON. Designed to feed the dashboard's future markdown viewer
+// (Quick 4). Scoped defences:
+//
+//   - Method gate: only GET. Any other method → 405.
+//   - Query param `path` is REQUIRED and must be a relative path inside
+//     .bee/. Leading `/`, `..`, and empty paths → 400/403.
+//   - Path-traversal guard uses the same containment idiom as `safeResolve`
+//     below: resolve the requested path against beeDir, then verify the
+//     result is still inside rootResolved. Symlinks escaping .bee/ → 403.
+//   - Extension allowlist: .md, .markdown, .txt, .json, .yml, .yaml only.
+//     Anything else → 415. Binary files are deliberately unsupported — the
+//     dashboard does not need them, and base64 streaming would balloon the
+//     handler's scope.
+//   - Size limit: 1 MB via fs.stat().size BEFORE reading. Larger → 413.
+//     Checking size before read prevents DoS via "read a 2 GB file".
+//   - UTF-8 only.
+//   - Response headers: Content-Type: application/json,
+//     Cache-Control: no-store (files change out-of-band).
+//
+// The handler follows the same stub-with-setter pattern as snapshotHandler
+// and configHandler above so tests can swap in a mock without touching the
+// filesystem.
+
+const FILE_MAX_BYTES = 1024 * 1024; // 1 MB
+const FILE_ALLOWED_EXTENSIONS = new Set([
+  '.md',
+  '.markdown',
+  '.txt',
+  '.json',
+  '.yml',
+  '.yaml',
+]);
+
+let fileHandler = function defaultFileHandler(req, res) {
+  res.writeHead(501, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: 'File handler not wired' }));
+};
+
+function setFileHandler(fn) {
+  if (typeof fn !== 'function') {
+    throw new TypeError('setFileHandler expects a function');
+  }
+  fileHandler = fn;
+}
+
+// Small JSON error helper — used by createFileHandler's many error paths.
+function sendJsonError(res, status, message, extraHeaders) {
+  const body = JSON.stringify({ error: message });
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(body),
+    'Cache-Control': 'no-store',
+    ...(extraHeaders || {}),
+  });
+  res.end(body);
+}
+
+// Factory: returns a request handler bound to a specific bee directory.
+// Inlined here (rather than in hive-snapshot.js) because the logic is
+// self-contained and doesn't need the snapshot aggregator's imports.
+function createFileHandler(beeDir) {
+  const rootResolved = path.resolve(beeDir);
+
+  return function realFileHandler(req, res) {
+    // Parse `path` query param without pulling in url or URL shims. The
+    // request url is guaranteed to start with /api/file per the router.
+    const url = req.url || '';
+    const qIndex = url.indexOf('?');
+    if (qIndex === -1) {
+      return sendJsonError(res, 400, 'Missing path query parameter');
+    }
+    const query = url.slice(qIndex + 1);
+
+    // Extract `path=<value>` from the query string. Support multiple params
+    // in any order (e.g. ?foo=bar&path=notes/x.md).
+    let requestedPath = null;
+    for (const pair of query.split('&')) {
+      const eq = pair.indexOf('=');
+      if (eq === -1) continue;
+      const key = pair.slice(0, eq);
+      if (key === 'path') {
+        try {
+          requestedPath = decodeURIComponent(pair.slice(eq + 1));
+        } catch (_e) {
+          return sendJsonError(res, 400, 'Malformed path encoding');
+        }
+        break;
+      }
+    }
+
+    if (!requestedPath) {
+      return sendJsonError(res, 400, 'Missing path query parameter');
+    }
+
+    // Early validation: absolute or literal `..` components.
+    // (Empty path was already rejected by the `!requestedPath` check above.)
+    if (
+      requestedPath.startsWith('/') ||
+      requestedPath.startsWith('\\')
+    ) {
+      return sendJsonError(res, 403, 'Absolute paths not allowed');
+    }
+    if (requestedPath.split(/[\\/]/).some((seg) => seg === '..')) {
+      return sendJsonError(res, 403, 'Path traversal not allowed');
+    }
+
+    // Extension allowlist check (cheap, do before stat).
+    const ext = path.extname(requestedPath).toLowerCase();
+    if (!FILE_ALLOWED_EXTENSIONS.has(ext)) {
+      return sendJsonError(res, 415, 'Unsupported file type');
+    }
+
+    // First-pass lexical resolve + containment check — catches the obvious
+    // `..` and absolute-path cases BEFORE we touch the filesystem. This is a
+    // defence-in-depth layer; the real check happens after fs.realpath below.
+    const joined = path.join(rootResolved, requestedPath);
+    const lexicalResolved = path.resolve(joined);
+    if (
+      lexicalResolved !== rootResolved &&
+      !lexicalResolved.startsWith(rootResolved + path.sep)
+    ) {
+      return sendJsonError(res, 403, 'Path traversal not allowed');
+    }
+
+    // Symlink-safe containment: fs.realpath resolves any symlinks along the
+    // path. If the resolved real path escapes beeDir, reject. This closes the
+    // gap where path.resolve (purely lexical) would pass while fs.stat would
+    // happily follow a symlink to /etc/passwd. See Quick 002 REVIEW F-001.
+    fs.realpath(lexicalResolved, (realErr, realPath) => {
+      if (realErr) {
+        if (realErr.code === 'ENOENT') {
+          return sendJsonError(res, 404, 'File not found');
+        }
+        if (realErr.code === 'EACCES' || realErr.code === 'EPERM') {
+          return sendJsonError(res, 403, 'Permission denied');
+        }
+        return sendJsonError(res, 500, 'Realpath error');
+      }
+      if (
+        realPath !== rootResolved &&
+        !realPath.startsWith(rootResolved + path.sep)
+      ) {
+        return sendJsonError(res, 403, 'Path traversal not allowed');
+      }
+
+      // Stat on the real path — tells us (a) it's a file, (b) size < limit.
+      fs.stat(realPath, (statErr, stat) => {
+        if (statErr) {
+          if (statErr.code === 'ENOENT') {
+            return sendJsonError(res, 404, 'File not found');
+          }
+          if (statErr.code === 'EACCES' || statErr.code === 'EPERM') {
+            return sendJsonError(res, 403, 'Permission denied');
+          }
+          return sendJsonError(res, 500, 'Stat error');
+        }
+        if (!stat.isFile()) {
+          return sendJsonError(res, 404, 'Not a regular file');
+        }
+        if (stat.size > FILE_MAX_BYTES) {
+          return sendJsonError(res, 413, 'File too large');
+        }
+
+        fs.readFile(realPath, 'utf8', (readErr, content) => {
+          if (readErr) {
+            if (readErr.code === 'EACCES' || readErr.code === 'EPERM') {
+              return sendJsonError(res, 403, 'Permission denied');
+            }
+            return sendJsonError(res, 500, 'Read error');
+          }
+
+          // Wrap the response writes in a local try/catch so a socket
+          // disconnect mid-write does not throw an uncaught exception and
+          // crash the dev server. The outer try/catch in handleRequest only
+          // catches synchronous errors from fileHandler(req, res); anything
+          // thrown inside these async callbacks would otherwise escape to
+          // the uncaughtException path. See Quick 002 REVIEW F-002.
+          try {
+            const body = JSON.stringify({
+              path: requestedPath,
+              content,
+              mtime: stat.mtime.toISOString(),
+              size: stat.size,
+            });
+            res.writeHead(200, {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(body),
+              'Cache-Control': 'no-store',
+            });
+            res.end(body);
+          } catch (_writeErr) {
+            // Client likely disconnected. Best effort: end the stream if we
+            // can, otherwise swallow silently — nothing else to do.
+            if (!res.writableEnded) {
+              try { res.end(); } catch (_) { /* noop */ }
+            }
+          }
+        });
+      });
+    });
+  };
+}
+
 // ========== Static file serving ==========
 
 function safeResolve(staticDir, urlPath) {
@@ -146,9 +352,7 @@ function handleRequest(req, res) {
   // API routes first — /api/snapshot is the only stub; T1.7 will mount more.
   if (url === '/api/snapshot' || url.startsWith('/api/snapshot?')) {
     if (req.method !== 'GET') {
-      res.writeHead(405, { 'Content-Type': 'text/plain', Allow: 'GET' });
-      res.end('Method Not Allowed');
-      return;
+      return sendJsonError(res, 405, 'Method Not Allowed', { Allow: 'GET' });
     }
     try {
       snapshotHandler(req, res);
@@ -156,8 +360,7 @@ function handleRequest(req, res) {
       // Guard against double-write: if handler already started streaming
       // (headers sent), we cannot write a 500 on top. Just end the response.
       if (!res.headersSent) {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Internal Server Error');
+        return sendJsonError(res, 500, err.message || 'Internal Server Error');
       } else if (!res.writableEnded) {
         res.end();
       }
@@ -168,16 +371,30 @@ function handleRequest(req, res) {
   // POST /api/config — write config changes to .bee/config.json
   if (url === '/api/config' || url.startsWith('/api/config?')) {
     if (req.method !== 'POST' && req.method !== 'PUT') {
-      res.writeHead(405, { 'Content-Type': 'text/plain', Allow: 'POST, PUT' });
-      res.end('Method Not Allowed');
-      return;
+      return sendJsonError(res, 405, 'Method Not Allowed', { Allow: 'POST, PUT' });
     }
     try {
       configHandler(req, res);
     } catch (err) {
       if (!res.headersSent) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message || 'Internal Server Error' }));
+        return sendJsonError(res, 500, err.message || 'Internal Server Error');
+      }
+    }
+    return;
+  }
+
+  // GET /api/file?path=<relative> — read a single text file from .bee/
+  if (url === '/api/file' || url.startsWith('/api/file?')) {
+    if (req.method !== 'GET') {
+      return sendJsonError(res, 405, 'Method Not Allowed', { Allow: 'GET' });
+    }
+    try {
+      fileHandler(req, res);
+    } catch (err) {
+      if (!res.headersSent) {
+        return sendJsonError(res, 500, err.message || 'Internal Server Error');
+      } else if (!res.writableEnded) {
+        res.end();
       }
     }
     return;
@@ -380,6 +597,7 @@ if (require.main === module) {
   if (beeDir) {
     setSnapshotHandler(createSnapshotHandler(beeDir));
     setConfigHandler(createConfigHandler(beeDir));
+    setFileHandler(createFileHandler(beeDir));
   }
   // If no .bee/ directory was discovered, the stub snapshot handler remains
   // mounted and /api/snapshot will return `{ timestamp }` only — still valid
@@ -406,7 +624,11 @@ module.exports = {
   handleRequest,
   setSnapshotHandler,
   setConfigHandler,
+  setFileHandler,
+  createFileHandler,
   MIME_TYPES,
+  FILE_MAX_BYTES,
+  FILE_ALLOWED_EXTENSIONS,
   // Exposed for tests and T1.7 diagnostics:
   _internal: {
     getPort,
