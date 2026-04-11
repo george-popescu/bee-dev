@@ -54,16 +54,20 @@ Read the Phases table from STATE.md. Check each phase row:
 2. Also check config.json: if `lifecycle.require_audit_before_complete` is explicitly `false`, display "Audit skipped per config (lifecycle.require_audit_before_complete = false)." and continue to Step 4.
 3. Otherwise, run the audit logic inline (do NOT invoke /bee:audit-spec as a subcommand -- embed the audit logic directly):
 
-   **3a. Parse spec.md requirements:**
-   - Read `spec.md` from the active spec directory (path: `{Current Spec Path}/spec.md`).
-   - Extract all requirements. Requirements are identified by any of these patterns:
-     - Checkbox lines with an ID: `- [ ] **REQ-01**: description` or `- [x] **REQ-01**: description`
-     - Checkbox lines with alternative ID formats: `R-01`, `FEAT-01`, `FUNC-01`, `NFR-01`, etc. (any uppercase prefix followed by a dash and digits)
-     - Numbered requirement lists under a "Requirements" heading
-     - Bulleted requirement sections with IDs in bold
-   - Requirement ID pattern matching should be case-insensitive and support the general pattern: `[A-Z]+-\d+`.
-   - Build a requirements list: `[{ id, description, checked }]`
-   - If no requirements found, display: "No parseable requirements found in spec.md. Skipping audit." and continue to Step 4.
+   **3a. Parse requirements (3-tier fallback chain):**
+
+   Build the requirements list using this priority order. Each tier is tried only if the previous tier yields zero requirements.
+
+   1. **PRIMARY — ROADMAP.md:** Read `{spec-path}/ROADMAP.md` if it exists. Extract all unique requirement IDs from the `Requirements` column of the `Phase-Requirement Mapping` table (split each cell on commas, trim whitespace). This is the authoritative mapping created during spec generation. Build the requirements list with IDs only; descriptions are filled in from TASKS.md or spec.md in later steps if available.
+   2. **SECONDARY — spec.md:** If ROADMAP.md is missing or its `Phase-Requirement Mapping` table is empty, parse `{Current Spec Path}/spec.md` for requirement checkboxes. Requirements are identified by any of these patterns:
+      - Checkbox lines with an ID: `- [ ] **REQ-01**: description` or `- [x] **REQ-01**: description`
+      - Checkbox lines with alternative ID formats: `R-01`, `FEAT-01`, `FUNC-01`, `NFR-01`, etc. (any uppercase prefix followed by a dash and digits)
+      - Numbered requirement lists under a "Requirements" heading
+      - Bulleted requirement sections with IDs in bold
+
+      Requirement ID pattern matching should be case-insensitive and support the general pattern: `[A-Z]+-\d+`. Build a requirements list: `[{ id, description, checked }]`.
+   3. **TERTIARY — TASKS.md grep:** If both ROADMAP.md and spec.md yield zero requirements, grep `{spec-path}/phases/*/TASKS.md` for `requirements:` frontmatter fields and collect unique IDs across all phase files. Use the IDs only; descriptions remain blank.
+   4. Only skip the audit if ALL three sources are empty. In that case, display: "No parseable requirements found in ROADMAP.md, spec.md, or phase TASKS.md. Skipping audit." and continue to Step 4.
 
    **3b. Trace requirements to phases (via ROADMAP.md + TASKS.md):**
    - Read `{spec-path}/ROADMAP.md` if it exists. If found, use the Phase-Requirement Mapping table as the PRIMARY source for requirement→phase mapping. Supplement with TASKS.md grep for any requirements not in ROADMAP.md. If ROADMAP.md does not exist, fall back to TASKS.md grep only.
@@ -72,15 +76,21 @@ Read the Phases table from STATE.md. Check each phase row:
    - For each phase directory, read `TASKS.md` if it exists and search for requirement IDs to determine mappings.
    - Requirements not found in any TASKS.md are flagged as "Orphaned".
 
-   **3c. Trace requirements to reviews (via REVIEW.md):**
-   - For each phase that has a requirement mapped, check if `REVIEW.md` exists.
-   - If found, search for the requirement ID (case-insensitive). Mark as "Reviewed: Yes" or "Reviewed: Not confirmed".
-   - If no REVIEW.md exists, mark as "Reviewed: No review".
+   **3c. Trace requirements to reviews (STATE.md Reviewed column primary, REVIEW.md fallback):**
 
-   **3d. Trace requirements to tests (via TESTING.md):**
-   - For each phase that has a requirement mapped, check if `TESTING.md` exists.
-   - If found, search for the requirement ID (case-insensitive). Mark as "Tested: Yes" or "Tested: Not covered".
-   - If no TESTING.md exists, mark as "Tested: No test file".
+   For each phase that has a requirement mapped, determine review status using this priority order:
+
+   a. **PRIMARY — STATE.md Reviewed column:** Read the STATE.md `Phases` table row for that phase. If the `Reviewed` column contains `Yes (N)` or `Yes` (the value written by `/bee:review` and `/bee:ship`), mark the requirement as `Reviewed: Yes (via STATE.md)`. This is the authoritative source.
+   b. **FALLBACK — REVIEW.md / REVIEW-N.md:** If the STATE.md `Reviewed` column is empty or `--`, check whether `REVIEW.md` or any `REVIEW-N.md` file exists in the phase directory. If found and the requirement ID is present (case-insensitive grep), mark as `Reviewed: Yes (via REVIEW.md)`. This is a secondary fallback.
+   c. **NEITHER:** If neither source confirms the requirement, mark as `Reviewed: Not confirmed`.
+
+   **3d. Trace requirements to tests (STATE.md Tested column primary, TESTING.md fallback):**
+
+   For each phase that has a requirement mapped, determine test status using this priority order:
+
+   a. **PRIMARY — STATE.md Tested column:** Read the STATE.md `Phases` table row for that phase. If the `Tested` column contains `Pass` (the value written by `/bee:test`), mark the requirement as `Tested: Yes (via STATE.md)`. This is the authoritative source.
+   b. **FALLBACK — TESTING.md:** If the STATE.md `Tested` column is empty or `--`, check whether `TESTING.md` exists in the phase directory. If found and the requirement ID is present (case-insensitive grep), mark as `Tested: Yes (via TESTING.md)`. This is a secondary fallback.
+   c. **NEITHER:** If neither source confirms the requirement, mark as `Tested: Not confirmed`.
 
    **3e. Compute coverage:**
    - **Satisfied**: Has phase assignment AND review confirmation AND test coverage
@@ -110,18 +120,19 @@ Read the Phases table from STATE.md. Check each phase row:
 
 ### Step 4: Generate CHANGELOG.md
 
-1. Read spec.md requirements to categorize changes:
-   - New features (new capabilities) -> **Added**
-   - Modifications to existing behavior -> **Changed**
-   - Bug fixes, review findings resolved -> **Fixed**
-   - Internal refactoring, test improvements -> **Internal**
+1. Categorize changes using a **hybrid source strategy** (spec-driven + auto-extracted):
+   - **Added** and **Changed**: derive from spec requirements (using the same 3-tier source chain as Step 3a — ROADMAP.md → spec.md → TASKS.md). Implemented new capabilities → **Added**; modifications to existing behavior → **Changed**.
+   - **Fixed**: **auto-extract** from STATE.md `## Decisions Log` section. Parse each entry; match entries whose marker contains the keywords `fix`, `Fix`, `review`, `Review`, or matches the patterns `[F-\d+]`, `[D-\d+]`, `[Q-\d+]` (e.g., `[Plan review auto-fix]`, `[Review finding auto-fixed]`, `[Q-11 post-review]`, `[F-001]`, `[D-001]`). Use the entry's description text as the **Fixed** bullet.
+   - **Internal**: **auto-extract** from `git log` commit subjects since the first commit touching the spec path. Match Conventional Commits prefixes: `test:`, `chore:`, `refactor:`, `build:`, `docs:`, `perf:`, `ci:`. Use the commit subject (minus the prefix) as the **Internal** bullet.
 
-2. Read git stats for the spec's lifetime:
+2. Display the extracted category lists to the user for review BEFORE writing the changelog. Allow the user to edit or approve each section.
+
+3. Read git stats for the spec's lifetime:
    - Find the first commit related to this spec (by spec directory creation or earliest commit touching the spec path).
    - Count files changed and lines added/removed since that commit using `git diff --stat`.
    - Count total phases from STATE.md Phases table.
 
-3. Generate a CHANGELOG entry with this format:
+4. Generate a CHANGELOG entry with this format:
    ```markdown
    # Changelog: {spec-name}
 
@@ -146,7 +157,7 @@ Read the Phases table from STATE.md. Check each phase row:
    - Phases: {N}
    ```
 
-4. Display the generated changelog to the user for review:
+5. Display the generated changelog to the user for review:
    AskUserQuestion(
      question: "Review the generated changelog:",
      options: ["Approve", "Edit", "Skip changelog", "Custom"]
@@ -159,7 +170,9 @@ Read the Phases table from STATE.md. Check each phase row:
 
 1. Check if `--skip-tag` flag is present in `$ARGUMENTS`. If so, display "Git tag skipped per --skip-tag flag." and continue to Step 6.
 2. Also check config.json: if `lifecycle.git_tag_on_complete` is explicitly `false`, display "Git tag skipped per config (lifecycle.git_tag_on_complete = false)." and continue to Step 6.
-3. Read tag format from config.json: `lifecycle.tag_format` (default: `spec/{slug}/v1`). Replace `{slug}` with the spec slug (derived from spec folder name, stripping the date prefix -- e.g., `2026-04-09-user-management` becomes `user-management`).
+3. Read tag format from config.json: `lifecycle.tag_format` (default: `spec/{slug}/v1`). Replace `{slug}` with the spec slug derived from the **Current Spec Name** field in STATE.md. Normalize the name to **kebab-case**: lowercase, replace spaces and underscores with hyphens, strip all characters except `a-z`, `0-9`, and hyphens, collapse consecutive hyphens, and trim leading/trailing hyphens.
+
+   **Backward-compat note (v4.0.3+):** Prior to v4.0.3, the slug was derived from the spec folder name (minus the date prefix). From v4.0.3 forward, the slug comes from Current Spec Name. Existing tags are not rewritten retroactively.
 4. Create the annotated tag:
    ```bash
    git tag -a "{tag}" -m "Spec completed: {spec-name}
@@ -237,6 +250,18 @@ This step reuses the same logic as `/bee:archive-spec` Steps 5-6:
 6. Keep the Last Action from the first write unchanged.
 7. Write STATE.md to disk.
 
+**Prune STATE.md sections to archive:**
+
+Extract spec-specific history from STATE.md into the archived spec directory, keeping STATE.md lean for the next spec.
+
+1. Re-read STATE.md from disk (fresh read).
+2. Extract the full content between `## Decisions Log` and the next top-level `## ` heading OR end-of-file, whichever comes first. Write this content to `.bee/archive/{spec-folder-name}/DECISIONS.md` (the target directory already exists post-Step 6 archive move).
+3. Extract all `## Previous Last Action` sections (including their bodies, where each body extends until the next top-level `## ` heading OR end-of-file, whichever comes first) as a concatenated block. Write them to `.bee/archive/{spec-folder-name}/LAST-ACTIONS.md`.
+4. In STATE.md, **truncate** the `## Decisions Log` section (bounded by the next top-level `## ` heading OR end-of-file, whichever comes first) to contain only the 1-2 most recent entries that are still relevant to ongoing work (or leave it empty if none are). **Prune** ALL `## Previous Last Action` sections from STATE.md. Keep the current `## Last Action` section intact.
+5. Write the truncated/pruned STATE.md back to disk.
+
+**Rationale:** Decisions Log and Previous Last Action sections accumulate across specs and make STATE.md illegible over time. Moving them to the archive preserves the full audit trail while keeping active state lean for the next spec.
+
 **Bump plugin version:**
 1. Attempt to read the plugin manifest: try `plugins/bee/.claude-plugin/plugin.json` first, then `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json` via Bash if the first path does not exist.
 2. If neither path resolves to a file, display: "Plugin version bump skipped — plugin.json not found. Bump manually if needed." and continue to Step 9.
@@ -244,6 +269,17 @@ This step reuses the same logic as `/bee:archive-spec` Steps 5-6:
 4. Increment the PATCH number by 1 (e.g., `2.1.0` becomes `2.1.1`, `1.0.9` becomes `1.0.10`).
 5. Write the updated plugin.json back to disk with the new version, preserving all other fields.
 6. Display: "Plugin version bumped: {old-version} -> {new-version}"
+7. Display the **plugin cache drift warning**:
+
+   ```
+   WARNING: The plugin manifest on disk was bumped to {new-version}, but the active
+   plugin cache at `~/.claude/plugins/cache/bee-dev/bee/{old-version}/` still serves
+   the OLD version in this Claude Code session. The bump is not effective until the
+   cache is reloaded. Run `/plugin` (reinstall from marketplace) or `/reload-plugins`
+   to activate the new version.
+   ```
+
+   This drift warning is mandatory — without it the user has no signal that their next command will still execute the old plugin code despite the version bump on disk.
 
 ### Step 9: Summary
 
@@ -277,11 +313,11 @@ AskUserQuestion(
 - This command does NOT use any agents -- it operates entirely in the main Claude context. No `Task(` calls or agent spawning.
 - The audit logic is INLINED from `/bee:audit-spec`, not delegated to it as a subcommand. This avoids subcommand invocation complexity while keeping audit-spec available as a standalone command for users who want to run audits independently.
 - `/bee:archive-spec` is UNCHANGED -- it remains as the lightweight "skip ceremony" fast path. `/bee:complete-spec` is the full ceremony that adds audit, changelog, git tag, and spec history on top of the archival.
-- The changelog is spec-driven (from requirements categorized as Added/Changed/Fixed/Internal), not commit-driven. Git stats (files changed, lines added/removed) are supplementary context only.
+- The changelog uses a **hybrid source model**: Added/Changed are spec-driven (from requirements via the ROADMAP.md → spec.md → TASKS.md fallback chain), Fixed is auto-extracted from the STATE.md `## Decisions Log` (matching fix/review markers and `[F-NNN]`/`[D-NNN]`/`[Q-N]` patterns), and Internal is auto-extracted from `git log` commit messages with Conventional Commits prefixes (`test:`, `chore:`, `refactor:`, `build:`, `docs:`, `perf:`, `ci:`). Git diff stats (files changed, lines added/removed) remain supplementary context.
 - Tag format uses `{slug}` placeholder, not `{version}`. Bee is spec-centric, not version-centric. The user can configure any format they want via `lifecycle.tag_format` in config.json.
 - The double-write STATE.md pattern (ARCHIVED then NO_SPEC) is identical to `/bee:archive-spec` -- it creates a clean transition record in the audit trail.
 - This command does not commit anything. The user runs `/bee:commit` separately if they want to commit the state changes.
 - No auto-push of git tags. The user pushes manually.
 - The CHANGELOG.md is written into the spec directory before the archive move, so it gets moved with the spec to `.bee/archive/{spec-folder-name}/CHANGELOG.md`.
 - The SPEC-HISTORY.md file in `.bee/history/` is a persistent reverse-chronological record across all completed specs, separate from the per-spec CHANGELOG.md.
-- When a requirement appears in multiple phases, it is marked as implemented/reviewed/tested if ANY phase references it (same logic as audit-spec standalone).
+- When a requirement appears in multiple phases, it is marked as implemented/reviewed/tested if ANY phase references it (same logic as audit-spec standalone). Review/Test status uses the STATE.md `Reviewed`/`Tested` columns as the **primary** source (authoritative since they are written by `/bee:review`, `/bee:ship`, and `/bee:test`), with `REVIEW.md`/`TESTING.md` files as a secondary fallback when the columns are empty.

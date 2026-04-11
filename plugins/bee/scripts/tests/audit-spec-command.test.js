@@ -207,6 +207,77 @@ assert(
 );
 
 // ============================================================
+// Test 10: Step 4 - STATE.md Reviewed column primary, REVIEW.md fallback
+// ============================================================
+console.log('\nTest 10: Step 4 - STATE.md Reviewed column primary');
+assert(
+  step4Content.includes('STATE.md') &&
+  step4Content.toLowerCase().includes('primary'),
+  'Step 4 calls out STATE.md as PRIMARY review source'
+);
+assert(
+  step4Content.toLowerCase().includes('reviewed column'),
+  'Step 4 references the Reviewed column explicitly'
+);
+assert(
+  step4Content.toLowerCase().includes('fallback'),
+  'Step 4 mentions REVIEW.md as fallback'
+);
+assert(
+  step4Content.includes('Yes (N)') || step4Content.includes('via STATE.md'),
+  'Step 4 references the Reviewed column value format (Yes (N) / via STATE.md)'
+);
+
+// ============================================================
+// Test 11: Step 5 - STATE.md Tested column primary, TESTING.md fallback
+// ============================================================
+console.log('\nTest 11: Step 5 - STATE.md Tested column primary');
+assert(
+  step5Content.includes('STATE.md') &&
+  step5Content.toLowerCase().includes('primary'),
+  'Step 5 calls out STATE.md as PRIMARY tested source'
+);
+assert(
+  step5Content.toLowerCase().includes('tested column'),
+  'Step 5 references the Tested column explicitly'
+);
+assert(
+  step5Content.includes('Pass'),
+  'Step 5 references the "Pass" Tested column value'
+);
+assert(
+  step5Content.toLowerCase().includes('fallback'),
+  'Step 5 mentions TESTING.md as fallback'
+);
+
+// ============================================================
+// Test 12: Step 2 - ROADMAP.md primary requirement source (3-tier chain)
+// ============================================================
+console.log('\nTest 12: Step 2 - ROADMAP.md primary requirement source');
+assert(
+  step2Content.includes('ROADMAP.md') &&
+  step2Content.toLowerCase().includes('primary'),
+  'Step 2 calls out ROADMAP.md as PRIMARY requirement source'
+);
+assert(
+  step2Content.includes('Phase-Requirement Mapping'),
+  'Step 2 references the Phase-Requirement Mapping table in ROADMAP.md'
+);
+assert(
+  step2Content.toLowerCase().includes('secondary') ||
+  step2Content.toLowerCase().includes('tertiary') ||
+  step2Content.toLowerCase().includes('fallback'),
+  'Step 2 describes the fallback chain (secondary/tertiary/fallback)'
+);
+assert(
+  step2Content.toLowerCase().includes('all three sources') ||
+  step2Content.toLowerCase().includes('all sources') ||
+  step2Content.toLowerCase().includes('only stop') ||
+  step2Content.toLowerCase().includes('only skip'),
+  'Step 2 only stops audit when ALL sources are empty'
+);
+
+// ============================================================
 // Results
 // ============================================================
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);

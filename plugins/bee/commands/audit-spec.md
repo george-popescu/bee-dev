@@ -29,21 +29,27 @@ Check these guards in order. Stop immediately if any fails:
    "Spec directory not found at `{spec-path}`. STATE.md may be stale."
    Do NOT proceed.
 
-### Step 2: Parse Spec Requirements
+### Step 2: Parse Spec Requirements (3-tier fallback chain)
 
-1. Read `spec.md` from the active spec directory (path: `{Current Spec Path}/spec.md`).
-2. Extract all requirements. Requirements are identified by any of these patterns:
+Build the requirements list using this priority order. Each tier is tried only if the previous tier yields zero requirements.
+
+1. **PRIMARY — ROADMAP.md:** Read `{spec-path}/ROADMAP.md` if it exists. Extract all unique requirement IDs from the `Requirements` column of the `Phase-Requirement Mapping` table (split each cell on commas, trim whitespace). This is the authoritative mapping created during spec generation. Build the requirements list with IDs only; descriptions are filled in from TASKS.md or spec.md in later steps if available.
+
+2. **SECONDARY — spec.md:** If ROADMAP.md is missing or its `Phase-Requirement Mapping` table is empty, read `spec.md` from the active spec directory (path: `{Current Spec Path}/spec.md`) and extract all requirements. Requirements are identified by any of these patterns:
    - Checkbox lines with an ID: `- [ ] **REQ-01**: description` or `- [x] **REQ-01**: description`
    - Checkbox lines with alternative ID formats: `R-01`, `FEAT-01`, `FUNC-01`, etc. (any uppercase prefix followed by a dash and digits)
    - Numbered requirement lists under a "Requirements" heading
    - Bulleted requirement sections with IDs in bold
-3. Requirement ID pattern matching should be case-insensitive and support common formats: `REQ-01`, `R-01`, `FEAT-01`, `FUNC-01`, `NFR-01`, etc. The general pattern is: `[A-Z]+-\d+`.
-4. Build a requirements list: `[{ id, description, checked }]`
+
+   Requirement ID pattern matching should be case-insensitive and support common formats: `REQ-01`, `R-01`, `FEAT-01`, `FUNC-01`, `NFR-01`, etc. The general pattern is: `[A-Z]+-\d+`. Build a requirements list: `[{ id, description, checked }]`.
    - `id`: The requirement ID (e.g., "REQ-01")
    - `description`: The text after the ID
    - `checked`: Whether the checkbox is checked (`[x]` = true, `[ ]` = false)
-5. If no requirements found, display:
-   "No parseable requirements found in spec.md. Requirements should be formatted as `- [ ] **REQ-ID**: description`."
+
+3. **TERTIARY — TASKS.md grep:** If both ROADMAP.md and spec.md yield zero requirements, grep `{spec-path}/phases/*/TASKS.md` for `requirements:` frontmatter fields and collect unique IDs across all phase files. Use the IDs only; descriptions remain blank.
+
+4. Only stop the audit when ALL three sources are empty. In that case, display:
+   "No parseable requirements found in ROADMAP.md, spec.md, or phase TASKS.md. Requirements should be formatted as `- [ ] **REQ-ID**: description` in spec.md, or referenced in the ROADMAP.md `Phase-Requirement Mapping` table."
    Stop.
 
 ### Step 3: Trace Requirements to Phases
@@ -56,21 +62,21 @@ Check these guards in order. Stop immediately if any fails:
    b. Record the mapping: requirement -> phase(s). A requirement can appear in multiple phases.
 4. Requirements not found in any phase's TASKS.md are flagged as "Orphaned".
 
-### Step 4: Trace Requirements to Reviews
+### Step 4: Trace Requirements to Reviews (STATE.md Reviewed column primary, REVIEW.md fallback)
 
-1. For each phase that has a requirement mapped:
-   a. Check if `REVIEW.md` exists in the phase directory.
-   b. If it exists, search for the requirement ID in the review content (case-insensitive grep for the ID).
-   c. If found, mark as "Reviewed: Yes". If not found, mark as "Reviewed: Not confirmed".
-2. If no `REVIEW.md` exists for a phase, mark all its requirements as "Reviewed: No review".
+For each phase that has a requirement mapped, determine review status using this priority order:
 
-### Step 5: Trace Requirements to Tests
+1. **PRIMARY — STATE.md Reviewed column:** Read the STATE.md `Phases` table row for that phase. If the `Reviewed` column contains `Yes (N)` or `Yes` (the value written by `/bee:review` and `/bee:ship`), mark the requirement as `Reviewed: Yes (via STATE.md)`. This is the authoritative source.
+2. **FALLBACK — REVIEW.md / REVIEW-N.md:** If the STATE.md `Reviewed` column is empty or `--`, check whether `REVIEW.md` or any `REVIEW-N.md` file exists in the phase directory. If found, search for the requirement ID (case-insensitive grep). If found, mark as `Reviewed: Yes (via REVIEW.md)`. This is a secondary fallback.
+3. **NEITHER:** If neither source confirms the requirement, mark as `Reviewed: Not confirmed`.
 
-1. For each phase that has a requirement mapped:
-   a. Check if `TESTING.md` exists in the phase directory.
-   b. If it exists, search for the requirement ID in the test scenarios (case-insensitive grep for the ID).
-   c. If found, mark as "Tested: Yes". If not found, mark as "Tested: Not covered".
-2. If no `TESTING.md` exists for a phase, mark as "Tested: No test file".
+### Step 5: Trace Requirements to Tests (STATE.md Tested column primary, TESTING.md fallback)
+
+For each phase that has a requirement mapped, determine test status using this priority order:
+
+1. **PRIMARY — STATE.md Tested column:** Read the STATE.md `Phases` table row for that phase. If the `Tested` column contains `Pass` (the value written by `/bee:test`), mark the requirement as `Tested: Yes (via STATE.md)`. This is the authoritative source.
+2. **FALLBACK — TESTING.md:** If the STATE.md `Tested` column is empty or `--`, check whether `TESTING.md` exists in the phase directory. If found, search for the requirement ID (case-insensitive grep). If found, mark as `Tested: Yes (via TESTING.md)`. This is a secondary fallback.
+3. **NEITHER:** If neither source confirms the requirement, mark as `Tested: Not confirmed`.
 
 ### Step 6: Compute Coverage
 
@@ -146,5 +152,5 @@ AskUserQuestion(
 - The traceability chain is: spec.md requirements -> phase TASKS.md (implementation) -> REVIEW.md (review confirmation) -> TESTING.md (test coverage).
 - Coverage percentage is a simple ratio: requirements with all three traces (Satisfied) divided by total requirements.
 - This command never auto-commits. It is a read-only audit operation.
-- When a requirement appears in multiple phases, it should be marked as implemented if ANY phase's TASKS.md references it, reviewed if ANY phase's REVIEW.md references it, and tested if ANY phase's TESTING.md references it.
+- When a requirement appears in multiple phases, it should be marked as implemented if ANY phase's TASKS.md references it, reviewed if ANY phase has the STATE.md `Reviewed` column populated (or as a fallback, REVIEW.md references it), and tested if ANY phase has the STATE.md `Tested` column populated (or as a fallback, TESTING.md references it). The STATE.md `Reviewed`/`Tested` columns are the **primary** source (authoritative since they are written by `/bee:review`, `/bee:ship`, and `/bee:test`); the per-phase REVIEW.md/TESTING.md files are a secondary fallback used only when the columns are empty.
 - The `--verbose` flag adds detail but does not change the coverage computation or status assignments.

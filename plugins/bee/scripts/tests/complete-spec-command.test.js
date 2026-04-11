@@ -157,6 +157,19 @@ assert(
 );
 
 // ============================================================
+// Test 5.5: Step 5.5 Archive Agent Memory (2 assertions)
+// ============================================================
+console.log('\nTest 5.5: Step 5.5 - Archive Agent Memory');
+assert(
+  content.includes('### Step 5.5'),
+  'Step 5.5 (Archive Agent Memory) exists'
+);
+assert(
+  content.includes('archive-memory.sh'),
+  'Step 5.5 invokes archive-memory.sh'
+);
+
+// ============================================================
 // Test 6: Steps 6-7 archive + history tests (3 assertions)
 // ============================================================
 console.log('\nTest 6: Steps 6-7 - Archive + history');
@@ -229,6 +242,167 @@ assert(
   content.toLowerCase().includes('not commit anything') ||
   content.toLowerCase().includes('never commits'),
   'Command explicitly states it never auto-commits'
+);
+
+// ============================================================
+// Test 10: Step 3c - STATE.md Reviewed column primary, REVIEW.md fallback
+// ============================================================
+console.log('\nTest 10: Step 3c - STATE.md Reviewed column primary');
+assert(
+  step3Content.includes('STATE.md') &&
+  step3Content.toLowerCase().includes('primary'),
+  'Step 3 calls out STATE.md as PRIMARY review source'
+);
+assert(
+  step3Content.toLowerCase().includes('reviewed column'),
+  'Step 3 references the Reviewed column explicitly'
+);
+assert(
+  step3Content.toLowerCase().includes('fallback'),
+  'Step 3 mentions REVIEW.md as fallback'
+);
+assert(
+  step3Content.includes('Yes (N)') || step3Content.includes('Yes (via STATE.md)'),
+  'Step 3 references the Reviewed column value format (Yes (N) / via STATE.md)'
+);
+
+// ============================================================
+// Test 11: Step 3d - STATE.md Tested column primary, TESTING.md fallback
+// ============================================================
+console.log('\nTest 11: Step 3d - STATE.md Tested column primary');
+assert(
+  step3Content.toLowerCase().includes('tested column'),
+  'Step 3 references the Tested column explicitly'
+);
+assert(
+  step3Content.includes('Pass') &&
+  step3Content.includes('TESTING.md'),
+  'Step 3 references the "Pass" Tested value AND TESTING.md fallback'
+);
+assert(
+  step3Content.includes('via STATE.md') || step3Content.includes('via TESTING.md'),
+  'Step 3 distinguishes via STATE.md vs via TESTING.md sources for tested status'
+);
+
+// ============================================================
+// Test 12: Step 3a - ROADMAP.md primary requirement source (3-tier chain)
+// ============================================================
+console.log('\nTest 12: Step 3a - ROADMAP.md primary requirement source');
+assert(
+  step3Content.includes('ROADMAP.md') &&
+  step3Content.toLowerCase().includes('primary'),
+  'Step 3 calls out ROADMAP.md as PRIMARY requirement source'
+);
+assert(
+  step3Content.includes('Phase-Requirement Mapping'),
+  'Step 3 references the Phase-Requirement Mapping table in ROADMAP.md'
+);
+assert(
+  step3Content.toLowerCase().includes('secondary') ||
+  step3Content.toLowerCase().includes('tertiary') ||
+  step3Content.toLowerCase().includes('fallback'),
+  'Step 3 describes the fallback chain (secondary/tertiary/fallback)'
+);
+assert(
+  step3Content.toLowerCase().includes('all three sources are empty') ||
+  step3Content.toLowerCase().includes('only skip') ||
+  step3Content.toLowerCase().includes('all sources'),
+  'Step 3 only skips audit when ALL sources are empty'
+);
+
+// ============================================================
+// Test 13: Step 5 - Tag slug derived from Current Spec Name
+// ============================================================
+console.log('\nTest 13: Step 5 - Tag slug from Current Spec Name');
+assert(
+  step5Content.includes('Current Spec Name'),
+  'Step 5 derives slug from Current Spec Name (not folder name)'
+);
+assert(
+  step5Content.toLowerCase().includes('kebab'),
+  'Step 5 specifies kebab-case normalization'
+);
+assert(
+  step5Content.toLowerCase().includes('v4.0.3') ||
+  step5Content.toLowerCase().includes('not rewritten') ||
+  step5Content.toLowerCase().includes('backward'),
+  'Step 5 contains a backward-compat note about pre-v4.0.3 tags'
+);
+
+// ============================================================
+// Test 14: Step 8 - Plugin cache drift warning
+// ============================================================
+console.log('\nTest 14: Step 8 - Plugin cache drift warning');
+assert(
+  step8Content.includes('~/.claude/plugins/cache') ||
+  step8Content.includes('/reload-plugins'),
+  'Step 8 references the plugin cache path or /reload-plugins command'
+);
+assert(
+  step8Content.toLowerCase().includes('cache') &&
+  (step8Content.toLowerCase().includes('drift') || step8Content.toLowerCase().includes('not effective') || step8Content.toLowerCase().includes('still serves')),
+  'Step 8 explains the cache drift / not-effective-until-reload warning'
+);
+assert(
+  step8Content.includes('`/plugin`') || step8Content.toLowerCase().includes('reinstall'),
+  'Step 8 mentions /plugin (reinstall) as a mitigation'
+);
+
+// ============================================================
+// Test 15: Step 8 - STATE.md pruning to archive
+// ============================================================
+console.log('\nTest 15: Step 8 - STATE.md pruning to archive');
+assert(
+  step8Content.includes('DECISIONS.md'),
+  'Step 8 writes Decisions Log entries to DECISIONS.md'
+);
+assert(
+  step8Content.includes('LAST-ACTIONS.md'),
+  'Step 8 writes Previous Last Action sections to LAST-ACTIONS.md'
+);
+assert(
+  step8Content.toLowerCase().includes('prun') ||
+  step8Content.toLowerCase().includes('truncat'),
+  'Step 8 describes pruning/truncation of STATE.md'
+);
+assert(
+  step8Content.includes('Previous Last Action'),
+  'Step 8 explicitly references Previous Last Action sections'
+);
+assert(
+  step8Content.includes('Decisions Log'),
+  'Step 8 explicitly references Decisions Log section'
+);
+
+// ============================================================
+// Test 16: Step 4 - CHANGELOG hybrid source (Decisions Log + git log)
+// ============================================================
+console.log('\nTest 16: Step 4 - CHANGELOG hybrid source');
+assert(
+  step4Content.includes('Decisions Log'),
+  'Step 4 references the Decisions Log as a source'
+);
+assert(
+  step4Content.match(/test:|chore:|refactor:/) !== null,
+  'Step 4 references Conventional Commits prefixes (test:/chore:/refactor:)'
+);
+assert(
+  step4Content.toLowerCase().includes('hybrid') ||
+  step4Content.toLowerCase().includes('auto-extract') ||
+  step4Content.toLowerCase().includes('auto extract'),
+  'Step 4 calls out the hybrid / auto-extract source strategy'
+);
+assert(
+  step4Content.toLowerCase().includes('git log'),
+  'Step 4 references git log for commit message extraction'
+);
+assert(
+  step4Content.match(/F-\d+|D-\d+|Q-\d+/) !== null ||
+  step4Content.includes('F-\\d+') ||
+  step4Content.includes('Q-\\d+') ||
+  step4Content.includes('[F-') ||
+  step4Content.includes('[Q-'),
+  'Step 4 references fix marker patterns ([F-NNN], [Q-N], etc.)'
 );
 
 // ============================================================
