@@ -15,11 +15,12 @@ import { MissionControlLayout, SectionDivider } from '@/components/MissionContro
 import { NavigationSidebar } from '@/components/NavigationSidebar';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { ActivityFeed } from '@/components/ActivityFeed';
+import { LiveActivityPanel } from '@/components/LiveActivityPanel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TabBar } from '@/components/TabBar';
 import { TabContentRenderer } from '@/components/TabContentRenderer';
 import { SplitPaneHeader } from '@/components/SplitPaneHeader';
-import { Map as MapIcon, Radio } from 'lucide-react';
+import { Map as MapIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSnapshot } from '@/hooks/useSnapshot';
 import { useActivityFeed } from '@/hooks/useActivityFeed';
@@ -149,7 +150,6 @@ export default function App() {
     openFileTab,
     openPhaseTab,
     openRoadmapTab,
-    openLiveActivityTab,
     closeTab,
     activateTab,
   } = useTabs();
@@ -235,19 +235,18 @@ export default function App() {
             <MapIcon className="h-3 w-3" aria-hidden="true" />
             Roadmap
           </button>
-          <button
-            type="button"
-            onClick={openLiveActivityTab}
-            aria-label="Open live activity view"
-            className="hidden md:inline-flex items-center gap-1.5 rounded-none border border-hive-border bg-hive-elevated px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-hive-muted transition-colors hover:border-hive-border-bright hover:text-hive-text-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hive-accent"
-          >
-            <Radio className="h-3 w-3" aria-hidden="true" />
-            Live
-          </button>
           <ConnectionStatus status={connectionStatus} lastUpdated={lastUpdated} />
         </div>
       }
-      feed={<ActivityFeed events={events} />}
+      feed={
+        <div className="flex flex-col gap-4">
+          <LiveActivityPanel
+            events={liveEvents}
+            connectionStatus={liveConnectionStatus}
+          />
+          <ActivityFeed events={events} />
+        </div>
+      }
       leftSidebar={
         <NavigationSidebar
           sections={sections}
@@ -284,8 +283,6 @@ export default function App() {
             snapshot={snapshot}
             overviewContent={overviewContent}
             onOpenPhase={openPhaseTab}
-            liveEvents={liveEvents}
-            liveConnectionStatus={liveConnectionStatus}
           />
         </div>
         {splitTab && (
@@ -302,8 +299,6 @@ export default function App() {
                 snapshot={snapshot}
                 overviewContent={overviewContent}
                 onOpenPhase={openPhaseTab}
-                liveEvents={liveEvents}
-                liveConnectionStatus={liveConnectionStatus}
               />
             </div>
           </div>

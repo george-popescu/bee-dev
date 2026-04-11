@@ -17,7 +17,6 @@ import {
   FileText,
   Layers,
   Map as MapIcon,
-  Radio,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -28,7 +27,6 @@ const KIND_ICONS: Record<Tab['kind'], LucideIcon> = {
   file: FileText,
   phase: Layers,
   roadmap: MapIcon,
-  live_activity: Radio,
 };
 
 export interface TabBarProps {

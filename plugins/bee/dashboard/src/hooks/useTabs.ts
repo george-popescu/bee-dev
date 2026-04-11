@@ -50,19 +50,11 @@ export interface RoadmapTab {
   pinned: false;
 }
 
-export interface LiveActivityTab {
-  id: 'live_activity';
-  kind: 'live_activity';
-  label: 'Live Activity';
-  pinned: false;
-}
-
 export type Tab =
   | OverviewTab
   | FileTab
   | PhaseTab
-  | RoadmapTab
-  | LiveActivityTab;
+  | RoadmapTab;
 
 const OVERVIEW_TAB: OverviewTab = {
   id: 'overview',
@@ -94,9 +86,6 @@ function isTab(value: unknown): value is Tab {
   if (v.kind === 'roadmap') {
     return v.id === 'roadmap' && v.pinned === false;
   }
-  if (v.kind === 'live_activity') {
-    return v.id === 'live_activity' && v.pinned === false;
-  }
   return false;
 }
 
@@ -119,7 +108,6 @@ export interface UseTabsResult {
   openFileTab: (relativePath: string, label: string) => void;
   openPhaseTab: (phaseNumber: number, label: string) => void;
   openRoadmapTab: () => void;
-  openLiveActivityTab: () => void;
   closeTab: (id: string) => void;
   activateTab: (id: string) => void;
 }
@@ -203,15 +191,6 @@ export function useTabs(): UseTabsResult {
     });
   }, [openTab]);
 
-  const openLiveActivityTab = useCallback(() => {
-    openTab({
-      id: 'live_activity',
-      kind: 'live_activity',
-      label: 'Live Activity',
-      pinned: false,
-    });
-  }, [openTab]);
-
   const closeTab = useCallback(
     (id: string) => {
       // Pull the closure state into locals so we can compute both next-tabs
@@ -258,7 +237,6 @@ export function useTabs(): UseTabsResult {
     openFileTab,
     openPhaseTab,
     openRoadmapTab,
-    openLiveActivityTab,
     closeTab,
     activateTab,
   };

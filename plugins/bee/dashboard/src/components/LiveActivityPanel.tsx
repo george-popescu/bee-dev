@@ -137,12 +137,11 @@ export function LiveActivityPanel({
         {connectionBadge(connectionStatus)}
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[32rem] pr-4">
+        <ScrollArea className="h-80 pr-4">
           <ul className="flex flex-col gap-3">
             {events.map((ev) => {
               const Icon = iconForKind(ev.kind);
               const toolLabel = ev.tool ?? '—';
-              const agentLabel = ev.agent ?? '—';
               const fullPath = ev.filePath ?? '';
               const shortPath = ev.filePath ? shortenFilePath(ev.filePath) : '';
               // Composite key mirrors the hook's dedup key so React can
@@ -176,18 +175,30 @@ export function LiveActivityPanel({
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-hive-text">
-                    <span className="truncate">{toolLabel}</span>
-                    <span className="text-hive-muted">·</span>
-                    <span className="truncate text-hive-muted">
-                      {agentLabel}
-                    </span>
+                    <span className="truncate font-medium">{toolLabel}</span>
+                    {ev.agent && (
+                      <>
+                        <span className="text-hive-muted">·</span>
+                        <span className="truncate text-hive-muted">
+                          {ev.agent}
+                        </span>
+                      </>
+                    )}
                   </div>
                   {ev.filePath && (
                     <span
-                      className="truncate text-xs text-hive-muted"
+                      className="truncate font-mono text-xs text-hive-muted"
                       title={fullPath}
                     >
                       {shortPath}
+                    </span>
+                  )}
+                  {ev.command && (
+                    <span
+                      className="truncate font-mono text-xs text-hive-accent"
+                      title={ev.command}
+                    >
+                      $ {ev.command}
                     </span>
                   )}
                 </li>
