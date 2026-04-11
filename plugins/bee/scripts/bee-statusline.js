@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Bee Statusline for Claude Code — Honeycomb Design
-// Shows: 🐝 4.0 ┊ ⬢⬢⬢⬡⬡ P3/5 EXEC ┊ ━━━━░░░░░░ 48% ┊ Δ7
+// Shows: 🐝 4.0 ┊ ⬢⬢⬢⬡⬡ P3/5 EXEC ┊ █████░░░░░ 48% ┊ Δ7
 
 const fs = require('fs');
 const path = require('path');
@@ -179,8 +179,8 @@ process.stdin.on('end', () => {
 
     const totalSegs = 10;
     const filledSegs = Math.floor(used / 10);
-    const heavy = '\u2501'; // ━
-    const light = '\u2591'; // ░
+    const heavy = '\u2588'; // █ full block — high-contrast filled cell
+    const light = '\u2591'; // ░ light shade — empty cell
     const bar = heavy.repeat(filledSegs) + light.repeat(totalSegs - filledSegs);
 
     let ctx;

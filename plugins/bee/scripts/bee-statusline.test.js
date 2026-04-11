@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Tests for bee-statusline.js — Honeycomb design
-// 🐝 4.0 ┊ ⬢⬢⬢⬡⬡ P3/5 EXEC ┊ ━━━━░░░░░░ 48% ┊ Δ7
+// 🐝 4.0 ┊ ⬢⬢⬢⬡⬡ P3/5 EXEC ┊ █████░░░░░ 48% ┊ Δ7
 
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -95,7 +95,7 @@ console.log('\nTest Group 3: Honeycomb progress');
 console.log('\nTest Group 4: Context gauge');
 {
   const scriptContent = fs.readFileSync(SCRIPT, 'utf8');
-  assert(scriptContent.includes('\u2501'), 'Uses ━ (heavy line) for filled context');
+  assert(scriptContent.includes('\u2588'), 'Uses █ (full block) for filled context');
   assert(scriptContent.includes('\u2591'), 'Uses ░ (light shade) for empty context');
 
   // Test color thresholds
