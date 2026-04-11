@@ -107,7 +107,17 @@ export function LiveActivityPanel({
   events,
   connectionStatus,
 }: LiveActivityPanelProps) {
-  if (!events || events.length === 0) {
+  // Collapse pre/post pairs by hiding `pre_tool_use` events entirely. At
+  // the 2s polling cadence, by the time a pre event reaches the panel its
+  // matching post is already en route in the next tick — showing both
+  // doubles the row count without adding information. `post_tool_use`
+  // carries the same `tool`/`filePath`/`command`/`session` fields as its
+  // pre half plus the completion signal, so it's the right canonical row.
+  // Stop/SubagentStop/UserPromptSubmit events don't have a pre pair and
+  // flow through unchanged.
+  const visibleEvents = events.filter((ev) => ev.kind !== 'pre_tool_use');
+
+  if (!visibleEvents || visibleEvents.length === 0) {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
@@ -139,7 +149,7 @@ export function LiveActivityPanel({
       <CardContent>
         <ScrollArea className="h-80 pr-4">
           <ul className="flex flex-col gap-3">
-            {events.map((ev) => {
+            {visibleEvents.map((ev) => {
               const Icon = iconForKind(ev.kind);
               const toolLabel = ev.tool ?? '—';
               const fullPath = ev.filePath ?? '';
