@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { formatRelativeTimestamp } from '@/lib/format-relative-time';
 import type { ActivityEvent, ActivityEventType } from '@/types/activity';
 
 export interface ActivityFeedProps {
@@ -44,28 +45,6 @@ const TYPE_TO_VARIANT: Record<ActivityEventType, BadgeVariant> = {
   'status-change': 'warning',
   'metric-change': 'default',
 };
-
-function formatRelativeTimestamp(timestamp: string): string {
-  const then = Date.parse(timestamp);
-  if (Number.isNaN(then)) {
-    return '';
-  }
-  const diffMs = Date.now() - then;
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) {
-    return `${Math.max(seconds, 0)}s ago`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 export function ActivityFeed({ events }: ActivityFeedProps) {
   if (!events || events.length === 0) {

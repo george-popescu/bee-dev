@@ -173,6 +173,205 @@ function readSpecSummary(specDir, dirName, source) {
 }
 
 // ---------------------------------------------------------------------------
+// Events handler constants (GET /api/events)
+// ---------------------------------------------------------------------------
+//
+// Tail-the-log endpoint for the dashboard's Live Activity panel. Reads today's
+// (and optionally yesterday's) .bee/events/YYYY-MM-DD.jsonl file, filters by
+// `since`, clamps to [1, EVENTS_MAX_LIMIT], and returns the most recent slice.
+//
+// The default limit is generous enough for a typical polling window (2s at the
+// frontend) but the hard ceiling is high enough that an explicit large fetch
+// from a diagnostic tool still succeeds without pagination.
+
+const EVENTS_DEFAULT_LIMIT = 500;
+const EVENTS_MAX_LIMIT = 5000;
+
+// Local sendJsonError helper — duplicated from hive-server.js rather than
+// imported to avoid a circular require cycle between hive-server.js (requires
+// this module inside the entry-point guard) and this module (which would need
+// to require hive-server.js at the top). Eight lines of duplication is a
+// better trade than a fragile cross-module load order.
+function sendJsonError(res, status, message, extraHeaders) {
+  const body = JSON.stringify({ error: message });
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(body),
+    'Cache-Control': 'no-store',
+    ...(extraHeaders || {}),
+  });
+  res.end(body);
+}
+
+// ---------------------------------------------------------------------------
+// createEventsHandler — GET /api/events tail of the hook event log.
+// ---------------------------------------------------------------------------
+//
+// Query parameters (both optional):
+//   since  — ISO 8601 timestamp. Only return events with `ts > since`. If
+//            omitted, defaults to today's UTC 00:00:00.000Z so a cold start
+//            sees the day's history without the client having to pick a
+//            sensible default.
+//   limit  — max events to return. Default 500, clamped to [1, 5000]. When
+//            the matching count exceeds the clamped limit, the MOST RECENT
+//            `limit` events are returned and `has_more: true` is set.
+//
+// Response 200 shape:
+//   { events: LiveEvent[], latest_ts: string, count: number, has_more: bool }
+//
+// Never-throw contract: missing files, ENOENT on the events dir, malformed
+// jsonl lines — all yield partial/empty results, never a 500. Only 400s for
+// user input validation (malformed `since` / `limit`) and 405 (method gate,
+// handled by the router, not here). See `hive-server.js` async-error dual
+// branch pattern for how synchronous exceptions bubble back through.
+function createEventsHandler(beeDir) {
+  const eventsDir = path.join(beeDir, 'events');
+
+  return function realEventsHandler(req, res) {
+    // Parse query string via the WHATWG URL constructor. The dummy base is
+    // required because req.url is always relative (e.g. `/api/events?since=...`)
+    // and `new URL` refuses relative inputs without a base.
+    const url = new URL(req.url || '/api/events', 'http://localhost');
+    const params = url.searchParams;
+
+    // --- Validate `since` ---
+    const todayUtc = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const defaultSince = todayUtc + 'T00:00:00.000Z';
+
+    let since;
+    const sinceParam = params.get('since');
+    if (sinceParam !== null) {
+      // Reject empty strings and non-parseable ISO timestamps.
+      if (sinceParam === '' || Number.isNaN(Date.parse(sinceParam))) {
+        return sendJsonError(res, 400, 'Malformed since parameter');
+      }
+      // Canonicalize to strict ISO 8601 via Date round-trip. Date.parse is
+      // lenient and accepts non-ISO strings ("April 10 2026") that would
+      // break the downstream lex-comparison against event timestamps
+      // (API-003 audit finding). Round-tripping through toISOString()
+      // forces the format to `YYYY-MM-DDTHH:mm:ss.sssZ` before storage.
+      since = new Date(sinceParam).toISOString();
+    } else {
+      since = defaultSince;
+    }
+
+    // --- Validate `limit` ---
+    let limit = EVENTS_DEFAULT_LIMIT;
+    const limitParam = params.get('limit');
+    if (limitParam !== null) {
+      if (!/^\d+$/.test(limitParam)) {
+        return sendJsonError(res, 400, 'Malformed limit parameter');
+      }
+      const parsed = parseInt(limitParam, 10);
+      if (!Number.isFinite(parsed) || parsed < 1) {
+        return sendJsonError(res, 400, 'Malformed limit parameter');
+      }
+      // Clamp to [1, EVENTS_MAX_LIMIT]. No upper-bound rejection — huge
+      // requests silently clamp, matching the "never throw" contract.
+      limit = Math.min(parsed, EVENTS_MAX_LIMIT);
+    }
+
+    // --- Determine which file(s) to read ---
+    //
+    // Always read today's. If `since` is before today's UTC midnight (so the
+    // caller wants events from yesterday too), also read yesterday's. This
+    // covers the common midnight-UTC-boundary case where a polling client
+    // holds a `since` value from late yesterday.
+    const todayFile = path.join(eventsDir, todayUtc + '.jsonl');
+    const filesToRead = [todayFile];
+
+    const todayMidnightUtc = todayUtc + 'T00:00:00.000Z';
+    if (since < todayMidnightUtc) {
+      // E2E-003 audit finding notes a cold-start dashboard opened shortly
+      // after midnight UTC misses late-yesterday events. The trivial
+      // predicate fix (`<=`) reads yesterday's file but the downstream
+      // `ev.ts >= since` filter still excludes events with ts < today's
+      // midnight — so the fix is cosmetic. A real fix requires a grace-
+      // window default `since` calculation which changes contract for
+      // mid-day cold starts and is deferred to a follow-up polish quick.
+      // Compute yesterday's UTC date by subtracting one day from today's
+      // midnight. Date math on ms is reliable across DST and month boundaries.
+      const yesterdayMs = Date.parse(todayMidnightUtc) - 24 * 60 * 60 * 1000;
+      const yesterdayUtc = new Date(yesterdayMs).toISOString().slice(0, 10);
+      const yesterdayFile = path.join(eventsDir, yesterdayUtc + '.jsonl');
+      // Prepend yesterday so the combined list is naturally chronological
+      // before the sort below (minor perf hint — sort is still the source
+      // of truth for ordering).
+      filesToRead.unshift(yesterdayFile);
+    }
+
+    // --- Read + parse + filter ---
+    const collected = [];
+    for (const filePath of filesToRead) {
+      let content;
+      try {
+        content = fs.readFileSync(filePath, 'utf8');
+      } catch (_err) {
+        // ENOENT (or any read error) on an events file is not an error —
+        // treat as empty. This preserves the "never throw, empty on missing"
+        // contract the frontend relies on.
+        continue;
+      }
+      const lines = content.split('\n');
+      for (const line of lines) {
+        if (line.length === 0) continue;
+        let ev;
+        try {
+          ev = JSON.parse(line);
+        } catch (_parseErr) {
+          // Malformed lines (partial writes, manual edits) are skipped
+          // silently. Valid lines in the same file are still returned.
+          continue;
+        }
+        if (!ev || typeof ev.ts !== 'string') {
+          continue;
+        }
+        // `>=` (not strict `>`) so events that share a millisecond with
+        // the baseline `since` are returned and the polling client sees
+        // them. The client-side dedup (composite key of
+        // ts|session|kind|tool|filePath in useLiveEvents) handles the
+        // boundary duplicate that `>=` causes on steady-state polling.
+        // Strict `>` silently dropped events written in the same ms as
+        // the previous response's newest event (E2E-001 audit finding).
+        if (ev.ts >= since) {
+          collected.push(ev);
+        }
+      }
+    }
+
+    // --- Sort oldest-first by ts ---
+    collected.sort((a, b) => a.ts.localeCompare(b.ts));
+
+    // --- Truncate to the MOST RECENT `limit` events if over budget ---
+    let events;
+    let hasMore = false;
+    if (collected.length > limit) {
+      hasMore = true;
+      events = collected.slice(collected.length - limit);
+    } else {
+      events = collected;
+    }
+
+    // --- Compute latest_ts (last element's ts, or `since` if empty) ---
+    const latestTs = events.length > 0 ? events[events.length - 1].ts : since;
+
+    // --- Response ---
+    const body = JSON.stringify({
+      events,
+      latest_ts: latestTs,
+      count: events.length,
+      has_more: hasMore,
+    });
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body),
+      'Cache-Control': 'no-store',
+    });
+    res.end(body);
+  };
+}
+
+// ---------------------------------------------------------------------------
 // createConfigHandler — POST /api/config writes to .bee/config.json
 // ---------------------------------------------------------------------------
 function createConfigHandler(beeDir) {
@@ -308,9 +507,13 @@ function createSnapshotHandler(beeDir) {
   return function snapshotHandler(req, res) {
     const snap = buildSnapshot(beeDir);
     const body = JSON.stringify(snap);
+    // `Cache-Control: no-store` brings the snapshot endpoint into line
+    // with /api/file and /api/events, preventing bfcache or proxy reuse
+    // of stale live-project state (API-001 audit finding).
     res.writeHead(200, {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(body),
+      'Cache-Control': 'no-store',
     });
     res.end(body);
   };
@@ -320,4 +523,7 @@ module.exports = {
   buildSnapshot,
   createSnapshotHandler,
   createConfigHandler,
+  createEventsHandler,
+  EVENTS_DEFAULT_LIMIT,
+  EVENTS_MAX_LIMIT,
 };

@@ -146,6 +146,27 @@ function setFileHandler(fn) {
   fileHandler = fn;
 }
 
+// ========== Events handler (GET /api/events) ==========
+//
+// Mirrors the snapshotHandler / configHandler / fileHandler stub-with-setter
+// pattern. The real implementation lives in hive-snapshot.js as
+// `createEventsHandler(beeDir)` and is wired into the server at startup via
+// the entry-point guard below. Keeping the stub here means the server can
+// boot standalone (without .bee/ discovery) and tests can require this
+// module without dragging in the snapshot aggregator.
+
+let eventsHandler = function defaultEventsHandler(req, res) {
+  res.writeHead(501, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: 'Events handler not wired' }));
+};
+
+function setEventsHandler(fn) {
+  if (typeof fn !== 'function') {
+    throw new TypeError('setEventsHandler expects a function');
+  }
+  eventsHandler = fn;
+}
+
 // Small JSON error helper — used by createFileHandler's many error paths.
 function sendJsonError(res, status, message, extraHeaders) {
   const body = JSON.stringify({ error: message });
@@ -400,6 +421,26 @@ function handleRequest(req, res) {
     return;
   }
 
+  // GET /api/events?since=<iso>&limit=<n> — tail the hook event log.
+  // The handler is synchronous (fs.readFileSync) so we only need the
+  // outer try/catch shape, matching the snapshot route. Method gate
+  // enforces GET with Allow: GET on 405.
+  if (url === '/api/events' || url.startsWith('/api/events?')) {
+    if (req.method !== 'GET') {
+      return sendJsonError(res, 405, 'Method Not Allowed', { Allow: 'GET' });
+    }
+    try {
+      eventsHandler(req, res);
+    } catch (err) {
+      if (!res.headersSent) {
+        return sendJsonError(res, 500, err.message || 'Internal Server Error');
+      } else if (!res.writableEnded) {
+        res.end();
+      }
+    }
+    return;
+  }
+
   // Any other /api/* route is explicitly 404 — never fall through to the SPA
   // (SPA fallback would hide real API bugs behind the HTML shell).
   if (url.startsWith('/api/')) {
@@ -592,12 +633,17 @@ if (require.main === module) {
   // Wire the real snapshot handler from hive-snapshot.js (T1.7). We only
   // require it inside the entry-point guard so unit tests that `require` this
   // module don't trigger snapshot-aggregator side effects.
-  const { createSnapshotHandler, createConfigHandler } = require('./hive-snapshot');
+  const {
+    createSnapshotHandler,
+    createConfigHandler,
+    createEventsHandler,
+  } = require('./hive-snapshot');
   const beeDir = resolveBeeDir();
   if (beeDir) {
     setSnapshotHandler(createSnapshotHandler(beeDir));
     setConfigHandler(createConfigHandler(beeDir));
     setFileHandler(createFileHandler(beeDir));
+    setEventsHandler(createEventsHandler(beeDir));
   }
   // If no .bee/ directory was discovered, the stub snapshot handler remains
   // mounted and /api/snapshot will return `{ timestamp }` only — still valid
@@ -625,7 +671,9 @@ module.exports = {
   setSnapshotHandler,
   setConfigHandler,
   setFileHandler,
+  setEventsHandler,
   createFileHandler,
+  sendJsonError,
   MIME_TYPES,
   FILE_MAX_BYTES,
   FILE_ALLOWED_EXTENSIONS,

@@ -19,10 +19,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TabBar } from '@/components/TabBar';
 import { TabContentRenderer } from '@/components/TabContentRenderer';
 import { SplitPaneHeader } from '@/components/SplitPaneHeader';
-import { Map as MapIcon } from 'lucide-react';
+import { Map as MapIcon, Radio } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSnapshot } from '@/hooks/useSnapshot';
 import { useActivityFeed } from '@/hooks/useActivityFeed';
+import { useLiveEvents } from '@/hooks/useLiveEvents';
 import { useFileTree } from '@/hooks/useFileTree';
 import { useTabs, type Tab } from '@/hooks/useTabs';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -134,6 +135,12 @@ function OverviewTabContent({
 export default function App() {
   const { snapshot, connectionStatus, lastUpdated } = useSnapshot();
   const events = useActivityFeed(snapshot, connectionStatus);
+  // Live hook-event stream (Quick 11 consumer). Aliased because `events` and
+  // `connectionStatus` already exist at this scope from the snapshot/activity-
+  // feed hooks above; without the aliases the destructure would shadow and
+  // the JSX below would silently use the wrong buffer.
+  const { events: liveEvents, connectionStatus: liveConnectionStatus } =
+    useLiveEvents();
   const sections = useFileTree(snapshot);
   const {
     tabs,
@@ -142,6 +149,7 @@ export default function App() {
     openFileTab,
     openPhaseTab,
     openRoadmapTab,
+    openLiveActivityTab,
     closeTab,
     activateTab,
   } = useTabs();
@@ -227,6 +235,15 @@ export default function App() {
             <MapIcon className="h-3 w-3" aria-hidden="true" />
             Roadmap
           </button>
+          <button
+            type="button"
+            onClick={openLiveActivityTab}
+            aria-label="Open live activity view"
+            className="hidden md:inline-flex items-center gap-1.5 rounded-none border border-hive-border bg-hive-elevated px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-hive-muted transition-colors hover:border-hive-border-bright hover:text-hive-text-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hive-accent"
+          >
+            <Radio className="h-3 w-3" aria-hidden="true" />
+            Live
+          </button>
           <ConnectionStatus status={connectionStatus} lastUpdated={lastUpdated} />
         </div>
       }
@@ -267,6 +284,8 @@ export default function App() {
             snapshot={snapshot}
             overviewContent={overviewContent}
             onOpenPhase={openPhaseTab}
+            liveEvents={liveEvents}
+            liveConnectionStatus={liveConnectionStatus}
           />
         </div>
         {splitTab && (
@@ -283,6 +302,8 @@ export default function App() {
                 snapshot={snapshot}
                 overviewContent={overviewContent}
                 onOpenPhase={openPhaseTab}
+                liveEvents={liveEvents}
+                liveConnectionStatus={liveConnectionStatus}
               />
             </div>
           </div>

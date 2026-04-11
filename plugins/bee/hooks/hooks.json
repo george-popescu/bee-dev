@@ -26,6 +26,15 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/emit-event.js post_tool_use",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreCompact": [
@@ -321,6 +330,15 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/emit-event.js subagent_stop",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "Stop": [
@@ -330,6 +348,15 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/stop-review-check.sh",
             "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/emit-event.js stop",
+            "timeout": 5
           }
         ]
       }
@@ -342,6 +369,26 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pre-commit-gate.sh",
             "timeout": 120
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/emit-event.js pre_tool_use",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/emit-event.js user_prompt_submit",
+            "timeout": 5
           }
         ]
       }

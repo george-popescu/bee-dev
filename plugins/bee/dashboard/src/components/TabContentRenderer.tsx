@@ -10,6 +10,9 @@ import type { Snapshot } from '@/types/snapshot';
 import { FileViewer } from '@/components/FileViewer';
 import { PhaseDetailView } from '@/components/PhaseDetailView';
 import { RoadmapView } from '@/components/RoadmapView';
+import { LiveActivityPanel } from '@/components/LiveActivityPanel';
+import type { LiveEvent } from '@/hooks/useLiveEvents';
+import type { ConnectionStatusValue } from '@/hooks/useSnapshot';
 
 export interface TabContentRendererProps {
   tab: Tab;
@@ -21,6 +24,13 @@ export interface TabContentRendererProps {
   /** Optional click-through so the secondary pane's roadmap can open a
    *  phase tab in the main pane (or nowhere). */
   onOpenPhase?: (phaseNumber: number, label: string) => void;
+  /** Live event stream from `useLiveEvents` — hoisted at the App root so
+   *  both the main and split panes see the same buffer without each
+   *  spawning its own polling loop. */
+  liveEvents: LiveEvent[];
+  /** Connection status of the live events poller — drives the panel's
+   *  header badge. */
+  liveConnectionStatus: ConnectionStatusValue;
 }
 
 export function TabContentRenderer({
@@ -28,6 +38,8 @@ export function TabContentRenderer({
   snapshot,
   overviewContent,
   onOpenPhase,
+  liveEvents,
+  liveConnectionStatus,
 }: TabContentRendererProps) {
   if (tab.kind === 'overview') {
     return <>{overviewContent}</>;
@@ -42,6 +54,14 @@ export function TabContentRenderer({
   }
   if (tab.kind === 'roadmap') {
     return <RoadmapView snapshot={snapshot} onOpenPhase={onOpenPhase} />;
+  }
+  if (tab.kind === 'live_activity') {
+    return (
+      <LiveActivityPanel
+        events={liveEvents}
+        connectionStatus={liveConnectionStatus}
+      />
+    );
   }
   return null;
 }
