@@ -20,9 +20,16 @@ import type { NoteEntry } from '@/types/snapshot';
 
 export interface NotesPanelProps {
   notes: NoteEntry[] | null | undefined;
+  /** Optional: called when a note row is single-clicked (preview) or
+   *  double-clicked (pinned). Matches the VS Code preview-tab pattern. */
+  onOpenFile?: (
+    relativePath: string,
+    label: string,
+    options?: { preview?: boolean },
+  ) => void;
 }
 
-export function NotesPanel({ notes }: NotesPanelProps) {
+export function NotesPanel({ notes, onOpenFile }: NotesPanelProps) {
   if (!notes || notes.length === 0) {
     return (
       <Card>
@@ -48,14 +55,29 @@ export function NotesPanel({ notes }: NotesPanelProps) {
       <CardContent>
         <ScrollArea className="h-80 pr-4">
           <ul className="flex flex-col gap-3">
-            {sorted.map((note) => (
-              <li key={note.filePath} className="flex flex-col gap-0.5">
-                <span className="truncate text-sm font-medium text-hive-text">
-                  {note.title}
-                </span>
-                <span className="text-xs text-hive-muted">{note.date}</span>
+            {sorted.map((note) => {
+              const label = note.title || 'Untitled note';
+              return (
+              <li key={note.filePath}>
+                <button
+                  type="button"
+                  disabled={!onOpenFile}
+                  onClick={() =>
+                    onOpenFile?.(note.filePath, label, { preview: true })
+                  }
+                  onDoubleClick={() =>
+                    onOpenFile?.(note.filePath, label, { preview: false })
+                  }
+                  className="flex w-full flex-col gap-0.5 text-left rounded-none border-l-2 border-transparent px-1 -mx-1 transition-colors hover:border-hive-accent/50 hover:bg-hive-surface/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hive-accent disabled:cursor-default disabled:hover:border-transparent disabled:hover:bg-transparent"
+                >
+                  <span className="truncate text-sm font-medium text-hive-text">
+                    {label}
+                  </span>
+                  <span className="text-xs text-hive-muted">{note.date}</span>
+                </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </ScrollArea>
       </CardContent>

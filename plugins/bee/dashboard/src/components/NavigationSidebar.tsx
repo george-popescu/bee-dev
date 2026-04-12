@@ -67,8 +67,15 @@ const SECTION_ICONS: Record<SectionId, LucideIcon> = {
 
 export interface NavigationSidebarProps {
   sections: SectionNode[];
-  /** Optional: called when a file entry is clicked. If omitted, files are inert. */
-  onOpenFile?: (relativePath: string, label: string) => void;
+  /** Optional: called when a file entry is clicked. If omitted, files are inert.
+   *  Sidebar clicks default to `{ preview: true }` to match panel behavior so
+   *  navigation flows reuse the single sentinel preview slot until the user
+   *  promotes it. */
+  onOpenFile?: (
+    relativePath: string,
+    label: string,
+    options?: { preview?: boolean },
+  ) => void;
   /** Optional: called when a phase row is clicked. If omitted, phases are inert. */
   onOpenPhase?: (phaseNumber: number, label: string) => void;
   /** Optional: path of the currently-active file so we can highlight it. */
@@ -206,7 +213,11 @@ interface NavEntryItemProps {
   entry: NavEntry;
   activeFilePath: string | null;
   activePhaseNumber: number | null;
-  onOpenFile?: (relativePath: string, label: string) => void;
+  onOpenFile?: (
+    relativePath: string,
+    label: string,
+    options?: { preview?: boolean },
+  ) => void;
   onOpenPhase?: (phaseNumber: number, label: string) => void;
 }
 
@@ -277,7 +288,7 @@ function NavEntryItem({
       <button
         type="button"
         disabled={!interactive}
-        onClick={() => onOpenFile?.(entry.relativePath, entry.label)}
+        onClick={() => onOpenFile?.(entry.relativePath, entry.label, { preview: true })}
         aria-label={entry.subLabel ? `${entry.label} — ${entry.subLabel}` : entry.label}
         className={`
           flex w-full items-start gap-2 border-l-2 px-2 py-1

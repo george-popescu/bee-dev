@@ -60,6 +60,12 @@ function assert(condition, testName) {
 function makeTmpRoot() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bee-events-'));
   tmpDirs.push(dir);
+  // Create .bee/.hive-pid so the emit-event.js guard allows writing.
+  // The guard checks for this file to ensure events are only produced
+  // when the Bee Hive dashboard is actively running.
+  const beeDir = path.join(dir, '.bee');
+  fs.mkdirSync(beeDir, { recursive: true });
+  fs.writeFileSync(path.join(beeDir, '.hive-pid'), '99999', 'utf8');
   return dir;
 }
 

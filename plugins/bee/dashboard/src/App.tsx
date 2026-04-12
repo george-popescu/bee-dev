@@ -74,9 +74,15 @@ function SkeletonGrid() {
 function OverviewTabContent({
   snapshot,
   flatMetrics,
+  onOpenFile,
 }: {
   snapshot: ReturnType<typeof useSnapshot>['snapshot'];
   flatMetrics: Array<Record<string, unknown>>;
+  onOpenFile: (
+    relativePath: string,
+    label: string,
+    options?: { preview?: boolean },
+  ) => void;
 }) {
   if (snapshot === null) {
     return <SkeletonGrid />;
@@ -124,10 +130,10 @@ function OverviewTabContent({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <ForensicsPanel forensics={snapshot.forensics} />
         <DebugSessionsPanel debugSessions={snapshot.debugSessions} />
-        <NotesPanel notes={snapshot.notes} />
-        <SeedsPanel seeds={snapshot.seeds} />
-        <DiscussionsPanel discussions={snapshot.discussions} />
-        <QuickTasksPanel quickTasks={snapshot.quickTasks} />
+        <NotesPanel notes={snapshot.notes} onOpenFile={onOpenFile} />
+        <SeedsPanel seeds={snapshot.seeds} onOpenFile={onOpenFile} />
+        <DiscussionsPanel discussions={snapshot.discussions} onOpenFile={onOpenFile} />
+        <QuickTasksPanel quickTasks={snapshot.quickTasks} onOpenFile={onOpenFile} />
       </div>
     </>
   );
@@ -152,6 +158,7 @@ export default function App() {
     openRoadmapTab,
     closeTab,
     activateTab,
+    promoteTab,
   } = useTabs();
 
   // Split pane: a single secondary tab that pops out to the right of the
@@ -219,7 +226,11 @@ export default function App() {
   // the overview tab active (always main for now since overview can't be
   // split-popped).
   const overviewContent = (
-    <OverviewTabContent snapshot={snapshot} flatMetrics={flatMetrics} />
+    <OverviewTabContent
+      snapshot={snapshot}
+      flatMetrics={flatMetrics}
+      onOpenFile={openFileTab}
+    />
   );
 
   return (
@@ -264,6 +275,7 @@ export default function App() {
         onClose={closeTab}
         onSplit={openSplit}
         splitTabId={splitTab?.id ?? null}
+        onPromote={promoteTab}
       />
       <div
         className={

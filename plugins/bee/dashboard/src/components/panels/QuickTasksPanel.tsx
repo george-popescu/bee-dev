@@ -47,9 +47,16 @@ function statusToVariant(
 
 export interface QuickTasksPanelProps {
   quickTasks: QuickTaskEntry[] | null | undefined;
+  /** Optional: called when a quick-task row is single-clicked (preview)
+   *  or double-clicked (pinned). Matches the VS Code preview-tab pattern. */
+  onOpenFile?: (
+    relativePath: string,
+    label: string,
+    options?: { preview?: boolean },
+  ) => void;
 }
 
-export function QuickTasksPanel({ quickTasks }: QuickTasksPanelProps) {
+export function QuickTasksPanel({ quickTasks, onOpenFile }: QuickTasksPanelProps) {
   if (!quickTasks || quickTasks.length === 0) {
     return (
       <Card>
@@ -75,22 +82,35 @@ export function QuickTasksPanel({ quickTasks }: QuickTasksPanelProps) {
       <CardContent>
         <ScrollArea className="h-80 pr-4">
           <ul className="flex flex-col gap-3">
-            {sorted.map((task) => (
-              <li
-                key={task.filePath}
-                className="flex items-start justify-between gap-3"
-              >
-                <div className="min-w-0 flex flex-col gap-0.5">
-                  <span className="truncate text-sm font-medium text-hive-text">
-                    {String(task.number).padStart(3, '0')} — {task.title}
-                  </span>
-                  <span className="text-xs text-hive-muted">{task.date}</span>
-                </div>
-                <Badge variant={statusToVariant(task.status)}>
-                  {task.status || 'unknown'}
-                </Badge>
-              </li>
-            ))}
+            {sorted.map((task) => {
+              const label = `${String(task.number).padStart(3, '0')} — ${task.title}`;
+              return (
+                <li
+                  key={task.filePath}
+                  className="flex items-start justify-between gap-3"
+                >
+                  <button
+                    type="button"
+                    disabled={!onOpenFile}
+                    onClick={() =>
+                      onOpenFile?.(task.filePath, label, { preview: true })
+                    }
+                    onDoubleClick={() =>
+                      onOpenFile?.(task.filePath, label, { preview: false })
+                    }
+                    className="min-w-0 flex flex-1 flex-col gap-0.5 text-left rounded-none border-l-2 border-transparent px-1 -mx-1 transition-colors hover:border-hive-accent/50 hover:bg-hive-surface/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hive-accent disabled:cursor-default disabled:hover:border-transparent disabled:hover:bg-transparent"
+                  >
+                    <span className="truncate text-sm font-medium text-hive-text">
+                      {String(task.number).padStart(3, '0')} — {task.title}
+                    </span>
+                    <span className="text-xs text-hive-muted">{task.date}</span>
+                  </button>
+                  <Badge variant={statusToVariant(task.status)}>
+                    {task.status || 'unknown'}
+                  </Badge>
+                </li>
+              );
+            })}
           </ul>
         </ScrollArea>
       </CardContent>

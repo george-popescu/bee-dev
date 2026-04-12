@@ -42,6 +42,11 @@ export interface TabBarProps {
    *  hide the split button on the tab that's already in the secondary pane
    *  so we never show the same tab twice. */
   splitTabId?: string | null;
+  /** Optional: called when the user clicks the already-active *preview*
+   *  tab header. The consumer should promote the preview tab to a stable
+   *  pinned-style tab (clearing the `preview` flag and re-keying its id).
+   *  Non-preview tabs and non-active preview tabs fall back to `onActivate`. */
+  onPromote?: (id: string) => void;
 }
 
 export function TabBar({
@@ -51,6 +56,7 @@ export function TabBar({
   onClose,
   onSplit,
   splitTabId = null,
+  onPromote,
 }: TabBarProps) {
   return (
     <div
@@ -79,11 +85,26 @@ export function TabBar({
               aria-selected={isActive}
               aria-controls={`tabpanel-${tab.id}`}
               id={`tab-${tab.id}`}
-              onClick={() => onActivate(tab.id)}
+              onClick={() => {
+                // Click on the already-active preview tab header promotes
+                // it to a permanent pinned-style tab. All other clicks
+                // just activate the tab (existing behavior).
+                if (
+                  isActive &&
+                  tab.kind === 'file' &&
+                  tab.preview === true &&
+                  onPromote
+                ) {
+                  onPromote(tab.id);
+                  return;
+                }
+                onActivate(tab.id);
+              }}
               className={`
                 flex items-center gap-2 px-3 py-2 min-w-0 max-w-[220px]
                 font-mono text-[11px] uppercase tracking-wider
                 transition-colors
+                ${tab.kind === 'file' && tab.preview === true ? 'italic' : ''}
                 ${isActive
                   ? 'text-hive-accent'
                   : 'text-hive-muted hover:text-hive-text-secondary'}

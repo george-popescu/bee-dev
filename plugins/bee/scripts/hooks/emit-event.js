@@ -130,6 +130,22 @@ function main() {
   }
 
   const root = resolveRoot();
+
+  // Guard: only write events when the Bee Hive dashboard is actively running.
+  // Without a consumer, events accumulate on disk with nobody reading them.
+  // The .hive-pid file is written by hive-start.sh when the server starts and
+  // cleaned up by hive-stop.sh / auto-stop. Its presence signals an active
+  // consumer — without it, we exit silently to avoid:
+  //   (a) creating .bee/events/ in non-bee projects (no .bee/ dir at all)
+  //   (b) growing stale .jsonl files in bee projects that don't use the dashboard
+  const pidFile = path.join(root, '.bee', '.hive-pid');
+  try {
+    fs.accessSync(pidFile, fs.constants.F_OK);
+  } catch (_) {
+    // No .hive-pid — no active consumer, skip event emission.
+    return;
+  }
+
   const raw = readStdinSync();
   const payload = safeJsonParse(raw);
   const event = buildEvent(kind, payload, root);

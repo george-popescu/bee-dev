@@ -28,11 +28,21 @@ export interface OverviewTab {
 }
 
 export interface FileTab {
-  id: string; // `file:${relativePath}`
+  id: string; // `file:${relativePath}` for pinned tabs, `preview:file` for the preview slot
   kind: 'file';
   label: string;
   relativePath: string;
   pinned: false;
+  /**
+   * Optional "preview" flag — when true, this tab occupies the single
+   * reusable preview slot (id === `preview:file`). Clicking another file
+   * swaps this tab's content in place instead of creating a new tab.
+   * Clicking the already-active preview tab header promotes it to a
+   * stable pinned-style tab by clearing this flag and re-keying the id
+   * to `file:${relativePath}`. Legacy tabs hydrated from older localStorage
+   * entries without this field behave as non-preview by default.
+   */
+  preview?: boolean;
 }
 
 export interface PhaseTab {
@@ -67,6 +77,13 @@ const OVERVIEW_TAB: OverviewTab = {
 const TABS_STORAGE_KEY = 'bee-hive:v1:tabs';
 const ACTIVE_TAB_STORAGE_KEY = 'bee-hive:v1:activeTab';
 
+// Sentinel id for the single reusable "preview" tab slot. VS Code-style:
+// a single-click in a panel/sidebar opens a file into this slot; the next
+// single-click swaps content in place. A double-click (or click on the
+// active preview tab header) promotes the tab to a stable pinned-style
+// id (`file:${relativePath}`) via `promoteTab`.
+export const PREVIEW_TAB_ID = 'preview:file';
+
 // Tab validator — accepts only the known tab shapes. Unknown kinds are
 // rejected so a future tab kind from another version doesn't silently
 // populate the state.
@@ -78,7 +95,11 @@ function isTab(value: unknown): value is Tab {
     return v.id === 'overview' && v.pinned === true;
   }
   if (v.kind === 'file') {
-    return typeof v.relativePath === 'string' && v.pinned === false;
+    return (
+      typeof v.relativePath === 'string' &&
+      v.pinned === false &&
+      (v.preview === undefined || typeof v.preview === 'boolean')
+    );
   }
   if (v.kind === 'phase') {
     return typeof v.phaseNumber === 'number' && v.pinned === false;
@@ -105,11 +126,32 @@ export interface UseTabsResult {
   tabs: Tab[];
   activeTab: Tab;
   activeTabId: string;
-  openFileTab: (relativePath: string, label: string) => void;
+  /**
+   * Open a file tab. When `options.preview` is true (the default), the
+   * file opens into the reusable preview slot (id === PREVIEW_TAB_ID).
+   * If a preview tab already exists, its content swaps in place — the
+   * id stays stable so React does not remount the FileViewer. When
+   * `options.preview` is false, the file opens as a permanent tab with
+   * id `file:${relativePath}` (existing non-preview behavior).
+   */
+  openFileTab: (
+    relativePath: string,
+    label: string,
+    options?: { preview?: boolean },
+  ) => void;
   openPhaseTab: (phaseNumber: number, label: string) => void;
   openRoadmapTab: () => void;
   closeTab: (id: string) => void;
   activateTab: (id: string) => void;
+  /**
+   * Promote a preview tab to a permanent tab. Strips the `preview` flag
+   * and re-keys the id from PREVIEW_TAB_ID to `file:${relativePath}` so
+   * subsequent preview opens create a fresh slot alongside the promoted
+   * tab. Also updates the active tab id to the new id so the same tab
+   * stays visually active across the transition. No-op if the matching
+   * tab is not a file tab or is not in preview mode.
+   */
+  promoteTab: (id: string) => void;
 }
 
 export function useTabs(): UseTabsResult {
@@ -157,14 +199,106 @@ export function useTabs(): UseTabsResult {
   }, []);
 
   const openFileTab = useCallback(
-    (relativePath: string, label: string) => {
-      openTab({
-        id: `file:${relativePath}`,
-        kind: 'file',
-        label,
-        relativePath,
-        pinned: false,
+    (
+      relativePath: string,
+      label: string,
+      options?: { preview?: boolean },
+    ) => {
+      const preview = options?.preview ?? true;
+
+      // Non-preview path: pinned-style tab with stable id keyed by path.
+      // Dedup via openTab (activates existing tab with same id, no swap).
+      //
+      // Edge case (Q15 AC 4 "double-click pin direct"): native browser
+      // event order for a dblclick on a <button> is `click -> click ->
+      // dblclick`. The preceding click(s) already opened or swapped the
+      // preview slot (id === PREVIEW_TAB_ID) for this relativePath, so
+      // delegating to openTab here would append a BRAND-NEW pinned tab
+      // and leave the preview slot stranded — two tabs for the same
+      // file. Detect that case from the pre-snapshot and inline the
+      // promote transformation instead (same shape as promoteTab): map
+      // the existing preview tab to a pinned-style tab with the stable
+      // id `file:${relativePath}`, strip the preview flag, refresh the
+      // label, and flip activeTabId to the new id so the same tab stays
+      // visually active across the id change. If no matching preview
+      // slot exists, fall through to the original openTab path.
+      if (!preview) {
+        const preSnapshot = tabsRef.current;
+        const previewIdx = preSnapshot.findIndex(
+          (t) => t.id === PREVIEW_TAB_ID,
+        );
+        const previewTab =
+          previewIdx !== -1 ? preSnapshot[previewIdx] : undefined;
+        if (
+          previewTab &&
+          previewTab.kind === 'file' &&
+          previewTab.relativePath === relativePath
+        ) {
+          setTabs((prev) => {
+            const idx = prev.findIndex((t) => t.id === PREVIEW_TAB_ID);
+            if (idx === -1) return prev;
+            const target = prev[idx];
+            if (target.kind !== 'file') return prev;
+            const next = prev.slice();
+            next[idx] = {
+              id: `file:${relativePath}`,
+              kind: 'file',
+              label,
+              relativePath,
+              pinned: false,
+              // preview flag intentionally dropped
+            };
+            return next;
+          });
+          setActiveTabId(`file:${relativePath}`);
+          return;
+        }
+        openTab({
+          id: `file:${relativePath}`,
+          kind: 'file',
+          label,
+          relativePath,
+          pinned: false,
+        });
+        return;
+      }
+
+      // Preview path: occupy (or swap into) the single sentinel slot.
+      // If a preview tab already exists, map+swap its relativePath/label
+      // in place — id stays PREVIEW_TAB_ID so React does not remount
+      // the FileViewer. If not, append a new preview tab at the end.
+      setTabs((prev) => {
+        const existingIdx = prev.findIndex(
+          (t) => t.id === PREVIEW_TAB_ID,
+        );
+        if (existingIdx !== -1) {
+          const next = prev.slice();
+          const existing = next[existingIdx];
+          if (existing.kind === 'file') {
+            next[existingIdx] = {
+              ...existing,
+              label,
+              relativePath,
+              preview: true,
+            };
+          }
+          return next;
+        }
+        const newTab: FileTab = {
+          id: PREVIEW_TAB_ID,
+          kind: 'file',
+          label,
+          relativePath,
+          pinned: false,
+          preview: true,
+        };
+        return [...prev, newTab];
       });
+      // Active id is always the stable sentinel while previewing —
+      // this is critical so that clicking the active preview tab
+      // header (which compares activeTabId === PREVIEW_TAB_ID under
+      // the hood) can trigger promote.
+      setActiveTabId(PREVIEW_TAB_ID);
     },
     [openTab],
   );
@@ -230,6 +364,43 @@ export function useTabs(): UseTabsResult {
     setActiveTabId(id);
   }, []);
 
+  const promoteTab = useCallback(
+    (id: string) => {
+      // Strip the preview flag and re-key the id to the stable pinned
+      // form. Done in a single functional setTabs so we can read the
+      // matching tab's relativePath out of the previous state, then
+      // mirror the id change into activeTabId so the same tab stays
+      // visually active after the id flip.
+      setTabs((prev) => {
+        const idx = prev.findIndex((t) => t.id === id);
+        if (idx === -1) return prev;
+        const target = prev[idx];
+        if (target.kind !== 'file' || target.preview !== true) {
+          return prev;
+        }
+        const next = prev.slice();
+        next[idx] = {
+          id: `file:${target.relativePath}`,
+          kind: 'file',
+          label: target.label,
+          relativePath: target.relativePath,
+          pinned: false,
+          // preview flag intentionally dropped
+        };
+        return next;
+      });
+      setActiveTabId((current) => {
+        if (current !== id) return current;
+        // Compute the new id from the pre-promote tabs snapshot.
+        const preTabs = tabsRef.current;
+        const target = preTabs.find((t) => t.id === id);
+        if (!target || target.kind !== 'file') return current;
+        return `file:${target.relativePath}`;
+      });
+    },
+    [],
+  );
+
   return {
     tabs,
     activeTab,
@@ -239,5 +410,6 @@ export function useTabs(): UseTabsResult {
     openRoadmapTab,
     closeTab,
     activateTab,
+    promoteTab,
   };
 }
