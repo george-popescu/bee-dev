@@ -45,7 +45,17 @@ Before writing tests, verify the task's approach:
    ❌ await new Promise(r => setTimeout(r, 100));
    ```
 
-## 3. TDD Cycle (MANDATORY)
+## 2.6. TDD Applicability Check
+
+Before entering the TDD cycle, evaluate whether this task has testable business logic:
+
+- **Infrastructure-only tasks** (migration, seeder, factory definition, config change, route registration, middleware registration, simple model with only `$fillable` + relationships): **SKIP TDD.** Implement directly. These are tested implicitly through feature tests that exercise the endpoints/pages using them.
+- **Business logic tasks** (controller, service, action, policy, form request, complex component, composable, hook, API endpoint, validation logic, authorization rules, data transformations, calculations): **Proceed with TDD.**
+- **Mixed tasks** (e.g., migration + model + controller): Write tests ONLY for the business logic parts. Skip testing infrastructure parts.
+
+**The rule:** no branching logic = no dedicated test. Test it through the feature that uses it.
+
+## 3. TDD Cycle (MANDATORY for tasks that pass the applicability check above)
 
 For each deliverable, follow this exact sequence. No exceptions.
 

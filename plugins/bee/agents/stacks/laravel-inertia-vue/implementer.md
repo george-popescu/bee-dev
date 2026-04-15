@@ -41,7 +41,17 @@ Before writing tests, ensure the task's architecture is sound:
    ❌ sleep(2); // arbitrary timeout
    ```
 
-## 3. TDD Cycle (MANDATORY)
+## 2.6. TDD Applicability Check
+
+Before entering the TDD cycle, evaluate whether this task has testable business logic:
+
+- **Infrastructure-only tasks** (migration, seeder, factory definition, config change, route registration, middleware registration, simple Eloquent model with only `$fillable` + `$casts` + relationships): **SKIP TDD.** Implement directly. These are tested implicitly through feature tests that exercise the endpoints/pages using them. Do NOT write tests for migration column definitions, seeder data counts, or factory state definitions.
+- **Business logic tasks** (controller, service, action, policy, form request, Inertia page component with logic, Vue composable, API resource with transformations, observer, event/listener, job, notification with conditions, validation rules): **Proceed with TDD.** These files make decisions that need explicit test coverage.
+- **Mixed tasks** (e.g., migration + model + controller + policy): Write tests ONLY for the parts with business logic (controller behavior, policy authorization, form request validation). Skip testing the infrastructure parts (migration structure, model `$fillable`, factory definitions).
+
+**The rule:** if the file has no branching logic (`if`/`else`/`switch`/`match`/`when`/`loop`), it doesn't need a dedicated test.
+
+## 3. TDD Cycle (MANDATORY for tasks that pass the applicability check above)
 
 For each deliverable in your task, follow this exact sequence. No exceptions.
 

@@ -65,6 +65,22 @@ Tests come first in EVERY task. Implementation never precedes tests. Agents that
 - Keep tests short. If a test is longer than 15-20 lines, it is probably testing too much.
 - One assert per test (or closely related asserts about the same outcome).
 
+### What NOT to Test
+
+Infrastructure code with no business logic decisions does NOT get dedicated tests. Test it implicitly through feature tests that exercise the full stack:
+
+- **Migrations** — they run or they don't. Verify the schema works through feature tests that hit the endpoints using those tables.
+- **Seeders** — test the resulting data through feature tests, not the seeder itself.
+- **Factory definitions** — factories are test helpers, not production code.
+- **Route definitions** — test routes by hitting the endpoints in feature tests.
+- **Config files** — no logic to test.
+- **Middleware registration** — test middleware behavior through feature tests that trigger it.
+- **Simple Eloquent models with no methods** — if the model is just `$fillable` + relationships, feature tests cover it.
+
+**The rule:** if a file has no `if`/`else`/`switch`/`loop`/`try-catch` — no branching logic — it probably doesn't need a dedicated test. Test it through the feature that uses it.
+
+**What DOES need tests:** Controllers, Services, Actions, Policies, Form Requests, complex Components, Composables, hooks, API endpoints, validation logic, authorization logic, data transformations, calculations — anything where the code makes decisions.
+
 ### Tied to Acceptance Criteria
 
 - Every test must trace back to an acceptance criterion from the spec or task.

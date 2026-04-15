@@ -107,8 +107,8 @@ assert(
 // ============================================================
 console.log('\nTest 4: implementer.md TDD cycle steps are unchanged');
 assert(
-  implementerContent.includes('## 3. TDD Cycle (MANDATORY)'),
-  'TDD Cycle heading preserved'
+  implementerContent.includes('## 3. TDD Cycle (MANDATORY'),
+  'TDD Cycle heading preserved (with or without applicability qualifier)'
 );
 assert(
   implementerContent.includes('### 3a. RED -- Write Failing Tests'),

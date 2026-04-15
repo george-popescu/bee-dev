@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.0.5] - 2026-04-12 -- TDD Applicability Guard
+
+### Changed
+- **TDD cycle now skips infrastructure code** — migrations, seeders, factory definitions, config files, route registration, middleware registration, and simple models with no business logic are no longer force-tested. TDD applies only to code with branching logic (controllers, services, policies, form requests, components, hooks, API endpoints). Mixed tasks test only the business logic parts.
+- Updated `skills/standards/testing/SKILL.md` with "What NOT to Test" section listing infrastructure anti-patterns
+- Updated `agents/implementer.md` with Step 2.6 TDD Applicability Check (evaluate before entering RED-GREEN-REFACTOR)
+- Updated `agents/quick-implementer.md` with same Step 2.6 mirrored
+- Updated `agents/stacks/laravel-inertia-vue/implementer.md` with Laravel-specific Step 2.6 (Eloquent `$fillable`/`$casts`, `match` expressions, observers, jobs, notifications)
+- Plugin version: 4.0.4 -> 4.0.5
+
 ## [4.0.0] - 2026-04-09 -- Bee Sentinel: Debug & Recovery Intelligence + Skills Expansion + Command Quality Overhaul
 
 ### Added

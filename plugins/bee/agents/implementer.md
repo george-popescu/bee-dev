@@ -44,7 +44,17 @@ Before writing tests, ensure the task's architecture is sound:
    ```
    Arbitrary timeouts cause flaky tests. Wait for the actual condition.
 
-## 3. TDD Cycle (MANDATORY)
+## 2.6. TDD Applicability Check
+
+Before entering the TDD cycle, evaluate whether this task has testable business logic:
+
+- **Infrastructure-only tasks** (migration, seeder, factory definition, config change, route registration, middleware registration, simple model with only `$fillable` + relationships): **SKIP TDD.** Implement directly. These are tested implicitly through feature tests that exercise the endpoints/pages using them. Do NOT write structural tests for migration column definitions or seeder data counts.
+- **Business logic tasks** (controller, service, action, policy, form request, complex component, composable, hook, API endpoint, validation logic, authorization rules, data transformations, calculations): **Proceed with TDD.** These files make decisions (if/else/switch/loops) that need explicit test coverage.
+- **Mixed tasks** (e.g., migration + model + controller + policy): Write tests ONLY for the parts with business logic (controller behavior, policy authorization, service calculations). Skip testing the infrastructure parts (migration structure, model `$fillable`).
+
+**The rule:** if the file has no branching logic, it doesn't need a dedicated test. Test it through the feature that uses it.
+
+## 3. TDD Cycle (MANDATORY for tasks that pass the applicability check above)
 
 For each deliverable in your task, follow this exact sequence. No exceptions.
 
