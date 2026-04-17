@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.0.7] - 2026-04-17 -- Ceremony Bump Removal (Downstream Safety Hotfix)
+
+### Fixed
+- **`/bee:complete-spec` and `/bee:archive-spec` were silently corrupting the plugin install cache** for every downstream user. Both commands had a "Bump plugin version" step that tried `plugins/bee/.claude-plugin/plugin.json` first, then fell back to `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json` — which resolves to `~/.claude/plugins/cache/bee-dev/bee/X.Y.Z/`. When a user ran the ceremony in their own project, the relative path missed, the fallback hit the cache, and the bump silently mutated the installed plugin. The drift warning then told the user to run `/plugin` reinstall — which would clobber the bump. Net result: silent install corruption + a misleading warning + a meaningless bump (downstream users don't author the bee plugin and their bumps would be erased on next marketplace install anyway).
+
+### Removed
+- **The "Bump plugin version" step is removed entirely from both ceremonies.** The plugin author's bump is a 1-user concern — burying a no-op step in user-facing flow is poor UX. Bee plugin versions are now managed manually by the plugin author (or via a future dedicated `/bee:release` command if it becomes annoying). `/bee:archive-spec` is now strictly about archiving; `/bee:complete-spec` is strictly about audit + changelog + tag + archive + history + state-reset.
+- `archive-spec.md`: removed Step 6 entirely; Step 7 (Summary) renumbered to Step 6; dropped "Plugin version" line from summary; updated intro and design notes.
+- `complete-spec.md`: removed "Bump plugin version" sub-block from Step 8 (including the cache drift warning); dropped "Plugin version" line from Step 9 summary; updated intro.
+
+### Added
+- **Negative-assertion regression contract.** Both `complete-spec-command.test.js` and `archive-spec-command.test.js` now contain assertions pinning that the ceremony command does NOT contain a "Bump plugin version" step, does NOT instruct writing to `plugin.json`, does NOT increment `PATCH`, and does NOT reference `${CLAUDE_PLUGIN_ROOT}` as a write fallback. A future regression that re-adds the bump (in any form) will fail CI.
+
+### Changed
+- Plugin version: 4.0.6 -> 4.0.7
+- Marketplace version: 1.4.2 -> 1.4.3
+
 ## [4.0.6] - 2026-04-17 -- Hive Dashboard Empty Snapshot Fix
 
 ### Fixed
