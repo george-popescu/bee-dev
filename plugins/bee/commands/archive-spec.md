@@ -1,5 +1,5 @@
 ---
-description: Archive the current spec to .bee/archive/, reset STATE.md, and bump plugin version
+description: Archive the current spec to .bee/archive/ and reset STATE.md
 argument-hint: ""
 ---
 
@@ -11,7 +11,7 @@ Read these files using the Read tool:
 
 ## Instructions
 
-You are running `/bee:archive-spec` -- the spec archival command for BeeDev. This command moves the completed spec to the archive directory, resets STATE.md, and bumps the plugin patch version. Follow these steps in order. This command never auto-commits -- the user decides when to commit via `/bee:commit`.
+You are running `/bee:archive-spec` -- the spec archival command for BeeDev. This command moves the completed spec to the archive directory and resets STATE.md. Follow these steps in order. This command never auto-commits -- the user decides when to commit via `/bee:commit`.
 
 ### Step 1: Validation Guards
 
@@ -114,16 +114,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/archive-memory.sh "{spec-name}"
 
 This archives agent memory to `.bee/memory-archive/{spec-name}/`, keeps only project-level shared entries, and clears agent-specific memory.
 
-### Step 6: Bump Plugin Version
-
-1. Attempt to read the plugin manifest: try `plugins/bee/.claude-plugin/plugin.json` first, then `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json` via Bash if the first path does not exist.
-2. If neither path resolves to a file, display: "Plugin version bump skipped — plugin.json not found. Bump manually if needed." and continue to Step 7.
-3. Parse the `version` field (semver format: `MAJOR.MINOR.PATCH`).
-4. Increment the PATCH number by 1 (e.g., `2.1.0` becomes `2.1.1`, `1.0.9` becomes `1.0.10`).
-5. Write the updated plugin.json back to disk with the new version, preserving all other fields.
-6. Display: "Plugin version bumped: {old-version} -> {new-version}"
-
-### Step 7: Summary
+### Step 6: Summary
 
 Display the archive summary:
 
@@ -132,7 +123,6 @@ Spec archived!
 
 - Archived to: .bee/archive/{spec-folder-name}/
 - State: NO_SPEC
-- Plugin version: {new-version}
 
 ```
 
@@ -150,6 +140,6 @@ AskUserQuestion(
 - The Phases table is intentionally left intact through both writes. This preserves the historical record of phase progress. When a new spec is created via `/bee:new-spec`, the Phases table is replaced with the new spec's phases.
 - The spec folder name is extracted as the last path component (e.g., `2026-02-20-user-management` from `.bee/specs/2026-02-20-user-management/`). This keeps archive paths predictable and avoids nested directory issues.
 - Move verification uses two checks: the archive destination must exist AND the original location must not exist. This catches partial moves and permission errors.
-- Plugin version bump is the last mutation step (after STATE.md reset). If the version bump fails, the spec is already archived and STATE.md is already reset -- the user can manually bump the version without re-archiving.
+- Plugin version bumps are NOT part of the ceremony. Bee plugin versions are managed manually by the plugin author. Downstream users running this command in their own projects will not have any plugin.json mutated — the ceremony is purely about archiving.
 - The `mkdir -p .bee/archive/` is safe to run even if the directory already exists (idempotent).
 - This command does not use any agents -- it operates entirely within the main Claude context.

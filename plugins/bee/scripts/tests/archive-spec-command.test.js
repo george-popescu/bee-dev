@@ -200,47 +200,49 @@ assert(
 );
 
 // ============================================================
-// Test 8: Step 6 - Bump plugin version
+// Test 8: Ceremony does NOT bump plugin version (downstream-safe)
 // ============================================================
-console.log('\nTest 8: Step 6 - Bump plugin version');
-const step6Content = contentBetweenSections('### Step 6', content);
+console.log('\nTest 8: Ceremony does NOT bump plugin version');
+
+// The /bee:archive-spec ceremony must NOT mutate plugin.json. Downstream
+// users running this command in their own projects must not have the bee
+// plugin's install cache (or any other plugin.json) silently rewritten.
+// Bee plugin versions are managed manually by the plugin author.
+
 assert(
-  step6Content.includes('plugin.json'),
-  'Step 6 references plugin.json'
+  !/Bump Plugin Version/i.test(content) &&
+  !/Plugin version bumped:/i.test(content),
+  'Command does NOT contain a "Bump Plugin Version" step'
 );
+
 assert(
-  step6Content.toLowerCase().includes('patch') ||
-  step6Content.toLowerCase().includes('increment'),
-  'Step 6 increments patch version'
+  !/Write the updated plugin\.json back to disk/i.test(content) &&
+  !/increment.{0,20}PATCH/i.test(content),
+  'Command does NOT instruct writing to plugin.json or incrementing PATCH'
 );
+
 assert(
-  step6Content.toLowerCase().includes('semver') ||
-  step6Content.toLowerCase().includes('version') ||
-  (step6Content.includes('2.1.0') && step6Content.includes('2.1.1')),
-  'Step 6 parses semver and bumps version'
+  !/\$\{CLAUDE_PLUGIN_ROOT\}.{0,40}plugin\.json/.test(content),
+  'Command does NOT reference ${CLAUDE_PLUGIN_ROOT}/.../plugin.json (write fallback)'
 );
 
 // ============================================================
-// Test 9: Step 7 - Summary
+// Test 9: Step 6 - Summary (renumbered after bump removal)
 // ============================================================
-console.log('\nTest 9: Step 7 - Summary');
-const step7Content = contentBetweenSections('### Step 7', content);
+console.log('\nTest 9: Step 6 - Summary');
+const step6Content = contentBetweenSections('### Step 6', content);
 assert(
-  step7Content.toLowerCase().includes('archived') ||
-  step7Content.toLowerCase().includes('archive'),
-  'Step 7 displays archived path'
+  step6Content.toLowerCase().includes('archived') ||
+  step6Content.toLowerCase().includes('archive'),
+  'Step 6 displays archived path'
 );
 assert(
-  step7Content.includes('NO_SPEC'),
-  'Step 7 shows NO_SPEC state'
+  step6Content.includes('NO_SPEC'),
+  'Step 6 shows NO_SPEC state'
 );
 assert(
-  step7Content.toLowerCase().includes('version'),
-  'Step 7 shows new version'
-);
-assert(
-  step7Content.includes('/bee:new-spec'),
-  'Step 7 suggests /bee:new-spec'
+  step6Content.includes('/bee:new-spec'),
+  'Step 6 suggests /bee:new-spec'
 );
 
 // ============================================================

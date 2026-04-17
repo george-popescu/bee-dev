@@ -241,11 +241,6 @@ assert(
 // ============================================================
 console.log('\nTest 9: Additional ceremony coverage');
 assert(
-  content.includes('plugin.json') &&
-  (step8Content.toLowerCase().includes('patch') || step8Content.toLowerCase().includes('increment') || step8Content.toLowerCase().includes('version')),
-  'Step 8 includes plugin version bump'
-);
-assert(
   content.includes('spec/{slug}'),
   'Tag format default includes spec/{slug} pattern'
 );
@@ -255,6 +250,33 @@ assert(
   content.toLowerCase().includes('not commit anything') ||
   content.toLowerCase().includes('never commits'),
   'Command explicitly states it never auto-commits'
+);
+
+// ============================================================
+// Test 9b: Ceremony does NOT bump plugin version (downstream-safe)
+// ============================================================
+console.log('\nTest 9b: Ceremony does NOT bump plugin version');
+
+// The /bee:complete-spec ceremony must NOT mutate plugin.json. Downstream
+// users running this command in their own projects must not have the bee
+// plugin's install cache (or any other plugin.json) silently rewritten.
+// Bee plugin versions are managed manually by the plugin author.
+
+assert(
+  !/\*\*Bump plugin version/i.test(content) &&
+  !/Plugin version bumped:/i.test(content),
+  'Command does NOT contain a "Bump plugin version" sub-block'
+);
+
+assert(
+  !/Write the updated plugin\.json back to disk/i.test(content) &&
+  !/increment.{0,20}PATCH/i.test(content),
+  'Command does NOT instruct writing to plugin.json or incrementing PATCH'
+);
+
+assert(
+  !/\$\{CLAUDE_PLUGIN_ROOT\}.{0,40}plugin\.json/.test(content),
+  'Command does NOT reference ${CLAUDE_PLUGIN_ROOT}/.../plugin.json (write fallback)'
 );
 
 // ============================================================
@@ -343,22 +365,14 @@ assert(
 );
 
 // ============================================================
-// Test 14: Step 8 - Plugin cache drift warning
+// Test 14: Plugin cache drift warning is REMOVED (no bump = no drift)
 // ============================================================
-console.log('\nTest 14: Step 8 - Plugin cache drift warning');
+console.log('\nTest 14: Plugin cache drift warning is REMOVED');
 assert(
-  step8Content.includes('~/.claude/plugins/cache') ||
-  step8Content.includes('/reload-plugins'),
-  'Step 8 references the plugin cache path or /reload-plugins command'
-);
-assert(
-  step8Content.toLowerCase().includes('cache') &&
-  (step8Content.toLowerCase().includes('drift') || step8Content.toLowerCase().includes('not effective') || step8Content.toLowerCase().includes('still serves')),
-  'Step 8 explains the cache drift / not-effective-until-reload warning'
-);
-assert(
-  step8Content.includes('`/plugin`') || step8Content.toLowerCase().includes('reinstall'),
-  'Step 8 mentions /plugin (reinstall) as a mitigation'
+  !/plugin cache drift/i.test(content) &&
+  !content.includes('~/.claude/plugins/cache') &&
+  !/reload-plugins/i.test(content),
+  'Command does NOT contain the plugin cache drift warning (no bump = no drift)'
 );
 
 // ============================================================

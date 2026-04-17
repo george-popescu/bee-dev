@@ -11,7 +11,7 @@ Read these files using the Read tool:
 
 ## Instructions
 
-You are running `/bee:complete-spec` -- the full spec lifecycle ceremony command for BeeDev. This command runs the complete ceremony: audit (traceability) -> changelog -> git tag -> archive -> spec history -> STATE.md reset -> version bump. Follow these steps in order. This command never auto-commits -- the user decides when to commit via `/bee:commit`.
+You are running `/bee:complete-spec` -- the full spec lifecycle ceremony command for BeeDev. This command runs the complete ceremony: audit (traceability) -> changelog -> git tag -> archive -> spec history -> STATE.md reset. Follow these steps in order. This command never auto-commits -- the user decides when to commit via `/bee:commit`.
 
 ### Step 1: Validation Guards
 
@@ -266,25 +266,6 @@ Extract spec-specific history from STATE.md into the archived spec directory, ke
 
 **Rationale:** Decisions Log and Previous Last Action sections accumulate across specs and make STATE.md illegible over time. Moving them to the archive preserves the full audit trail while keeping active state lean for the next spec.
 
-**Bump plugin version:**
-1. Attempt to read the plugin manifest: try `plugins/bee/.claude-plugin/plugin.json` first, then `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json` via Bash if the first path does not exist.
-2. If neither path resolves to a file, display: "Plugin version bump skipped — plugin.json not found. Bump manually if needed." and continue to Step 9.
-3. Parse the `version` field (semver format: `MAJOR.MINOR.PATCH`).
-4. Increment the PATCH number by 1 (e.g., `2.1.0` becomes `2.1.1`, `1.0.9` becomes `1.0.10`).
-5. Write the updated plugin.json back to disk with the new version, preserving all other fields.
-6. Display: "Plugin version bumped: {old-version} -> {new-version}"
-7. Display the **plugin cache drift warning**:
-
-   ```
-   WARNING: The plugin manifest on disk was bumped to {new-version}, but the active
-   plugin cache at `~/.claude/plugins/cache/bee-dev/bee/{old-version}/` still serves
-   the OLD version in this Claude Code session. The bump is not effective until the
-   cache is reloaded. Run `/plugin` (reinstall from marketplace) or `/reload-plugins`
-   to activate the new version.
-   ```
-
-   This drift warning is mandatory — without it the user has no signal that their next command will still execute the old plugin code despite the version bump on disk.
-
 ### Step 9: Summary
 
 Display the completion summary:
@@ -298,7 +279,6 @@ Spec completed!
 - Git tag: {tag or "skipped"}
 - Archived to: .bee/archive/{spec-folder-name}/
 - History: .bee/history/SPEC-HISTORY.md updated
-- Plugin version: {new-version}
 ```
 
 AskUserQuestion(
