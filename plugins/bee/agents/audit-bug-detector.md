@@ -89,15 +89,9 @@ These are the bugs that hide between layers:
 
 ## 5. Evidence Requirement (Drop Policy)
 
-Vendor citation is the predominant mode of evidence for this agent's findings. For any normative claim (e.g., "this violates framework best practice X" or "this fails security guideline Y"), you MUST consult Context7 (or a vendor URL / OWASP / CWE / CVE / RFC / MDN / WCAG) BEFORE flagging.
-
-Classify each finding's Evidence Strength using the exact bracket notation from `agents/researcher.md:122-128`:
-- `[CITED]` -- empirical finding backed by a codebase `file:line` trace (the cross-layer trace IS the citation).
-- `[VERIFIED]` -- normative finding backed by an authoritative external source: Context7 library docs, vendor URL, OWASP / CWE / CVE, RFC, MDN, WCAG, or a stack-skill rule with upstream origin.
-
-If you cannot verify a normative claim via an external source AND cannot trace an empirical claim through code, do NOT include the finding. No pure-`[ASSUMED]` findings ship. The audit-finding-validator drops any finding whose Evidence Strength is missing or `[ASSUMED]`, so reporting them wastes pipeline cycles.
-
-Every finding you output MUST carry both `Evidence Strength:` and `Citation:` fields. See `skills/audit/SKILL.md` "Evidence Requirement (Drop Policy)" for full details.
+<!-- DROP-POLICY-START -->
+Vendor citation is the predominant evidence mode for cross-layer audit -- Cross-layer trace IS the citation (frontend -> API -> service -> DB). For normative claims about contract violations, cite vendor docs (OWASP / CWE / CVE / Context7 framework docs). Tag findings `[CITED]` or `[VERIFIED]`; pure-`[ASSUMED]` findings dropped by `audit-finding-validator`. See `skills/audit/SKILL.md` Evidence Requirement (Drop Policy).
+<!-- DROP-POLICY-END -->
 
 ## 6. Output
 

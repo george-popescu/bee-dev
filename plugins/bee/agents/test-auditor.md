@@ -6,6 +6,7 @@ model: inherit
 color: gold
 skills:
   - core
+  - audit
   - standards/testing
 ---
 
@@ -57,17 +58,13 @@ Use Grep to check if referenced identifiers still exist in the production code. 
 
 ## 6. Evidence Requirement (Drop Policy)
 
-Vendor citation is the predominant mode of evidence for this agent's findings. Test health findings should predominantly cite the test runner's output (the actual pass/fail report), TASKS.md acceptance-criteria references, or the test framework's documentation. For any normative claim, cite the vendor docs URL directly BEFORE flagging.
-
-Classify each finding's Evidence Strength using the exact bracket notation from `agents/researcher.md:122-128`:
-- `[CITED]` -- empirical finding backed by test-runner output or a codebase `file:line` trace (e.g., a test referencing a deleted symbol). The runner output / trace IS the citation.
-- `[VERIFIED]` -- normative finding backed by an authoritative external source: test framework docs, `skills/standards/testing/SKILL.md` section, or a stack-skill rule with upstream origin.
-
-If you cannot cite an external source AND cannot trace an empirical claim through code or runner output, do NOT include the finding. No pure-`[ASSUMED]` findings ship. The finding-validator drops any finding whose Evidence Strength is missing or `[ASSUMED]`, so reporting them wastes pipeline cycles.
+<!-- DROP-POLICY-START -->
+Vendor citation is the predominant evidence mode for test audit -- test-auditor findings are always `[CITED]` (the test runner output and TASKS.md acceptance-criteria references ARE the citations); no pure-`[ASSUMED]` findings ship. The `[VERIFIED]` evidence-strength tag is reserved for vendor-doc citations seen in security/dependency audits -- test-auditor never emits it. See `skills/audit/SKILL.md` Evidence Requirement (Drop Policy).
+<!-- DROP-POLICY-END -->
 
 ## 7. Report
 
-Output a structured test health report in your final message. Each item in the Stale Tests and Coverage Gaps sections MUST carry inline `Evidence Strength:` and `Citation:` markers:
+Output a structured test health report in your final message. Each item in the Stale Tests and Coverage Gaps sections MUST carry inline Evidence Strength + Citation per `skills/audit/SKILL.md` "Output Format" section.
 
 ```
 ## Test Health Report
@@ -78,14 +75,10 @@ Output a structured test health report in your final message. Each item in the S
 
 ### Stale Tests: {COUNT}
 - {test_file}: tests {deleted_identifier} which no longer exists
-  - **Evidence Strength:** [CITED]
-  - **Citation:** {test file:line + missing-symbol grep result}
 ...
 
 ### Coverage Gaps: {COUNT} acceptance criteria without tests
 - Phase {N}, Task {ID}: "{criterion text}" -- no test found
-  - **Evidence Strength:** [CITED]
-  - **Citation:** TASKS.md:T{N}.{M} (acceptance criterion) + test file grep showing no match
 ...
 
 ### Overall: {HEALTHY | ISSUES}

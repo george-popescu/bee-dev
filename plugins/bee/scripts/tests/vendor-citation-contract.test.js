@@ -163,6 +163,1552 @@ for (const rel of ALL_PRODUCERS) {
 }
 
 // ---------------------------------------------------------------------------
+// Per-agent skill-reference refactor assertions
+// ---------------------------------------------------------------------------
+
+console.log('\n\n=== Per-agent skill-reference refactor: bug-detector.md ===');
+
+{
+  const rel = 'bug-detector.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `review`
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*review\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "review"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) literal "**Evidence Strength:**" occurs <= 2 times (proves 13-field
+    // blocks were collapsed -- previously 3x copies = 3 occurrences)
+    const evidenceStrengthCount = (content.match(/\*\*Evidence Strength:\*\*/g) || []).length;
+    assert(
+      evidenceStrengthCount <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${evidenceStrengthCount})`
+    );
+
+    // (d) [CITED] and [VERIFIED] literals present
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // The literal phrase "OWASP / CWE / CVE / MDN / WCAG" must remain in the
+    // collapsed Drop Policy paragraph.
+    assert(
+      content.includes('OWASP / CWE / CVE / MDN / WCAG'),
+      `${rel} retains literal "OWASP / CWE / CVE / MDN / WCAG" phrase`
+    );
+
+    // The collapsed paragraph must reference skills/review/SKILL.md.
+    assert(
+      /skills\/review\/SKILL\.md/.test(content),
+      `${rel} references skills/review/SKILL.md (Drop Policy / Output Format)`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: pattern-reviewer.md ===');
+
+{
+  const rel = 'pattern-reviewer.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `review`
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*review\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "review"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) literal "**Evidence Strength:**" occurs <= 2 times (Shape B: single
+    // inline bullet template was collapsed -- previously 1 occurrence in the
+    // template + 1 in the prose = 2; after refactor the template line drops to
+    // a single skill reference, leaving <= 2 occurrences max)
+    const evidenceStrengthCount = (content.match(/\*\*Evidence Strength:\*\*/g) || []).length;
+    assert(
+      evidenceStrengthCount <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${evidenceStrengthCount})`
+    );
+
+    // (d) [CITED] and [VERIFIED] literals present
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (e) the literal "side-by-side codebase comparison" phrase retained
+    assert(
+      content.includes('side-by-side codebase comparison with 2-3 similar existing files (Step 4) IS the citation'),
+      `${rel} retains literal "side-by-side codebase comparison ... IS the citation" phrase`
+    );
+
+    // (f) skills/review/SKILL.md reference present
+    assert(
+      /skills\/review\/SKILL\.md/.test(content),
+      `${rel} references skills/review/SKILL.md (Drop Policy / Output Format)`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: stack-reviewer.md ===');
+
+{
+  const rel = 'stack-reviewer.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `review`
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*review\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "review"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) literal "**Evidence Strength:**" occurs <= 2 times (Shape B: single
+    // inline bullet template was collapsed to a skill reference)
+    const evidenceStrengthCount = (content.match(/\*\*Evidence Strength:\*\*/g) || []).length;
+    assert(
+      evidenceStrengthCount <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${evidenceStrengthCount})`
+    );
+
+    // (d) [CITED] and [VERIFIED] literals present
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (e) the agent-distinctive stack-skill-rule phrase retained
+    assert(
+      content.includes('stack-skill rule with upstream URL or Context7-resolvable origin qualifies as `[VERIFIED]`; stack-skill rule without upstream origin requires Context7 lookup BEFORE flagging'),
+      `${rel} retains literal "stack-skill rule with upstream URL ... requires Context7 lookup BEFORE flagging" phrase`
+    );
+
+    // (f) skills/review/SKILL.md reference present
+    assert(
+      /skills\/review\/SKILL\.md/.test(content),
+      `${rel} references skills/review/SKILL.md (Drop Policy / Output Format)`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: spec-reviewer.md ===');
+
+{
+  const rel = 'spec-reviewer.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `review`
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*review\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "review"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) literal "**Evidence Strength:**" occurs <= 2 times (Shape C: Issues
+    // template duplicated 2x was collapsed to a single skill reference)
+    const evidenceStrengthCount = (content.match(/\*\*Evidence Strength:\*\*/g) || []).length;
+    assert(
+      evidenceStrengthCount <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${evidenceStrengthCount})`
+    );
+
+    // (d) [CITED] and [VERIFIED] literals present
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (e) the agent-distinctive spec-review phrase retained
+    assert(
+      content.includes('Spec-review findings are almost always `[CITED]` -- the spec.md / requirements.md section IS the citation'),
+      `${rel} retains literal "Spec-review findings are almost always [CITED] ... IS the citation" phrase`
+    );
+
+    // (f) skills/review/SKILL.md reference present
+    assert(
+      /skills\/review\/SKILL\.md/.test(content),
+      `${rel} references skills/review/SKILL.md (Drop Policy / Output Format)`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: debug-investigator.md ===');
+
+{
+  const rel = 'debug-investigator.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `review`
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*review\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "review"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) literal "**Evidence Strength:**" occurs <= 2 times (Signal 1's
+    // 2-bullet illustration was collapsed to a single bullet + skill reference)
+    const evidenceStrengthCount = (content.match(/\*\*Evidence Strength:\*\*/g) || []).length;
+    assert(
+      evidenceStrengthCount <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${evidenceStrengthCount})`
+    );
+
+    // (d) [CITED] and [VERIFIED] literals present
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (e) the agent-distinctive debug-investigator phrase retained
+    assert(
+      content.includes('Debug findings are almost always `[CITED]` -- the hypothesis-confirming evidence trace IS the citation'),
+      `${rel} retains literal "Debug findings are almost always [CITED] ... IS the citation" phrase`
+    );
+
+    // (f) skills/review/SKILL.md reference present
+    assert(
+      /skills\/review\/SKILL\.md/.test(content),
+      `${rel} references skills/review/SKILL.md (Drop Policy / Output Format)`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: plan-compliance-reviewer.md ===');
+
+{
+  const rel = 'plan-compliance-reviewer.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `review`
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*review\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "review"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) literal "**Evidence Strength:**" occurs <= 2 times (7 templated finding
+    // entries -- SG/CI/OS in code-review mode + G/P/D/O in plan-review mode --
+    // were collapsed to a single header-comment skill reference per mode)
+    const evidenceStrengthCount = (content.match(/\*\*Evidence Strength:\*\*/g) || []).length;
+    assert(
+      evidenceStrengthCount <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${evidenceStrengthCount})`
+    );
+
+    // (d) [CITED] and [VERIFIED] literals present
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (e) the agent-distinctive plan-compliance phrase retained
+    assert(
+      content.includes('spec.md, requirements.md, and TASKS.md ARE the authoritative sources -- spec/plan citations qualify as `[CITED]` (the spec IS the source)'),
+      `${rel} retains literal "spec.md, requirements.md, and TASKS.md ARE the authoritative sources ... spec IS the source" phrase`
+    );
+
+    // (f) skills/review/SKILL.md reference present
+    assert(
+      /skills\/review\/SKILL\.md/.test(content),
+      `${rel} references skills/review/SKILL.md (Drop Policy / Output Format)`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: plan-reviewer.md ===');
+
+{
+  const rel = 'plan-reviewer.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `review`
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*review\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "review"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) literal "**Evidence Strength:**" occurs <= 2 times (4 templated finding
+    // entries -- G-001/P-001/D-001/O-001 -- were collapsed to a single skill
+    // reference line per entry, leaving the prose mention as the sole occurrence)
+    const evidenceStrengthCount = (content.match(/\*\*Evidence Strength:\*\*/g) || []).length;
+    assert(
+      evidenceStrengthCount <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${evidenceStrengthCount})`
+    );
+
+    // (d) [CITED] and [VERIFIED] literals present
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (e) the agent-distinctive plan-reviewer phrase retained
+    assert(
+      content.includes('Plan-review findings are almost always `[CITED]` -- the spec.md, requirements.md, phases.md, and TASKS.md lines ARE the citations'),
+      `${rel} retains literal "Plan-review findings are almost always [CITED] ... ARE the citations" phrase`
+    );
+
+    // (f) skills/review/SKILL.md reference present
+    assert(
+      /skills\/review\/SKILL\.md/.test(content),
+      `${rel} references skills/review/SKILL.md (Drop Policy / Output Format)`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: security-auditor.md (Wave 2 audit) ===');
+
+{
+  const rel = 'security-auditor.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` (security-auditor uses the audit skill,
+    // not review skill)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the literal phrase "OWASP / CWE / CVE" must remain in the collapsed
+    // Drop Policy paragraph (security findings cite vendor security advisories)
+    assert(
+      content.includes('OWASP / CWE / CVE'),
+      `${rel} retains literal "OWASP / CWE / CVE" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) Output section unchanged -- still references "audit skill finding format"
+    assert(
+      content.includes('Use the finding format from the audit skill'),
+      `${rel} Output section retains "Use the finding format from the audit skill" instruction`
+    );
+
+    // (g) inline 13-field-block templates absent -- `**Evidence Strength:**`
+    // literal must occur <= 2 times (same-class completeness with Wave 1 +
+    // integrity-auditor + test-auditor count caps)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: error-handling-auditor.md (Wave 2 audit) ===');
+
+{
+  const rel = 'error-handling-auditor.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` (error-handling-auditor uses the audit
+    // skill, not review skill)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the literal phrase "Node.js Promise rejection / Python exceptions /
+    // React-Vue-Express middleware / MDN" must remain in the collapsed Drop
+    // Policy paragraph (error-handling findings cite language/framework docs)
+    assert(
+      content.includes('Node.js Promise rejection / Python exceptions / React-Vue-Express middleware / MDN'),
+      `${rel} retains literal "Node.js Promise rejection / Python exceptions / React-Vue-Express middleware / MDN" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates absent -- `**Evidence Strength:**`
+    // literal must occur <= 2 times (same-class completeness with Wave 1 +
+    // integrity-auditor + test-auditor count caps)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: database-auditor.md (Wave 2 audit) ===');
+
+{
+  const rel = 'database-auditor.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` (database-auditor uses the audit skill,
+    // not review skill)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the literal phrase "Eloquent / Prisma / Drizzle / PostgreSQL / MySQL"
+    // must remain in the collapsed Drop Policy paragraph (database-audit findings
+    // cite ORM / query-builder / database engine docs)
+    assert(
+      content.includes('Eloquent / Prisma / Drizzle / PostgreSQL / MySQL'),
+      `${rel} retains literal "Eloquent / Prisma / Drizzle / PostgreSQL / MySQL" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates absent -- `**Evidence Strength:**`
+    // literal must occur <= 2 times (same-class completeness with Wave 1 +
+    // integrity-auditor + test-auditor count caps)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: architecture-auditor.md (Wave 2 audit) ===');
+
+{
+  const rel = 'architecture-auditor.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` (architecture-auditor uses the audit skill,
+    // not review skill)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the literal empirical-evidence phrase
+    // "god-file line count, circular import chain, duplicated block pair IS the citation"
+    // must remain in the collapsed Drop Policy paragraph (architecture-audit
+    // empirical findings cite the codebase observation itself), AND the literal
+    // named-pattern list "DDD, Hexagonal, Clean Architecture, MVC" must remain
+    // (named-pattern findings cite the original architectural source)
+    assert(
+      content.includes('god-file line count, circular import chain, duplicated block pair IS the citation'),
+      `${rel} retains literal "god-file line count, circular import chain, duplicated block pair IS the citation" phrase`
+    );
+    assert(
+      content.includes('DDD, Hexagonal, Clean Architecture, MVC'),
+      `${rel} retains literal "DDD, Hexagonal, Clean Architecture, MVC" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates absent -- `**Evidence Strength:**`
+    // literal must occur <= 2 times (same-class completeness with Wave 1 +
+    // integrity-auditor + test-auditor count caps)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: api-auditor.md (Wave 2 audit) ===');
+
+{
+  const rel = 'api-auditor.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` (api-auditor uses the audit skill,
+    // not review skill)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the literal phrase "framework's routing / validation / serialization
+    // docs, REST conventions (RFC 7231, RFC 7807), or OWASP API Top 10" must
+    // remain in the collapsed Drop Policy paragraph (api-audit findings cite
+    // framework routing/validation/serialization docs, REST RFCs, or OWASP API)
+    assert(
+      content.includes("framework's routing / validation / serialization docs, REST conventions (RFC 7231, RFC 7807), or OWASP API Top 10"),
+      `${rel} retains literal "framework's routing / validation / serialization docs, REST conventions (RFC 7231, RFC 7807), or OWASP API Top 10" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates absent -- `**Evidence Strength:**`
+    // literal must occur <= 2 times (same-class completeness with Wave 1 +
+    // integrity-auditor + test-auditor count caps)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: frontend-auditor.md (Wave 2 audit) ===');
+
+{
+  const rel = 'frontend-auditor.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` (frontend-auditor uses the audit skill,
+    // not review skill)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the literal phrase "MDN / React-Vue-Svelte-Angular framework docs /
+    // WCAG / Web.dev" must remain in the collapsed Drop Policy paragraph
+    // (frontend-audit findings cite MDN, framework docs, WCAG accessibility
+    // standards, and Web.dev performance guidance)
+    assert(
+      content.includes('MDN / React-Vue-Svelte-Angular framework docs / WCAG / Web.dev'),
+      `${rel} retains literal "MDN / React-Vue-Svelte-Angular framework docs / WCAG / Web.dev" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates absent -- `**Evidence Strength:**`
+    // literal must occur <= 2 times (same-class completeness with Wave 1 +
+    // integrity-auditor + test-auditor count caps)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: performance-auditor.md (Wave 2 audit) ===');
+
+{
+  const rel = 'performance-auditor.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` (performance-auditor uses the audit skill,
+    // not review skill)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the literal phrase "web.dev / MDN performance guides / framework
+    // performance docs" must remain in the collapsed Drop Policy paragraph
+    // (performance-audit findings cite web.dev Core Web Vitals guidance, MDN
+    // performance docs, and framework-specific performance documentation)
+    assert(
+      content.includes('web.dev / MDN performance guides / framework performance docs'),
+      `${rel} retains literal "web.dev / MDN performance guides / framework performance docs" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates absent -- `**Evidence Strength:**`
+    // literal must occur <= 2 times (same-class completeness with Wave 1 +
+    // integrity-auditor + test-auditor count caps)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: testing-auditor.md (Wave 2 audit) ===');
+
+{
+  const rel = 'testing-auditor.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` (testing-auditor uses the audit skill,
+    // not review skill)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) literal "**Evidence Strength:**" occurs <= 3 times (multi-mode agent:
+    // Scan Mode prose mention + Generate Mode F-TEST template line + Drop Policy
+    // mention; threshold elevated above the standard <= 2 because testing-auditor
+    // operates in three modes with multiple field-name occurrences in mode-protocol
+    // prose even after the F-TEST template collapse)
+    const evidenceStrengthCount = (content.match(/\*\*Evidence Strength:\*\*/g) || []).length;
+    assert(
+      evidenceStrengthCount <= 3,
+      `${rel} "**Evidence Strength:**" literal occurs <= 3 times (got ${evidenceStrengthCount})`
+    );
+
+    // (d) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (e) the literal phrase "Jest, Vitest, PHPUnit, Pest, pytest, Mocha" must
+    // remain in the collapsed Drop Policy paragraph (testing-audit findings cite
+    // the test framework's vendor docs across the supported runners)
+    assert(
+      content.includes('Jest, Vitest, PHPUnit, Pest, pytest, Mocha'),
+      `${rel} retains literal "Jest, Vitest, PHPUnit, Pest, pytest, Mocha" phrase`
+    );
+
+    // (f) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: audit-bug-detector.md (Wave 2 audit) ===');
+
+{
+  const rel = 'audit-bug-detector.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` (audit-bug-detector uses the audit skill,
+    // not review skill)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the agent-distinctive cross-layer phrase
+    // "Cross-layer trace IS the citation (frontend -> API -> service -> DB)"
+    // must remain in the collapsed Drop Policy paragraph (audit-bug-detector
+    // findings cite the cross-layer trace itself as the empirical evidence)
+    assert(
+      content.includes('Cross-layer trace IS the citation (frontend -> API -> service -> DB)'),
+      `${rel} retains literal "Cross-layer trace IS the citation (frontend -> API -> service -> DB)" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates absent -- `**Evidence Strength:**`
+    // literal must occur <= 2 times (same-class completeness with Wave 1 +
+    // integrity-auditor + test-auditor count caps)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: integration-checker.md (Wave 2 audit) ===');
+
+{
+  const rel = 'integration-checker.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` (integration-checker uses the audit skill)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit"`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the agent-distinctive wiring-trace phrase
+    // "Integration-checker findings are almost always `[CITED]` -- the wiring
+    // trace IS the citation" must remain in the collapsed Drop Policy paragraph
+    // (integration-checker findings cite the wiring trace itself as the
+    // empirical evidence)
+    assert(
+      content.includes('Integration-checker findings are almost always `[CITED]` -- the wiring trace IS the citation'),
+      `${rel} retains literal "Integration-checker findings are almost always \`[CITED]\` -- the wiring trace IS the citation" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates absent -- `**Evidence Strength:**`
+    // literal must occur <= 2 times (same-class completeness with Wave 1 +
+    // integrity-auditor + test-auditor count caps)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: dependency-auditor.md (Wave 2 audit) ===');
+
+{
+  const rel = 'dependency-auditor.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` -- ADDED by T2.11 (previously declared
+    // only `core`; this assertion verifies the audit skill was added)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit" (added by T2.11)`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the literal advisory-citation phrase
+    // "GHSA-xxxx, CVE-xxxx-xxxx, vendor changelog URL, npm/Packagist advisory
+    // database entry" must remain in the collapsed Drop Policy paragraph
+    // (dependency-audit findings cite the specific advisory, vendor changelog,
+    // or package-registry security advisory)
+    assert(
+      content.includes('GHSA-xxxx, CVE-xxxx-xxxx, vendor changelog URL, npm/Packagist advisory database entry'),
+      `${rel} retains literal "GHSA-xxxx, CVE-xxxx-xxxx, vendor changelog URL, npm/Packagist advisory database entry" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates absent -- `**Evidence Strength:**`
+    // literal must occur <= 2 times (same-class completeness with Wave 1 +
+    // integrity-auditor + test-auditor count caps)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: integrity-auditor.md (Wave 2 audit) ===');
+
+{
+  const rel = 'integrity-auditor.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` -- ADDED by T2.12 (previously declared
+    // only `core`; this assertion verifies the audit skill was added)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit" (added by T2.12)`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained (contrastive negation makes
+    // [VERIFIED] appear in the body even though integrity-auditor never emits it)
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the literal empirical-evidence phrase
+    // "file existence check output and STATE.md excerpt ARE the citations" must
+    // remain in the collapsed Drop Policy paragraph (integrity-audit findings
+    // cite the on-disk file existence check output and STATE.md line excerpt as
+    // the empirical evidence themselves)
+    assert(
+      content.includes('file existence check output and STATE.md excerpt ARE the citations'),
+      `${rel} retains literal "file existence check output and STATE.md excerpt ARE the citations" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates removed -- `**Evidence Strength:**`
+    // literal must occur <= 2 times after collapse (per T2.12 / REQ-03 / SG-001)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: test-auditor.md (Wave 2 audit) ===');
+
+{
+  const rel = 'test-auditor.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` -- ADDED by T2.13 (previously declared
+    // only `core` and `standards/testing`; this assertion verifies the audit
+    // skill was added)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit" (added by T2.13)`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained (contrastive negation makes
+    // [VERIFIED] appear in the body even though test-auditor never emits it)
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the literal empirical-evidence phrase
+    // "test runner output and TASKS.md acceptance-criteria references ARE the
+    // citations" must remain in the collapsed Drop Policy paragraph
+    // (test-audit findings cite the test runner output and TASKS.md
+    // acceptance-criteria references as the empirical evidence themselves)
+    assert(
+      content.includes('test runner output and TASKS.md acceptance-criteria references ARE the citations'),
+      `${rel} retains literal "test runner output and TASKS.md acceptance-criteria references ARE the citations" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates removed -- `**Evidence Strength:**`
+    // literal must occur <= 2 times after collapse (per T2.13 / REQ-03 / SG-002)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: ui-auditor.md (Wave 2 audit) ===');
+
+{
+  const rel = 'ui-auditor.md';
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `audit` -- ADDED by T2.14 (previously declared
+    // only `core`; this assertion verifies the audit skill was added)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*audit\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "audit" (added by T2.14)`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the literal vendor-citation phrase enumerating the UI normative
+    // sources must remain in the collapsed Drop Policy paragraph (UI audit
+    // findings cite WCAG / shadcn / Material / Ant / Tailwind / web.dev as
+    // the authoritative external sources for design-system, accessibility,
+    // and visual-quality claims)
+    assert(
+      content.includes('WCAG / shadcn / Material / Ant / Tailwind / web.dev'),
+      `${rel} retains literal "WCAG / shadcn / Material / Ant / Tailwind / web.dev" phrase`
+    );
+
+    // (e) the audit skill reference (NOT review skill) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/audit\/SKILL\.md/.test(content),
+      `${rel} references skills/audit/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates absent -- `**Evidence Strength:**`
+    // literal must occur <= 2 times (same-class completeness with Wave 1 +
+    // integrity-auditor + test-auditor count caps)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+console.log('\n\n=== Per-agent skill-reference refactor: stacks/laravel-inertia-vue/bug-detector.md (Wave 3 stack-variant) ===');
+
+{
+  const rel = path.join('stacks', 'laravel-inertia-vue', 'bug-detector.md');
+  const p = path.join(AGENTS_DIR, rel);
+  const content = readFile(p);
+
+  assert(content !== null, `${rel} exists for skill-reference assertions`);
+  if (content !== null) {
+    // (a) frontmatter contains `review` -- ADDED by T3.1 (previously declared
+    // only `core`; this assertion verifies the review skill was added)
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatter = fmMatch ? fmMatch[1] : '';
+    assert(
+      /skills:\s*\n(?:[ \t]*-[^\n]*\n)*[ \t]*-\s*review\b/.test(frontmatter),
+      `${rel} frontmatter skills: list contains "review" (added by T3.1)`
+    );
+
+    // (b) lines BETWEEN the DROP-POLICY anchors number <= 3
+    const anchorMatch = content.match(
+      /<!--\s*DROP-POLICY-START\s*-->\n([\s\S]*?)\n<!--\s*DROP-POLICY-END\s*-->/
+    );
+    assert(
+      anchorMatch !== null,
+      `${rel} contains <!-- DROP-POLICY-START --> / <!-- DROP-POLICY-END --> anchors`
+    );
+    if (anchorMatch) {
+      const between = anchorMatch[1].split('\n');
+      assert(
+        between.length <= 3,
+        `${rel} lines between DROP-POLICY anchors <= 3 (got ${between.length})`
+      );
+    }
+
+    // (c) [CITED] and [VERIFIED] literals retained
+    assert(
+      content.includes('[CITED]'),
+      `${rel} retains [CITED] literal in body after refactor`
+    );
+    assert(
+      content.includes('[VERIFIED]'),
+      `${rel} retains [VERIFIED] literal in body after refactor`
+    );
+
+    // (d) the literal Laravel-Inertia-Vue-distinctive vendor-citation phrase
+    // must remain in the collapsed Drop Policy paragraph (Laravel/Inertia/Vue
+    // bug detection cites the framework docs plus OWASP / CWE / CVE for
+    // normative claims)
+    assert(
+      content.includes('Laravel / Inertia / Vue / OWASP / CWE / CVE'),
+      `${rel} retains literal "Laravel / Inertia / Vue / OWASP / CWE / CVE" phrase`
+    );
+
+    // (e) the review skill reference (NOT audit skill -- this is a
+    // review-flavor agent like the generic bug-detector) is present in the
+    // collapsed paragraph
+    assert(
+      /skills\/review\/SKILL\.md/.test(content),
+      `${rel} references skills/review/SKILL.md (Drop Policy / Output Format)`
+    );
+
+    // (f) inline 13-field-block templates absent -- `**Evidence Strength:**`
+    // literal must occur <= 2 times (same-class completeness with Wave 1 +
+    // Wave 2 audit count caps; closes the gap iter-4 found between iter-3's
+    // 11-Wave-2-audit fix and the Wave 3 stack-variant producer that was
+    // skipped)
+    const esMatches = content.match(/\*\*Evidence Strength:\*\*/g) || [];
+    assert(
+      esMatches.length <= 2,
+      `${rel} "**Evidence Strength:**" literal occurs <= 2 times (got ${esMatches.length})`
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Validator tests
 // ---------------------------------------------------------------------------
 

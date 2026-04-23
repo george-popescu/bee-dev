@@ -85,15 +85,9 @@ Report: total, passed, failed, skipped, and any errors. If tests can't run, repo
 
 ### 4. Evidence Requirement (Drop Policy)
 
-Vendor citation is the predominant mode of evidence for this agent's findings (applies to Scan Mode AND Generate Mode escalations). Testing findings should predominantly cite the test framework's docs (Jest, Vitest, PHPUnit, Pest, pytest, Mocha) or testing standards skill (`skills/standards/testing/SKILL.md`). For any normative claim (e.g., "this assertion style is deprecated" or "this is flaky by design"), cite the vendor docs URL directly BEFORE flagging.
-
-Classify each finding's Evidence Strength using the exact bracket notation from `agents/researcher.md:122-128`:
-- `[CITED]` -- empirical finding backed by a codebase `file:line` trace (e.g., a test with no assertions, or a test importing a deleted symbol). The trace IS the citation.
-- `[VERIFIED]` -- normative finding backed by an authoritative external source: test framework docs, `skills/standards/testing/SKILL.md` section, or a stack-skill rule with upstream origin.
-
-If you cannot cite an external source AND cannot trace an empirical claim through code, do NOT include the finding. No pure-`[ASSUMED]` findings ship. The audit-finding-validator drops any finding whose Evidence Strength is missing or `[ASSUMED]`, so reporting them wastes pipeline cycles.
-
-Every finding you output MUST carry both `Evidence Strength:` and `Citation:` fields. See `skills/audit/SKILL.md` "Evidence Requirement (Drop Policy)" for full details.
+<!-- DROP-POLICY-START -->
+Vendor citation is the predominant evidence mode for testing audit (applies to Scan AND Generate modes) -- cite Jest, Vitest, PHPUnit, Pest, pytest, Mocha framework docs and `skills/standards/testing/SKILL.md` for normative claims about test contracts. Tag findings `[CITED]` or `[VERIFIED]`; pure-`[ASSUMED]` findings dropped by `audit-finding-validator`. See `skills/audit/SKILL.md` Evidence Requirement (Drop Policy).
+<!-- DROP-POLICY-END -->
 
 ### 5. Output
 
@@ -192,29 +186,9 @@ Track for each test: criterion number, iteration_count, error_type, action_taken
 
 When a test reveals that the implementation does not match the acceptance criterion: **DO NOT FIX the implementation.** Report using the F-TEST-NNN finding format:
 
-```markdown
-### F-TEST-{NNN}: {Short title describing the implementation gap}
+### F-TEST-{NNN}
 
-- **Severity:** {CRITICAL | HIGH | MEDIUM | LOW}
-- **Category:** Implementation Gap
-- **File:** `{implementation file path}`
-- **Lines:** {relevant lines}
-- **Agent:** testing-auditor
-- **Evidence Strength:** {[CITED] | [VERIFIED]}
-- **Citation:** {TASKS.md:T{N}.{M} | spec.md:line | test file:line | URL}
-
-**Description:**
-{What the implementation should do vs what it actually does, based on the acceptance criterion.}
-
-**Evidence:**
-{The test code that demonstrates the gap, showing expected vs actual behavior.}
-
-**Impact:**
-{What users experience because of this gap -- be concrete.}
-
-**Suggested Fix:**
-{How to fix the implementation code to match the criterion.}
-```
+Use the F-TEST-{NNN} format from `skills/audit/SKILL.md` "Output Format" section.
 
 ### G6. Report Results
 

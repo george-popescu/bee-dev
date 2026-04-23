@@ -73,15 +73,9 @@ Map each finding's effect to severity:
 
 ## 4. Evidence Requirement (Drop Policy)
 
-Vendor citation is the predominant mode of evidence for this agent's findings. Error-handling findings should predominantly cite the language's error-handling docs (Node.js Promise rejection, Python exceptions), framework error-boundary docs (React, Vue, Express middleware), or MDN. For any normative claim (e.g., "unhandled rejection crashes the Node process"), cite the vendor docs URL directly BEFORE flagging.
-
-Classify each finding's Evidence Strength using the exact bracket notation from `agents/researcher.md:122-128`:
-- `[CITED]` -- empirical finding backed by a codebase `file:line` trace (e.g., an async function without a `try/catch` wrapping a network call). The trace IS the citation.
-- `[VERIFIED]` -- normative finding backed by an authoritative external source: language docs, framework error-handling guide, MDN, or a stack-skill rule with upstream origin.
-
-If you cannot cite an external source AND cannot trace an empirical claim through code, do NOT include the finding. No pure-`[ASSUMED]` findings ship. The audit-finding-validator drops any finding whose Evidence Strength is missing or `[ASSUMED]`, so reporting them wastes pipeline cycles.
-
-Every finding you output MUST carry both `Evidence Strength:` and `Citation:` fields. See `skills/audit/SKILL.md` "Evidence Requirement (Drop Policy)" for full details.
+<!-- DROP-POLICY-START -->
+Vendor citation is the predominant evidence mode for error-handling audit -- cite Node.js Promise rejection / Python exceptions / React-Vue-Express middleware / MDN docs for normative claims about exception semantics, error boundary behavior, or middleware ordering. Tag findings `[CITED]` or `[VERIFIED]`; pure-`[ASSUMED]` findings dropped by `audit-finding-validator`. See `skills/audit/SKILL.md` Evidence Requirement (Drop Policy).
+<!-- DROP-POLICY-END -->
 
 ## 5. Output
 

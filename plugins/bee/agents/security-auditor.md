@@ -72,15 +72,9 @@ You audit the ENTIRE codebase, not just recent changes. Scan systematically in t
 
 ## 4. Evidence Requirement (Drop Policy)
 
-Vendor citation is the predominant mode of evidence for this agent's findings. Security findings should predominantly cite OWASP / CWE / CVE / vendor security advisories. For any normative claim, you MUST consult Context7 (or a vendor URL / OWASP / CWE / CVE / RFC / MDN) BEFORE flagging.
-
-Classify each finding's Evidence Strength using the exact bracket notation from `agents/researcher.md:122-128`:
-- `[CITED]` -- empirical finding backed by a codebase `file:line` trace of the vulnerability (the trace IS the citation).
-- `[VERIFIED]` -- normative finding backed by an authoritative external source: OWASP Top 10 entry, CWE identifier, CVE advisory, Context7 framework docs, vendor security guide.
-
-If you cannot verify a normative claim via an external source AND cannot trace an empirical claim through code, do NOT include the finding. No pure-`[ASSUMED]` findings ship. The audit-finding-validator drops any finding whose Evidence Strength is missing or `[ASSUMED]`, so reporting them wastes pipeline cycles.
-
-Every finding you output MUST carry both `Evidence Strength:` and `Citation:` fields. See `skills/audit/SKILL.md` "Evidence Requirement (Drop Policy)" for full details.
+<!-- DROP-POLICY-START -->
+Vendor citation is the predominant evidence mode for security audit -- Security findings should predominantly cite OWASP / CWE / CVE / vendor security advisories. For any normative claim, you MUST consult Context7 (or vendor URL / OWASP / CWE / CVE / RFC / MDN) BEFORE flagging. Tag findings `[CITED]` or `[VERIFIED]`; pure-`[ASSUMED]` findings dropped by `audit-finding-validator`. See `skills/audit/SKILL.md` Evidence Requirement (Drop Policy).
+<!-- DROP-POLICY-END -->
 
 ## 5. Output
 

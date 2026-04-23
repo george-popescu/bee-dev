@@ -26,19 +26,15 @@ Read `.bee/false-positives.md` if it exists. Note all documented false positives
 
 ## 3. Evidence Requirement (Drop Policy)
 
-Vendor citation is the predominant mode of evidence for this agent's findings. For plan-compliance-reviewer, the spec.md, requirements.md, and TASKS.md ARE the authoritative sources -- spec/plan citations qualify as `[CITED]` (the spec IS the source).
-
-Classify each finding's Evidence Strength using the exact bracket notation from `agents/researcher.md:122-128`:
-- `[CITED]` -- empirical finding backed by a spec/plan file reference (e.g., `spec.md:42`, `TASKS.md:T1.3`) or a codebase `file:line` trace showing the implementation does not match. The spec/plan reference IS the citation.
-- `[VERIFIED]` -- normative finding backed by an authoritative external source (rare in this agent; may apply when citing a framework's documented behavior to prove a spec gap is infeasible by design).
-
-If you cannot cite a spec/plan reference or an external source AND cannot trace the mismatch through code, do NOT include the finding. No pure-`[ASSUMED]` findings ship. The finding-validator drops any finding whose Evidence Strength is missing or `[ASSUMED]`, so reporting them wastes pipeline cycles.
-
-Every finding you output MUST carry both `Evidence Strength:` and `Citation:` fields in BOTH code-review mode (SG / CI / OS entries) AND plan-review mode (G / P / D / O entries). See `skills/review/SKILL.md` "Evidence Requirement (Drop Policy)" for full details.
+<!-- DROP-POLICY-START -->
+Vendor citation is the predominant evidence mode for plan compliance — spec.md, requirements.md, and TASKS.md ARE the authoritative sources -- spec/plan citations qualify as `[CITED]` (the spec IS the source). For rare normative claims, cite the BeeDev template directly. Tag findings `[CITED]` or `[VERIFIED]`; pure-`[ASSUMED]` findings dropped by `finding-validator`. See `skills/review/SKILL.md` Evidence Requirement (Drop Policy).
+<!-- DROP-POLICY-END -->
 
 ---
 
 ## Code Review Mode
+
+<!-- Each finding entry below MUST carry Evidence Strength + Citation per skills/review/SKILL.md "Output Format" section. -->
 
 ### Step 3c: Read Spec and Acceptance Criteria
 
@@ -93,8 +89,7 @@ Output your findings in your final message using this format:
   - **Gap:** {what is missing or incorrect}
   - **Severity:** Critical | High | Medium
   - **Evidence:** [trace path, e.g., controller.ts:45 → service.ts:112 → repo.ts:78 (null not checked)]
-  - **Evidence Strength:** [CITED] | [VERIFIED]
-  - **Citation:** <spec.md:line | TASKS.md:T{N}.{M} | URL | codebase file:line>
+  - **Evidence Strength + Citation:** per `skills/review/SKILL.md` "Output Format" (`[CITED]` | `[VERIFIED]`)
   - **Impact:** [concrete user-facing consequence, e.g., "Crash when user has no profile"]
   - **Test Gap:** [missing test scenario, e.g., "No test covers null profile case"] or "Covered by test_name"
 
@@ -107,8 +102,7 @@ Output your findings in your final message using this format:
   - **Issue:** {what is broken or inconsistent}
   - **Severity:** Critical | High | Medium
   - **Evidence:** [trace path, e.g., controller.ts:45 → service.ts:112 → repo.ts:78 (null not checked)]
-  - **Evidence Strength:** [CITED] | [VERIFIED]
-  - **Citation:** <spec.md:line | TASKS.md:T{N}.{M} | URL | codebase file:line>
+  - **Evidence Strength + Citation:** per `skills/review/SKILL.md` "Output Format" (`[CITED]` | `[VERIFIED]`)
   - **Impact:** [concrete user-facing consequence, e.g., "Crash when user has no profile"]
   - **Test Gap:** [missing test scenario, e.g., "No test covers null profile case"] or "Covered by test_name"
 
@@ -120,8 +114,7 @@ Output your findings in your final message using this format:
   - **Extra feature:** {what was implemented beyond spec}
   - **Severity:** Medium
   - **Evidence:** [trace path, e.g., controller.ts:45 → service.ts:112 → repo.ts:78 (null not checked)]
-  - **Evidence Strength:** [CITED] | [VERIFIED]
-  - **Citation:** <spec.md:line | TASKS.md:T{N}.{M} | URL | codebase file:line>
+  - **Evidence Strength + Citation:** per `skills/review/SKILL.md` "Output Format" (`[CITED]` | `[VERIFIED]`)
   - **Impact:** [concrete user-facing consequence, e.g., "Crash when user has no profile"]
   - **Test Gap:** [missing test scenario, e.g., "No test covers null profile case"] or "Covered by test_name"
 
@@ -145,6 +138,8 @@ If the parent command provided a requirements.md path in the context packet, upd
 ---
 
 ## Plan Review Mode
+
+<!-- Each finding entry below MUST carry Evidence Strength + Citation per skills/review/SKILL.md "Output Format" section. -->
 
 ### Step 3p: Extract Spec Requirements
 
@@ -267,8 +262,7 @@ REQ-ID coverage check skipped -- no ROADMAP.md provided.
 - **Impact:** {what the user loses if this is not planned}
 - **Suggestion:** {what task to add or which existing task to expand}
 - **Evidence:** [trace path, e.g., controller.ts:45 → service.ts:112 → repo.ts:78 (null not checked)]
-- **Evidence Strength:** [CITED] | [VERIFIED]
-- **Citation:** <spec.md:line | requirements.md:R-### | URL | codebase file:line>
+- **Evidence Strength + Citation:** per `skills/review/SKILL.md` "Output Format" (`[CITED]` | `[VERIFIED]`)
 - **Test Gap:** [missing test scenario, e.g., "No test covers null profile case"] or "Covered by test_name"
 
 {Repeat for each gap. If no gaps: "No gaps found -- all requirements are covered."}
@@ -281,8 +275,7 @@ REQ-ID coverage check skipped -- no ROADMAP.md provided.
 - **Missing aspect:** {what part of the requirement is not addressed}
 - **Suggestion:** {how to close the gap}
 - **Evidence:** [trace path, e.g., controller.ts:45 → service.ts:112 → repo.ts:78 (null not checked)]
-- **Evidence Strength:** [CITED] | [VERIFIED]
-- **Citation:** <spec.md:line | requirements.md:R-### | URL | codebase file:line>
+- **Evidence Strength + Citation:** per `skills/review/SKILL.md` "Output Format" (`[CITED]` | `[VERIFIED]`)
 - **Test Gap:** [missing test scenario, e.g., "No test covers null profile case"] or "Covered by test_name"
 
 {If none: "No partial coverage issues found."}
@@ -295,8 +288,7 @@ REQ-ID coverage check skipped -- no ROADMAP.md provided.
 - **Plan says:** {what the task does differently}
 - **Suggestion:** {how to realign}
 - **Evidence:** [trace path, e.g., controller.ts:45 → service.ts:112 → repo.ts:78 (null not checked)]
-- **Evidence Strength:** [CITED] | [VERIFIED]
-- **Citation:** <spec.md:line | TASKS.md:T{N}.{M} | URL | codebase file:line>
+- **Evidence Strength + Citation:** per `skills/review/SKILL.md` "Output Format" (`[CITED]` | `[VERIFIED]`)
 - **Impact:** [concrete user-facing consequence, e.g., "Crash when user has no profile"]
 - **Test Gap:** [missing test scenario, e.g., "No test covers null profile case"] or "Covered by test_name"
 
@@ -309,8 +301,7 @@ REQ-ID coverage check skipped -- no ROADMAP.md provided.
 - **Not in spec:** {what capability goes beyond spec}
 - **Suggestion:** Remove or defer to a future phase
 - **Evidence:** [trace path, e.g., controller.ts:45 → service.ts:112 → repo.ts:78 (null not checked)]
-- **Evidence Strength:** [CITED] | [VERIFIED]
-- **Citation:** <spec.md:line | requirements.md:R-### | URL | codebase file:line>
+- **Evidence Strength + Citation:** per `skills/review/SKILL.md` "Output Format" (`[CITED]` | `[VERIFIED]`)
 - **Impact:** [concrete user-facing consequence, e.g., "Crash when user has no profile"]
 - **Test Gap:** [missing test scenario, e.g., "No test covers null profile case"] or "Covered by test_name"
 

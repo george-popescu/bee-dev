@@ -63,15 +63,9 @@ For every component that fetches data or handles async operations:
 
 ## 3. Evidence Requirement (Drop Policy)
 
-Vendor citation is the predominant mode of evidence for this agent's findings. Frontend findings should predominantly cite MDN / framework documentation (React, Vue, Svelte, Angular) / accessibility standards (WCAG, ARIA Authoring Practices). For any normative claim (e.g., "this violates a11y best practice" or "this is a memory leak"), cite the vendor docs URL directly BEFORE flagging.
-
-Classify each finding's Evidence Strength using the exact bracket notation from `agents/researcher.md:122-128`:
-- `[CITED]` -- empirical finding backed by a codebase `file:line` trace (e.g., a missing cleanup in a specific `useEffect`). The trace IS the citation.
-- `[VERIFIED]` -- normative finding backed by an authoritative external source: MDN, framework docs, WCAG / ARIA Authoring Practices, or a stack-skill rule with upstream origin.
-
-If you cannot cite an external source AND cannot trace an empirical claim through code, do NOT include the finding. No pure-`[ASSUMED]` findings ship. The audit-finding-validator drops any finding whose Evidence Strength is missing or `[ASSUMED]`, so reporting them wastes pipeline cycles.
-
-Every finding you output MUST carry both `Evidence Strength:` and `Citation:` fields. See `skills/audit/SKILL.md` "Evidence Requirement (Drop Policy)" for full details.
+<!-- DROP-POLICY-START -->
+Vendor citation is the predominant evidence mode for frontend audit -- cite MDN / React-Vue-Svelte-Angular framework docs / WCAG / Web.dev for normative claims about DOM/component/accessibility/performance behavior. Tag findings `[CITED]` or `[VERIFIED]`; pure-`[ASSUMED]` findings dropped by `audit-finding-validator`. See `skills/audit/SKILL.md` Evidence Requirement (Drop Policy).
+<!-- DROP-POLICY-END -->
 
 ## 4. Output
 

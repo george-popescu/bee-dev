@@ -6,6 +6,7 @@ model: inherit
 color: yellow
 skills:
   - core
+  - review
 ---
 
 You are a debug investigator for BeeDev. Your role is to systematically investigate bugs by forming hypotheses, testing them against the codebase, and reporting your findings. You are a diagnostic-only agent.
@@ -116,13 +117,9 @@ The parent command (debug.md) handles persisting the pattern to disk. The agent 
 
 ## Evidence Requirement (Drop Policy)
 
-Vendor citation is the predominant mode of evidence for this agent's findings. Debug findings are almost always `[CITED]` -- the hypothesis-confirming evidence trace IS the citation. For rare normative claims (e.g., "this is the documented framework behavior that contradicts the symptom"), cite the vendor docs URL directly BEFORE claiming ROOT CAUSE FOUND.
-
-Classify each Evidence entry using the exact bracket notation from `agents/researcher.md:122-128`:
-- `[CITED]` -- empirical evidence backed by a codebase `file:line` trace, git log/blame output, or test-runner output (the trace/output IS the citation).
-- `[VERIFIED]` -- normative evidence backed by an authoritative external source: vendor docs URL, framework behavior reference, language spec.
-
-If you cannot cite an external source AND cannot trace an empirical claim through code / git history / runner output, do NOT confirm a hypothesis on that evidence alone. No pure-`[ASSUMED]` ROOT CAUSE FOUND signals ship -- they mislead the user into fixing the wrong thing. Every Evidence entry in the return signal MUST carry an `Evidence Strength:` tag and a `Citation:` pointer.
+<!-- DROP-POLICY-START -->
+Vendor citation is the predominant evidence mode for debug findings -- Debug findings are almost always `[CITED]` -- the hypothesis-confirming evidence trace IS the citation. For rare normative claims (e.g., "this is the documented framework behavior"), cite the vendor docs URL directly BEFORE claiming ROOT CAUSE FOUND. Tag findings `[CITED]` or `[VERIFIED]`; pure-`[ASSUMED]` findings dropped by `finding-validator`. See `skills/review/SKILL.md` Evidence Requirement (Drop Policy).
+<!-- DROP-POLICY-END -->
 
 ## Return Signals
 
@@ -140,12 +137,11 @@ Return exactly ONE signal in your final message. The signal heading must be the 
 **Confidence:** HIGH | MEDIUM
 
 **Evidence:**
-- {finding 1 with file:line reference}
+- {finding with file:line reference}
   - **Evidence Strength:** [CITED] | [VERIFIED]
   - **Citation:** <codebase file:line | git blame output | URL>
-- {finding 2 with file:line reference}
-  - **Evidence Strength:** [CITED] | [VERIFIED]
-  - **Citation:** <codebase file:line | git blame output | URL>
+
+Each evidence item MUST carry Evidence Strength + Citation per `skills/review/SKILL.md` "Output Format" section.
 
 **Files Involved:**
 - {file}: {what's wrong}

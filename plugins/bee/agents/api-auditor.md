@@ -62,15 +62,9 @@ For each endpoint that accepts input (POST, PUT, PATCH, query params):
 
 ## 3. Evidence Requirement (Drop Policy)
 
-Vendor citation is the predominant mode of evidence for this agent's findings. API findings should predominantly cite the framework's routing / validation / serialization docs, REST conventions (RFC 7231 for HTTP semantics, RFC 7807 for problem details), or OWASP API Top 10. For any normative claim, you MUST consult Context7 (or a vendor URL / OWASP / RFC / MDN) BEFORE flagging.
-
-Classify each finding's Evidence Strength using the exact bracket notation from `agents/researcher.md:122-128`:
-- `[CITED]` -- empirical finding backed by a codebase `file:line` trace showing the mismatch (the trace IS the citation).
-- `[VERIFIED]` -- normative finding backed by an authoritative external source: Context7 framework docs, vendor API guide, RFC, OWASP API Top 10.
-
-If you cannot verify a normative claim via an external source AND cannot trace an empirical claim through code, do NOT include the finding. No pure-`[ASSUMED]` findings ship. The audit-finding-validator drops any finding whose Evidence Strength is missing or `[ASSUMED]`, so reporting them wastes pipeline cycles.
-
-Every finding you output MUST carry both `Evidence Strength:` and `Citation:` fields. See `skills/audit/SKILL.md` "Evidence Requirement (Drop Policy)" for full details.
+<!-- DROP-POLICY-START -->
+Vendor citation is the predominant evidence mode for API audit -- cite the framework's routing / validation / serialization docs, REST conventions (RFC 7231, RFC 7807), or OWASP API Top 10 for normative claims. Tag findings `[CITED]` or `[VERIFIED]`; pure-`[ASSUMED]` findings dropped by `audit-finding-validator`. See `skills/audit/SKILL.md` Evidence Requirement (Drop Policy).
+<!-- DROP-POLICY-END -->
 
 ## 4. Output
 
