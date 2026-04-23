@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "bee-dev",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Spec-driven development workflow plugins for Claude Code — includes the Bee Hive live dashboard with live agent activity feed for browsing phases, reports, hook events, and workflow state in a readable web UI",
   "owner": {
     "name": "Beecoded",
@@ -11,7 +11,7 @@
     {
       "name": "bee",
       "description": "Spec-driven development workflow with review gates, the Bee Hive local dashboard, and a live agent activity feed powered by Claude Code hooks — take features from idea to commit and watch tool calls stream in real time",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "author": {
         "name": "Beecoded"
       },

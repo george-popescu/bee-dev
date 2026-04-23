@@ -147,7 +147,10 @@ const AFL_AUTONOMOUS = ['ship.md', 'plan-all.md'];
 // Expected minimum number of skill references per command (one per primitive
 // applied). Some commands reference the skill more than once for the same
 // primitive (e.g. ship.md mentions Model Selection from multiple gate steps);
-// the assertion is a lower bound.
+// the assertion is a LOWER BOUND. If a future cleanup consolidates multiple
+// references to the same primitive into one, lower the corresponding number
+// here -- failure means the count dropped below this floor, NOT a regression
+// in primitive coverage. (T-003: documented the lower-bound semantics.)
 const MIN_REFERENCES = {
   'ship.md': 7,                   // VG, BTG-A, CC, SLR (via BTG), MSI, PSAR, AFL
   'review.md': 5,                 // VG, BTG-I, CC, MSI, PSAR
@@ -318,10 +321,11 @@ for (const rel of MSI_REASONING) {
 
   // Multi-line prose form must not appear either (the F-002 form: a paragraph
   // spelling out "Economy mode (...): Pass model: \"sonnet\" ..." followed by
-  // "Quality or Premium mode (default): Omit ...").
+  // "Quality or Premium mode (default): Omit ..."). Case-insensitive (T-002)
+  // to also catch lowercase variants like `**economy mode**`.
   const multiLine = countMatches(
     content,
-    /Economy mode[\s\S]{0,300}Quality or Premium mode/g
+    /Economy mode[\s\S]{0,300}Quality or Premium mode/gi
   );
   assert(
     multiLine === 0,
