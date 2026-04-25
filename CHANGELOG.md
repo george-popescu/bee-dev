@@ -4,6 +4,69 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.3.0] - 2026-04-26 -- Agent Teams + Scoped Per-Wave Test Validation
+
+### Added
+- **Agent Teams integration** (experimental, Claude Code v2.1.32+) — bee can now spawn peer-to-peer teams instead of subagents for cross-layer review, scientific-debate debugging, cross-stack architectural planning, and audit domain split. New skills: `agent-teams/` (pre-flight, probe, CLAUDE.md bridge), `team-decisions/` (5-axis weighted scorer, hard constraints, threshold map), `team-templates/` (4 reusable spawn patterns).
+- **Auto-Mode Marker primitive** in `skills/command-primitives/SKILL.md` — single source of truth for the auto-run lifecycle marker (`.bee/.autonomous-run-active`). Used by `/bee:ship`, `/bee:plan-all`, `/bee:autonomous`. File-existence is the sole detection signal — no PID, no nonce. Cleanup is unconditional on success and every error-exit branch.
+- **Scoped per-wave test validation** in `/bee:execute-phase` Step 5d.0 — instead of running the full suite after every wave, runs only tests affected by the wave's changed files. New `Scoped Test Selection` primitive in `skills/command-primitives/SKILL.md` with per-runner table (vitest/jest native `--findRelatedTests`; pest/phpunit/pytest filename heuristic with composer.json psr-4 source-root detection; pytest src-layout uses `-k` form). New `phases.post_wave_validation: "auto" | "full" | "scoped" | "skip"` config (default `auto`).
+- **Mandatory phase-end full validation** at `/bee:execute-phase` Step 5f — runs the FULL suite + linter + static analysis ONCE before marking phase EXECUTED. Always runs regardless of per-wave mode (the safety net for anything scoping missed). User prompted on failure with Pause / Retry / Mark anyway / Custom; result persisted to metrics + SUMMARY.md.
+- **Linter file-extension mapping table** in `Stack/Linter/Test-Runner Resolution` primitive — covers pint, eslint, prettier, biome, phpcs, phpcbf, ruff, black, flake8. Enforces empty-list skip-with-log to prevent linters from scanning the entire project on waves that touched no matching files.
+- **3 new stack-aware agents** for `laravel-inertia-react`: `bug-detector.md`, `implementer.md`, `pattern-reviewer.md`. Cloned from the laravel-inertia-vue stack and adapted for React 19 patterns + laravel-boost MCP for backend ops.
+- **PID-aware auto-mode marker conventions** in `commands/ship.md`, `commands/plan-all.md`, `commands/autonomous.md` — three new markers (`.bee/.autonomous-run-active`, `.bee/.autonomous-team-spawned`, `.bee/.autonomous-team-claimed`) with documented sentinel-cleanup-on-failure contract in `skills/team-decisions/SKILL.md`.
+- **TaskCompleted + TeammateIdle hooks** (`scripts/team-task-validator.sh`, `scripts/team-idle-validator.sh`) — enforce `## Task Notes` + deliverable-signature contracts on team teammates. Probe-team disambiguation by transcript-content match (the probe asks a unique TDD question), robust against orphaned probe directories.
+- **`agent_teams` config block** added to `init.md` schema with 11 fields including `status`, `allow_in_auto_mode`, `auto_decision`, `high_cost_confirm`, `skill_injection`, `max_team_size`, `max_tokens_per_team_op` (adaptive per `implementation_mode`: 2.4M premium / 1.2M quality / 600K economy).
+- **Re-init migrations** for both `phases.post_wave_validation` (default `"auto"`) and `agent_teams` (with semver version comparison + JSONC guard + post-write verification).
+
+### Changed
+- **`skills/core/SKILL.md` TDD applicability** clarified — TDD applies to business logic, not infrastructure boilerplate (migrations, factories, route registration). Worked PHP example added; anti-narration rule with aligned DON'T tokens added across 5 implementer agents.
+- **`commands/audit.md` team path** now stamps `Validation: REAL BUG (in-team cross-evaluation)` + `Fix Status: pending` on every finding before handoff to `/bee:fix-implementation`. Without these stamps, fix-implementation's filter silently dropped team-produced audit findings.
+- **`commands/fix-implementation.md` finding-ID regex** generalized to `### ([A-Z]+-)+[0-9]+` — covers multi-segment audit prefixes (`F-SEC-NNN`, `F-DB-NNN`, `F-API-NNN`, `F-FE-NNN`, `F-PERF-NNN`, `F-ARCH-NNN`, `F-ERR-NNN`, `F-INT-NNN`, `F-BUG-NNN`, `F-TEST-NNN`). The previous `[A-Z]+-NNN` pattern only matched 2-segment IDs.
+- **`commands/health.md`** added Check 14 (orphan team detection); history schema, baseline, display, summary all updated 13 → 14.
+- **`commands/do.md`** routing now recognizes `audit/review/swarm/trimite o echipă` and routes to the appropriate team-aware command instead of dispatching subagents manually.
+- **`scripts/load-context.sh`** caps COMPACT-CONTEXT.md and SESSION-CONTEXT.md at 100 lines (-65% session bloat); `shopt -s nullglob` added for safer glob expansion.
+- **Hook timeouts** for TaskCompleted + TeammateIdle raised from 10s to 30s to match peer transcript-validating hooks.
+- Plugin version: 4.2.0 -> 4.3.0
+- Marketplace version: 1.6.0 -> 1.7.0
+
+### Fixed
+- **Auto-mode PID-match self-identification was unreachable** (Bash tool spawns a fresh shell per invocation, so `$$` captured at marker-write never coincided with `$$` at marker-read). The cross-session warning fired on every legitimate auto-run. Replaced with file-existence detection.
+- **Probe-team validator coexistence** — when both probe and real bee teams existed, the directory-presence check exited 0 globally and skipped validation for real-team teammates too. Switched to per-teammate transcript-content detection.
+- **`init.md` semver compare** crashed under `set -e` when `claude --version` returned empty/non-standard output. Added empty-version guard with explicit "unavailable" status.
+- **`init.md` adaptive ceiling** — JSON templates hardcoded `4000000`/`1200000` literals contradicting the documented adaptive rule. Replaced with `{adaptive_ceiling}` placeholder + explicit substitution step.
+- **`team-idle-validator.sh` deliverable regex** missed `## Bugs Detected`, `## Stack Best Practice Violations`, `## Plan Compliance Findings`, audit summaries, debug `CHECKPOINT REACHED`/`INVESTIGATION INCONCLUSIVE`, and pattern/stack `Total: N deviations|violations` summary lines. Expanded to cover all documented agent contracts in hooks.json.
+- **Sentinel cleanup-on-failure contract** specified in `skills/team-decisions/SKILL.md` — partial-failure path now releases `.autonomous-team-claimed` so subsequent team-eligible operations don't fall back to subagent for the rest of the run.
+- **`pest --parallel` + positional files doesn't scope** (paratest discovers via phpunit.xml testsuites, ignoring positional args). `--parallel` removed from scoped pest/phpunit templates; reserved for phase-end full suite.
+- **Step 3 fast-path bypassed Step 5f safety net** when re-running after a Step 5f Pause + manual fix. Step 3 now falls through to Step 5f when all tasks complete but status is not yet EXECUTED. Variables Step 5 normally seeds (`$FAILURE_TYPE_COUNTS`, `$ESCALATION_COUNT`, `per_wave`) are explicitly initialized on the fast-path so Step 6b doesn't write `undefined` into the metrics file.
+- **Empty linter file-list scanned entire project** (pint, eslint, prettier all default to "scan everything" with no positional args). Empty-list skip-with-log added.
+- **Shell injection on space-containing paths** — all interpolations in primitive command templates now shell-quoted.
+- **Per-stack iteration unspecified** — concurrent stacks spawned 2N+ test workers competing on N cores. Both Step 5d.0 and Step 5f now explicitly say "executed sequentially".
+- **Path normalization order** in Scoped Test Selection documented as load-bearing: existence filter → heuristic mapping → stack-relative rewrite LAST.
+- **Re-init migration handles `phases: null`** distinctly from `phases: missing`.
+
+### Reviews
+4-round review loop (`.bee/reviews/2026-04-26-1.md`, `.bee/reviews/2026-04-26-2.md`, `.bee/reviews/2026-04-26-3.md`): Round 1 surfaced 25 findings (4 Critical, 6 High, 15 Medium); Round 2 surfaced 13 NEW issues introduced by Round 1 fixes; Round 3 caught a metrics-corruption regression from the Round 2 fast-path fix; Round 4 returned 0 findings, terminating the loop. 2 false positives persisted to `.bee/false-positives.md` (FP-001 STACKS_COUNT misread; FP-002 POSIX `[ ` is repo convention).
+
+## [4.2.0] - 2026-04-23 -- Command Primitives Skill (Token-Optimization Pass)
+
+### Added
+- **`skills/command-primitives/SKILL.md`** — 7 reusable primitives (Validation Guards, Build & Test Gate, Context Cache, Stack/Linter/Test-Runner Resolution, Model Selection, Per-Stack Agent Resolution, Auto-Fix Loop, Re-Review Loop) with 3 split variants (Build & Test Gate Interactive/Autonomous, Auto-Fix Loop Quick/Full, Model Selection Reasoning/Scanning). 10 sections total.
+- **171 paired-contract test assertions** (`scripts/tests/command-primitives.test.js`) verifying primitive ↔ caller invocation contract for every reference site.
+
+### Changed
+- **8 commands refactored** to reference command-primitives sections instead of inlining: `/bee:review`, `/bee:review-implementation`, `/bee:quick`, `/bee:audit`, `/bee:swarm-review`, `/bee:execute-phase`, `/bee:plan-all`, `/bee:plan-phase`.
+- **Path-flatten sweep** across 9 files: 16 instances of `plugins/bee/` prefix removed from skill/agent/command refs (skill/agent/command paths are now relative to plugin root).
+- **Skill namespace flatten** `skills/bee/` → `skills/`.
+- **Pre-commit gate robustness** improved (config-driven case statement removed in favor of hard-coded whitelist).
+- Plugin version: 4.1.0 -> 4.2.0
+- Marketplace version: 1.5.0 -> 1.6.0
+
+### Fixed
+- 5 review findings surfaced during the refactor: review.md REVIEWING resume, multi-line MSI prose collapsed in 4 commands, test banner normalized, namespace flatten, plan-all cross-plan AFL collapsed.
+
+### Tests
+Final test counts: command-primitives 171/171 + vendor-citation 366/366 + agent-output-format 46/46 + quick-implementer-agent 35/35 = 618/618 passing.
+
 ## [4.1.0] - 2026-04-17 -- Vendor Citation Contract (Anti-Hallucination Guard)
 
 ### Added

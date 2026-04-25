@@ -132,6 +132,40 @@ Bee supports Claude Code Agent Teams (v2.1.32+, requires `CLAUDE_CODE_EXPERIMENT
 
 See `skills/team-decisions/SKILL.md` for full scoring rules, `skills/agent-teams/SKILL.md` for skill bridge mechanism, `skills/team-templates/SKILL.md` for spawn prompt patterns.
 
+### Per-Wave Test Scoping (`/bee:execute-phase`, `/bee:quick`)
+
+After each wave, `/bee:execute-phase` runs **only the tests affected by the wave's changed files** instead of the full suite. Same primitive (`Scoped Test Selection`) is available to `/bee:quick`. Phase-end full suite always runs as the safety net before the phase is marked EXECUTED.
+
+**Per-runner behavior:**
+
+| Runner | Scoping mechanism |
+|---|---|
+| vitest | Native `vitest related --run` (import-graph) |
+| jest | Native `jest --findRelatedTests` (import-graph) |
+| pest / phpunit | Filename heuristic (composer.json psr-4 source-root → `{Basename}*Test.php` matches) |
+| pytest | Filename heuristic; `-k` form on src-layout |
+| `none` / unsupported | Falls back to full suite |
+
+**Config knob:** `phases.post_wave_validation` in `.bee/config.json`:
+
+| Value | Behavior |
+|---|---|
+| `auto` (default) | Scoped where supported, full elsewhere |
+| `full` | Always full (legacy behavior) |
+| `scoped` | Always scoped, skip-with-warn if runner unsupported |
+| `skip` | No per-wave tests; phase-end full suite is sole validation |
+
+**When to suggest changing it:**
+- Suite slow + runner supports scoping → leave `auto` (default)
+- Suite very slow AND many waves AND user accepts deferred fail-detection → `skip` (rely entirely on phase-end safety net)
+- Suite small (< 30s full run) → `full` (no scoping overhead worth it)
+
+**Anti-patterns:**
+- Don't promise users a specific speedup percentage — depends entirely on suite size + wave file count
+- Don't disable the phase-end safety net (it always runs regardless of `post_wave_validation`)
+
+See `skills/command-primitives/SKILL.md` Scoped Test Selection for the per-runner command templates and the heuristic mapping rules.
+
 ### Session Management
 | Intent | Command |
 |--------|---------|

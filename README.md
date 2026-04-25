@@ -39,7 +39,7 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 /bee:hive            # Open the live web dashboard at http://localhost:3333
 ```
 
-## Commands (49)
+## Commands (50)
 
 ### Setup & Navigation
 | Command | Description |
@@ -166,7 +166,7 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 /bee:health                           # 13-check project health with trend detection
 ```
 
-## Agents (39)
+## Agents (42)
 
 | Category | Count | Agents |
 |----------|-------|--------|
@@ -180,7 +180,7 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 | Infrastructure | 4 | assumptions-analyzer, dependency-auditor, integration-checker |
 | Stack-Specific | 3 | laravel-inertia-vue-implementer, laravel-inertia-vue-bug-detector, laravel-inertia-vue-pattern-reviewer |
 
-## Skills (41)
+## Skills (45)
 
 | Category | Skills |
 |----------|--------|
@@ -271,7 +271,7 @@ Three modes control cost and speed via model selection:
 
 Set via `config.implementation_mode` in `.bee/config.json`.
 
-## Hooks (8 events, 27 validators)
+## Hooks (11 events, 42 validators)
 
 - **SessionStart** -- Load project context + configure honeycomb statusline
 - **PostToolUse** -- Auto-lint after file edits
@@ -330,7 +330,11 @@ The server is a zero-dependency Node.js HTTP server under `plugins/bee/scripts/h
 
 ## Scoped Testing
 
-Parallel implementer agents run ONLY their task-specific tests. The conductor validates the full suite, linter, and static analysis once per wave after all agents complete. This eliminates resource contention and reduces wave execution time by ~70%.
+Parallel implementer agents run ONLY their task-specific tests. After each wave, the conductor runs **scoped post-wave validation** — only tests affected by the wave's changed files (vitest/jest native `--findRelatedTests`; pest/phpunit/pytest filename heuristic with composer.json psr-4 source-root detection). Configurable via `phases.post_wave_validation: "auto" | "full" | "scoped" | "skip"` (default `auto`). A mandatory full-suite pass runs at phase end before the phase is marked EXECUTED — catches anything the heuristic missed.
+
+## Agent Teams (experimental)
+
+Bee can spawn peer-to-peer Claude Code Agent Teams instead of subagents for cross-layer review, scientific-debate debugging, cross-stack architectural planning, and audit domain split. Requires Claude Code v2.1.32+ and the `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` env var. Bee auto-decides per-command via a 5-axis weighted scorer (hypothesis breadth, cross-layer coverage, independence, uncertainty, stakes); cost ceiling is adaptive per `implementation_mode` (2.4M tokens premium / 1.2M quality / 600K economy). One team per autonomous run is enforced via marker files. `/bee:init` and `/bee:update` detect availability and prompt opt-in. See `skills/agent-teams/`, `skills/team-decisions/`, `skills/team-templates/`.
 
 ## Requirements
 
