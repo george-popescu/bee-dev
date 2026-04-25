@@ -154,7 +154,8 @@ Implement the task directly. Follow these rules:
 2. **Use the project's stack conventions.** Check `config.json` for the configured stacks. Determine which stack the modified files belong to by comparing file paths against each stack's `path` (a file matches a stack if its path starts with or is within the stack's path; `"."` matches everything). If unclear, use the first stack (`stacks[0]`). Follow the standards for that stack.
 3. **Keep it small.** Quick tasks should touch a few files at most. If the task grows beyond ~5 files, suggest the user run `/bee:new-spec` instead.
 4. **Resolve per-stack linter.** For the relevant stack, resolve the linter: read `stacks[i].linter` first, fall back to root `config.linter` if absent, then `"none"`. If a linter is configured, run it on modified files after implementation scoped to the stack's path.
-5. **Run tests if relevant.** If you modified code that has existing tests, resolve the test runner for the relevant stack: read `stacks[i].testRunner` first, fall back to root `config.testRunner` if absent, then `"none"`. Run the test suite scoped to the stack's path to verify nothing broke.
+5. **Track `$CHANGED_FILES`.** Maintain a running list of every file path you Write or Edit in this turn — this is `$CHANGED_FILES`. If git is available, `git status --porcelain` is the canonical fallback at the end.
+6. **Run tests if relevant.** Use `skills/command-primitives/SKILL.md` Scoped Test Selection per stack with `$CHANGED_FILES`, `$MODE = "auto"`. Falls back to the full-stack command via Build & Test Gate when the primitive returns `null`.
 
 After implementation, present a summary:
 

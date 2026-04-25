@@ -54,6 +54,11 @@ If the dynamic context above does NOT contain `NO_EXISTING_CONFIG` (meaning `.be
   1. Add `"adaptive": { "learning": true, "escalation": true }` to the config
   2. Add to migration summary: "Added adaptive learning configuration"
 
+- **Phases.post_wave_validation migration check:**
+  1. If `config.phases` is a non-null object that does NOT contain a `post_wave_validation` key: add `"post_wave_validation": "auto"` to the existing `phases` block (preserve `require_review_before_next` and any other existing phases keys).
+  2. If `config.phases` is missing entirely OR is `null` (key exists but value is null — possible from hand-edits or older bee versions): replace it with the full default `{ "require_review_before_next": true, "post_wave_validation": "auto" }`.
+  3. Add to migration summary: "Added phases.post_wave_validation = \"auto\" (per-wave tests will be scoped where supported; phase-end full suite always runs as safety net)"
+
 - Proceed through detection steps below but only update `.bee/config.json` values (stacks, per-stack linter/testRunner, ci).
 - Do NOT overwrite `.bee/STATE.md`, `.bee/specs/`, or any other existing state files.
 - Verify the global statusline is installed (Step 5) and clean up any legacy local copies.
@@ -336,7 +341,8 @@ The `stacks` array contains one entry per each confirmed stack-path pair from St
     "max_loop_iterations": 3
   },
   "phases": {
-    "require_review_before_next": true
+    "require_review_before_next": true,
+    "post_wave_validation": "auto"
   },
   "ship": {
     "max_review_iterations": 3,
@@ -394,6 +400,13 @@ The `stacks` array contains one entry per each confirmed stack-path pair from St
 | `declined_at_cc_version` | `null` | If user declined, record CC version so `/bee:update` can re-prompt on upgrade. `null` means unrecorded — `/bee:update` backfills it on first detection. |
 | `metrics` | `{}` (zeros) | Telemetry counters incremented by team operations. Read by `bee:health` for tuning thresholds. |
 
+**`phases` field reference:**
+
+| Field | Default | Purpose |
+|---|---|---|
+| `require_review_before_next` | `true` | Block phase N+1 execution until phase N has `Reviewed: Yes`. Set `false` to allow back-to-back execution without reviews (not recommended). |
+| `post_wave_validation` | `"auto"` | Per-wave test scope strategy in `/bee:execute-phase` post-wave validation. `auto` = scoped where supported, full elsewhere. `full` = always full. `scoped` = scoped only, skip-with-warn if unsupported. `skip` = no per-wave tests; phase-end full suite is sole validation. Phase-end full suite ALWAYS runs regardless of this value. See `skills/command-primitives/SKILL.md` Scoped Test Selection for per-runner behavior. |
+
 **Substitute `{adaptive_ceiling}`** in both single-stack and multi-stack JSON templates above with the integer computed from `implementation_mode` (Step 3.7 step 5):
 - `premium` → `2400000`
 - `quality` → `1200000`
@@ -422,7 +435,8 @@ The placeholder must be replaced with a bare integer (no quotes) before writing 
     "max_loop_iterations": 3
   },
   "phases": {
-    "require_review_before_next": true
+    "require_review_before_next": true,
+    "post_wave_validation": "auto"
   },
   "ship": {
     "max_review_iterations": 3,

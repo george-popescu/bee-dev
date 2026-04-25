@@ -85,9 +85,13 @@ Used by `/bee:ship`, `/bee:plan-all`, `/bee:autonomous` to flag an autonomous
 run in progress so downstream commands (`/bee:plan-phase`, agent-team
 decision logic) can detect auto-mode and enforce the one-team-per-run cap.
 
-**Composition syntax used by commands:** `Apply: AUTO_MODE_MARKER` at Step 1
-(after Validation Guards). The cleanup step is named in the command's exit
-section (typically the final step + any error-exit branch).
+**Caller pattern:** `See \`skills/command-primitives/SKILL.md\` Auto-Mode
+Marker.` at Step 1 (after Validation Guards), followed by a one-line note
+identifying the cleanup site (`Setup at start of this step; cleanup runs
+at Step N completion AND on any error exit.`). The `Apply:` composition
+syntax is reserved for stop-on-fail guard chains (Validation Guards) —
+Auto-Mode Marker is a setup/teardown lifecycle that always runs, so it
+doesn't fit the guard-chain semantics.
 
 ### Setup (at command start)
 
@@ -127,6 +131,157 @@ until the user runs another auto-command (which cleans up at end) or removes
 it manually. The user-facing trade-off (occasional stale-marker cleanup) is
 acceptable because the previous PID-based detection was always-broken
 (every Bash tool call gets a fresh shell PID).
+
+## Scoped Test Selection
+
+Used by `/bee:execute-phase` (post-wave validation) and `/bee:quick`
+(post-implementation validation) to run **only the tests affected by
+changed files** instead of the entire suite. Useful for large suites
+(5K+ tests) where individual waves or quick tasks often touch 1-2 files.
+`/bee:execute-phase` runs a phase-end full suite afterwards as a safety
+net for anything the heuristic misses (see that command's phase-end
+validation step).
+
+**Caller pattern:** `See \`skills/command-primitives/SKILL.md\` Scoped
+Test Selection.` followed by an `Inputs: ...` line. The primitive returns
+either a shell command string (already shell-quoted) or `null` (caller
+logs and skips this stack). The `Apply:` composition syntax is reserved
+for stop-on-fail guard chains (Validation Guards) and is not used here.
+
+**Inputs:**
+- `$STACK` — one entry from `config.stacks` (with `name`, `path`,
+  `testRunner`).
+- `$CHANGED_FILES` — list of file paths modified in the wave (repo-relative,
+  not absolute). Extracted by the conductor from each completed task's
+  `notes:` `files:` field in TASKS.md (per the implementer Task Notes
+  contract: `T{ID} {STATUS} | files: a,b,c | tests: N/M | blocker: ...`).
+- `$MODE` — `auto` | `full` | `scoped` | `skip` (from
+  `config.phases.post_wave_validation`; defaults to `auto` when key is
+  missing).
+
+**Output:** a runner-specific shell command (with all interpolations
+shell-quoted), or `null` (caller skips this stack with a log).
+
+### Multi-stack file routing (longest-prefix-wins)
+
+Before per-stack filtering, route each file to ONE stack:
+- For each file, compare against every `stack.path` in `config.stacks`.
+  The file maps to the stack with the **longest** matching path prefix
+  (`frontend/Foo.tsx` maps to stack `frontend` even when stack `.` exists).
+- A stack with `path: "."` is the catch-all only for files NOT owned by a
+  more-specific sibling stack.
+- After routing, filter `$CHANGED_FILES` to the subset routed to `$STACK`.
+  If the filtered list is empty, return `null` (no relevant files in this
+  stack).
+
+### Mode behavior
+
+| Mode | Behavior |
+|---|---|
+| `skip` | Return `null`. No per-wave test run. Phase-end full suite is the sole validation. |
+| `full` | Return the full-suite command (no scoping). |
+| `scoped` | Return scoped command if runner supports it; `null` (with warning) if not. |
+| `auto` (default) | Return scoped command if runner supports it; full-suite command otherwise. |
+
+### Path normalization (apply in this exact order — order is load-bearing)
+
+1. **Existence filter (operates on REPO-RELATIVE paths):** drop entries
+   from the routed list that don't exist on disk (`test -e <repo-relative-path>`).
+   This handles deletions in the wave: vitest errors on missing paths,
+   jest silently returns zero, pytest errors with
+   `ImportPathMismatchError`. Logged as `"Skipped {N} deleted files for
+   {stack.name}"` if any were dropped.
+2. **Heuristic mapping (operates on REPO-RELATIVE paths):** if this is a
+   `pest` / `phpunit` / `pytest` stack, run the heuristic filename mapping
+   (next sub-section) to expand source files into matching test files.
+   Mapping consumes and produces repo-relative paths. The `find` invocation
+   uses `find "{stack.path}/tests" ...` so its results are
+   repo-relative.
+3. **Stack-relative rewrite (LAST, just before command construction):**
+   for runners that `cd` into `$STACK.path`, strip the `$STACK.path/`
+   prefix from each file in the final list (whether it came from the
+   routed source-file list or from the heuristic `find` output). Example:
+   `backend/tests/Feature/UserTest.php` → `tests/Feature/UserTest.php`
+   when `$STACK.path == "backend"`. When `$STACK.path == "."`, no
+   rewrite. The runner is invoked from inside `$STACK.path` and resolves
+   paths relative to its cwd, so rewritten paths are correct.
+4. **Shell-quote** every interpolation: stack path, file paths, and any
+   value spliced into a shell command. Stack paths and file paths are
+   user-supplied free text and may contain spaces or characters interpreted
+   as flags.
+
+### Per-runner scoped command
+
+| Runner | Scoping mechanism | Command template |
+|---|---|---|
+| `vitest` | Native (import-graph) | `cd "{stack.path}" && npx vitest related --run -- {quoted_files...}` |
+| `jest` | Native (import-graph) | `cd "{stack.path}" && npx jest --findRelatedTests -- {quoted_files...}` |
+| `pest` | Heuristic (filename mapping — see below) | `cd "{stack.path}" && ./vendor/bin/pest -- {quoted_test_files...}` |
+| `phpunit` | Heuristic (filename mapping) | `cd "{stack.path}" && ./vendor/bin/phpunit -- {quoted_test_files...}` |
+| `pytest` | Heuristic (filename mapping); `-k` mode for src-layout | `cd "{stack.path}" && pytest -- {quoted_test_files...}` OR `cd "{stack.path}" && pytest -k "{basenames_pipe_joined}"` |
+| `none` | N/A | `null` (skip) |
+| Anything else | Unsupported | `auto` → return full command (per Build & Test Gate); `scoped` → return `null` + warn |
+
+**Important pest/phpunit caveat:** do **NOT** include `--parallel` in
+scoped runs. paratest (which `pest --parallel` and `phpunit --parallel`
+delegate to) discovers tests via `phpunit.xml` testsuites, not positional
+file arguments — combining `--parallel` with positional paths either
+silently runs the full suite or errors. Reserve `--parallel` for the
+phase-end full-suite run via Build & Test Gate.
+
+**pytest src-layout detection:** if `$STACK.path` (or repo root if `path
+== "."`) contains both `src/` and `pyproject.toml`, treat as src-layout
+and use the `-k "{basenames_pipe_joined}"` form (pytest filters tests by
+node-id pattern, avoiding ImportPathMismatchError on src-layout). Else use
+the positional form.
+
+### Heuristic filename mapping (pest / phpunit / pytest)
+
+Source-root detection (apply per stack before mapping):
+1. If `composer.json` is present at `$STACK.path/composer.json`, parse
+   `autoload.psr-4` for the project's source-root prefix(es) (e.g.,
+   `"App\\": "app/"` → source root `app/`).
+2. Else fall back to checking, in order: `app/`, `src/`, `lib/`. First
+   directory that exists wins.
+3. If none exist, treat all source files as "outside source root" (skip
+   per the rule below; phase-end full suite catches them).
+
+For each entry in the routed-and-existence-filtered list (still
+repo-relative at this point):
+- **If the path is already a test file** (matches
+  `{stack.path}/tests/**/*.php`, `{stack.path}/**/test_*.py`, or
+  `{stack.path}/**/*_test.py`), include it verbatim (still repo-relative)
+  in `$test_files`. The stack-relative rewrite step will strip the
+  `{stack.path}/` prefix later.
+- **If the path is a source file under the detected source root:** extract
+  the basename without extension (`app/Models/User.php` → `User`); find
+  matching test files **with required `Test` suffix** (avoids
+  over-inclusion of `UserFactoryTest.php` when only `User.php` changed —
+  but still permits intentional naming like `UserApiControllerTest.php`
+  for `UserApiController.php`):
+  - PHP (pest/phpunit): `find "{stack.path}/tests" -type f -name '{Basename}Test.php' -o -name '{Basename}*Test.php'`
+  - Python positional: `find "{stack.path}" -type f \( -name 'test_{basename}.py' -o -name '{basename}_test.py' \)`
+  - Python `-k` mode (src-layout): collect basenames into a pipe-joined
+    string for `pytest -k "Foo|Bar|Baz"`.
+  - Add every match to `$test_files`.
+- **If the path is outside the detected source root** (configs, migrations,
+  routes, view templates): skip — phase-end full suite catches these.
+
+Deduplicate `$test_files`. If empty after mapping, return `null` (no
+matched tests; the wave touched only non-source files).
+
+### Coverage gap
+
+The heuristic misses tests that don't follow filename conventions — e.g.,
+an `OrderFlowTest.php` testing `app/Models/User.php` won't match the `User`
+basename. The stricter `*Test.php` suffix requirement reduces false
+positives but doesn't fully eliminate missed-test risk for cross-cutting
+flows. **This is acceptable because `/bee:execute-phase`'s phase-end
+validation runs the full suite before marking the phase EXECUTED.** Per-wave
+scoped + phase-end full trades a small loss of "fail-fast at wave
+boundary" for proportional savings on the wave loop (varies by suite size
+and wave file count — measure on your project, don't extrapolate from
+generic claims).
 
 ## Build & Test Gate (Interactive)
 
@@ -220,6 +375,22 @@ test runner.
 
 When `"none"`, skip the run for that stack with the message
 `"{linter|tests}: {stack.name}: skipped (no {linter|test runner} configured)"`.
+
+**Linter file-extension mapping** (use when scoping a linter run to changed
+files — callers MUST filter the input file list to these extensions before
+invoking the linter; if the filtered list is empty, skip with log rather
+than invoking with no positional args, which causes pint/eslint/prettier
+to scan the entire project):
+
+| Linter | Extensions |
+|---|---|
+| `pint` | `.php` |
+| `eslint` | `.js`, `.jsx`, `.ts`, `.tsx`, `.mjs`, `.cjs` |
+| `prettier` | `.js`, `.jsx`, `.ts`, `.tsx`, `.mjs`, `.cjs`, `.json`, `.css`, `.scss`, `.less`, `.html`, `.vue`, `.yaml`, `.yml`, `.md` |
+| `biome` | `.js`, `.jsx`, `.ts`, `.tsx`, `.json` |
+| `phpcs` / `phpcbf` | `.php` |
+| `ruff` / `black` / `flake8` | `.py` |
+| Anything else | Caller must enumerate or fall back to "no extension filter — invoke at full scope" |
 
 **Path-overlap matching:** when a command needs to map an arbitrary file
 path to a stack entry, compare the file path against each stack's `path`. A

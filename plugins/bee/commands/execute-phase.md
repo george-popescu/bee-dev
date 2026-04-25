@@ -59,7 +59,11 @@ Check these guards in order. Stop immediately if any fails:
    - `[ ]` = pending (needs execution)
    - `[FAILED]` = previously failed (skip, alert user about prior failure)
 4. Identify the first wave with any pending `[ ]` tasks -- this is the resume point
-5. If ALL tasks are `[x]` (all complete): check if STATE.md shows EXECUTED for this phase. If not, update STATE.md Status to EXECUTED and tell user: "All tasks already complete. Phase {N} marked as EXECUTED." Stop. If already EXECUTED, tell user: "Phase {N} is already fully executed." Stop.
+5. If ALL tasks are `[x]` (all complete):
+   - If STATE.md shows the phase Status is `EXECUTED` (or beyond): tell user "Phase {N} is already fully executed." Stop.
+   - If STATE.md does NOT yet show EXECUTED: **fall through to Step 5f** (skip the wave loop, since there are no pending tasks to execute, but DO run the phase-end validation safety net before marking EXECUTED). This handles the "user paused at Step 5f, fixed failures externally, marked tasks complete, re-runs to finalize" flow — the safety net must validate the manual fix before EXECUTED is set. Display: "All tasks complete. Running phase-end validation before marking EXECUTED..."
+
+     **Initialize Step 5 variables BEFORE jumping to Step 5f** (Step 5 itself is skipped on this path, but Step 6b reads variables Step 5 normally seeds): set `$FAILURE_TYPE_COUNTS` from the preserved `execution.failure_types` in the existing metrics JSON (Step 4b's preservation contract — values from a prior partial run survive resume); set `$ESCALATION_COUNT = 0`; set `per_wave = []`. Without this initialization, Step 6b would write `undefined` for these fields and corrupt the metrics file.
 
 Display resume status to the user:
 - Fresh start: "Starting phase {N} execution: {X} tasks in {Y} waves"
@@ -104,7 +108,8 @@ This checkpoint-based resume is the crash recovery mechanism. If the session end
     "deviation_fixes": 0,
     "model_escalations": 0,
     "failure_types": { "transient": 0, "persistent": 0, "architectural": 0 },
-    "per_wave": []
+    "per_wave": [],
+    "phase_end_validation": null
   },
   "review": null
 }
@@ -320,38 +325,52 @@ Note: Cascading failure detection runs AFTER all retries are exhausted and AFTER
 
 **5d. After all agents in the wave complete:**
 
-**5d.0. Post-wave full validation (ONCE per wave):**
+**5d.0. Post-wave validation (scoped by default, ONCE per wave):**
 
-Since agents run ONLY their task-specific tests during TDD (to avoid resource contention), the conductor runs the full validation suite ONCE after all agents in the wave complete:
+Since agents run ONLY their task-specific tests during TDD (to avoid resource contention), the conductor runs validation ONCE after all agents in the wave complete. **Tests are scoped to files actually touched in the wave** by default — the phase-end full suite (Step 5f) is the safety net for anything scoped misses.
 
-1. **Full test suite:** Read `config.stacks` to determine the test runner. Run the appropriate command ONCE:
-   - Laravel: `php artisan test --parallel` (uses the project's test runner)
-   - Jest: `npx jest`
-   - Vitest: `npx vitest run`
-   - pytest: `pytest`
-   - If no test runner configured: skip
+1. **Resolve mode:** read `config.phases.post_wave_validation`. If the key is missing entirely (existing project upgrading without re-init), default to `"auto"`. Valid values: `"auto"` (scoped where supported, full elsewhere), `"full"` (always full — legacy behavior), `"scoped"` (always scoped, skip-with-warn if unsupported), `"skip"` (no per-wave tests; phase-end full suite is the sole validation).
 
-   If the full suite fails but all agent-specific tests passed, identify which cross-task interaction broke:
-   - Display: "Wave {M} full suite: {failed_count} failures detected (agent-specific tests all passed)"
-   - List failing test files and compare against tasks in this wave to identify the responsible task
+2. **Extract `$CHANGED_FILES` from this wave's task notes:**
+   - For each completed `[x]` task in this wave, read its `notes:` section in TASKS.md.
+   - Parse the `files:` field (per the implementer Task Notes contract: `T{ID} OK | files: a,b,c | tests: N/M | blocker: none`).
+   - Concatenate file lists across tasks; deduplicate; resolve to repo-relative paths.
+   - **Empty-list semantics (load-bearing — distinguishes legitimate empty from contract drift):**
+     - If NO tasks in this wave completed (all `[BLOCKED]` / `[SKIPPED]` / `[FAILED]`): skip the per-wave test step entirely (nothing changed to validate). Log: "Per-wave tests: skipped (no completed tasks)".
+     - If at least one task completed but `$CHANGED_FILES` is empty (agents drifted from the contract — missing `files:` field, malformed line, or all completed tasks somehow reported zero files): **fall back to full-suite mode for this wave only** with warning. Log: "Per-wave tests: completed tasks reported zero files (likely Task Notes drift) — falling back to full suite for this wave". This prevents silent skip of validation on a buggy agent contract.
+
+3. **Per-stack test run** — for each `$STACK` in `config.stacks`, **executed sequentially** (not concurrently — concurrent stacks spawn 2N+ test workers competing on N cores; flaky and slower):
+   See `skills/command-primitives/SKILL.md` Scoped Test Selection.
+   Inputs: `$STACK`, `$CHANGED_FILES`, `$MODE` (from Step 1). Output: a runner-specific command, or `null` (skip this stack for this wave).
+
+   If the primitive returns `null`: log "Tests: {stack.name}: skipped (mode={mode}, runner={runner})" and continue to the next stack.
+
+   If a command is returned: run it ONCE with a **600000ms (10-minute) timeout** (Bash tool maximum — for suites that legitimately exceed 10min on a per-wave scope, escalate to Step 5f phase-end via `phases.post_wave_validation = "skip"`). On failure:
+   - Display: "Wave {M} {stack.name} tests: {failed_count} failures (mode={mode})"
+   - List failing test files and compare against `$CHANGED_FILES` to identify the responsible task
    - Present to user as part of the wave completion checkpoint
+   - Note: if `$MODE == "scoped"` and the failure is in a test the heuristic missed (e.g., a feature test that doesn't follow filename convention), it WILL still be caught at Step 5f phase-end full suite — the user is not silently shipping broken code.
 
-   If the full suite passes: log "Full suite: all passing" and continue.
+   On pass: log "Tests: {stack.name}: passed (mode={mode}, {test_count} tests)" and continue.
 
-2. **Linter (if configured):** Run once per stack:
-   - Laravel: `vendor/bin/pint --test`
-   - ESLint: `npx eslint .`
-   - Prettier: `npx prettier --check .`
-   - If linter fails: display failures, continue (non-blocking — findings are informational)
+4. **Linter (if configured, non-blocking, sequential per stack):**
+   See `skills/command-primitives/SKILL.md` Stack/Linter/Test-Runner Resolution (resolve `stack.linter`, look up the file-extension mapping, filter `$CHANGED_FILES` per the resolved linter's extensions).
 
-3. **Static analysis (if available):** Run once if detected:
-   - PHPStan: `vendor/bin/phpstan analyse --no-progress`
-   - TypeScript: `npx tsc --noEmit`
-   - If not installed: skip silently
+   **Empty-list guard (mandatory):** if the filtered file list is empty for a given linter, **skip with log** (`"Linter: {stack.name}: skipped (no matching files in changed set)"`). Do NOT invoke the linter with no positional args — pint/eslint/prettier all default to "scan whole project" with no args, which defeats per-wave scoping and surfaces pre-existing noise as wave failures.
 
-Display: "Post-wave validation: {test_result} | {lint_result} | {static_result}"
+   When the filtered list is non-empty, invoke the linter with shell-quoted file paths (e.g., `pint --test -- "{file1}" "{file2}"`). On failure: display failures, continue (informational only).
 
-This single post-wave run replaces what would otherwise be N parallel full-suite runs (one per agent), reducing wave execution time by ~70% and eliminating resource contention.
+   If `$MODE == "skip"`: skip linters too (linters fold into Step 5f phase-end pass).
+
+5. **Static analysis (sequential per stack):**
+   - **PHPStan (if installed):** PHPStan supports an incremental result cache (https://phpstan.org/user-guide/result-cache), so scoped re-analysis is nearly free after a baseline run. When `$MODE != "skip"` and changed PHP files exist for this stack: `cd "{stack.path}" && vendor/bin/phpstan analyse --no-progress {quoted_changed_php_files}` (no `--` separator — PHPStan accepts paths positionally directly). If empty: skip.
+   - **PHPStan invocation form:** `cd "{stack.path}" && vendor/bin/phpstan analyse --no-progress {quoted_changed_php_files}` (note: PHPStan accepts paths positionally without a `--` separator — that idiom is for runners invoked via `npx` where the wrapper consumes options).
+   - **TypeScript (`tsc`):** TS lacks a comparable per-file incremental check; defer to Step 5f phase-end (cross-file type graphs would force full re-analysis anyway).
+   - Skip silently if the analyzer is not installed.
+
+Display: "Post-wave validation (mode={mode}): {test_result_per_stack} | {lint_result} | {static_result}"
+
+This scoped post-wave pass replaces what would otherwise be a full-suite run per wave and avoids re-running unrelated tests when a wave touches 1-2 files. **Speedup is suite-size and wave-file-count dependent** — measure on your project; do not extrapolate from generic claims.
 
 **5d.1. State update:**
 
@@ -440,9 +459,69 @@ If any task in the wave was marked `[FAILED]` AND was NOT already handled by cas
 
 **5e. Repeat for next wave** until all waves are processed.
 
+**5f. Phase-end full validation:**
+
+Step 5f runs ONCE after the wave loop terminates (5e is "Repeat for next wave"). It is NOT a per-wave sub-step.
+
+Per-wave runs are scoped by default and may miss tests that don't follow the filename convention or import-graph mapping the per-runner scoping uses. This sub-step closes that gap by running the FULL suite + linter + static analysis ONCE after all waves complete and before Step 6 marks the phase EXECUTED. Runs unconditionally regardless of `config.phases.post_wave_validation` value, including `skip`.
+
+For each `$STACK` in `config.stacks`, **executed sequentially** (same reason as Step 5d.0 — concurrent stacks thrash CPU on multi-stack repos):
+
+1. **Full test suite** (per `$STACK.testRunner`):
+   See `skills/command-primitives/SKILL.md` Build & Test Gate (Autonomous) — single source of truth for the per-runner full-suite commands. Invoke per-stack with shell-quoted `$STACK.path`.
+
+   **Timeout:** Bash tool maximum is 600000ms (10 min). For suites that legitimately exceed 10 minutes, run via `run_in_background: true` then poll with `BashOutput` until the process exits. This is the only place in execute-phase.md where backgrounded execution is sanctioned (per-wave runs in Step 5d.0 must complete inline so the wave loop can advance).
+
+2. **Linter (full scope, non-blocking, sequential per stack):**
+   See `skills/command-primitives/SKILL.md` Stack/Linter/Test-Runner Resolution. Invoke at full scope (no positional args) — this is a no-op when no linter is configured. Failures are informational only.
+
+3. **Static analysis (full scope, sequential per stack, if installed):**
+   - `cd "{stack.path}" && vendor/bin/phpstan analyse --no-progress` (uses incremental cache against the baseline established in Step 5d.0 scoped runs — typically completes in seconds when most files weren't touched)
+   - `cd "{stack.path}" && npx tsc --noEmit` (full type check; no incremental option)
+   - Skip silently if the analyzer is not installed.
+
+**Aggregate the per-stack results** into a `$PHASE_END_VALIDATION` object (in-memory; persisted by Step 6b into metrics and Step 7 into SUMMARY.md):
+
+```json
+{
+  "status": "passed | failed | mark-anyway",
+  "stacks": [
+    {
+      "name": "{stack.name}",
+      "test_status": "passed | failed | skipped",
+      "test_failures": ["path/to/FailedTest.php::method", ...],
+      "lint_status": "passed | failed | skipped",
+      "static_status": "passed | failed | skipped"
+    }
+  ],
+  "user_choice": "n/a | mark-anyway | retry | paused"
+}
+```
+
+If any stack's full suite **fails**:
+- Display: "Phase-end full validation FAILED: {stack.name} — {fail_count} failures"
+- List failing test node-ids (these are the regressions the per-wave scoped runs missed)
+- Prompt:
+
+```
+AskUserQuestion(
+  question: "Phase-end validation failed: {fail_count} failures across {stack_list}. How to proceed?",
+  options: ["Pause -- fix manually", "Retry full validation", "Mark phase EXECUTED anyway", "Custom"]
+)
+```
+
+Handle the response:
+- **Pause -- fix manually:** update STATE.md Last Action to "Paused at phase-end validation -- {fail_count} failures in {stack_list}". Set `$PHASE_END_VALIDATION.user_choice = "paused"`. Do NOT proceed to Step 6 — phase stays EXECUTING. Stop execution. (User fixes, then re-runs `/bee:execute-phase {N}` which resumes — Step 5 sees no pending tasks and falls through to Step 5f again.)
+- **Retry full validation:** re-run Step 5f from the top with the same configuration. Useful when failures look transient (flaky tests, environmental). Mark `$PHASE_END_VALIDATION.user_choice = "retry"`.
+- **Mark phase EXECUTED anyway:** set `$PHASE_END_VALIDATION.status = "mark-anyway"` and `$PHASE_END_VALIDATION.user_choice = "mark-anyway"`. Continue to Step 6. Failure details are persisted to metrics (Step 6b) AND surfaced in SUMMARY.md (Step 7) so reviewers see the on-disk record.
+
+If all stacks **pass**: set `$PHASE_END_VALIDATION.status = "passed"`, `user_choice = "n/a"`, continue to Step 6.
+
+Display: "Phase-end validation: {test_result_per_stack} | {lint_result} | {static_result}"
+
 ### Step 6: Completion
 
-After all waves complete:
+After Step 5f passes (or user chose "Mark phase EXECUTED anyway"):
 
 1. Read current `.bee/STATE.md` from disk
 2. Update the phase row:
@@ -451,7 +530,7 @@ After all waves complete:
 3. Update Last Action:
    - Command: `/bee:execute-phase {N}`
    - Timestamp: current ISO 8601 timestamp
-   - Result: "Phase {N} executed: {total_tasks} tasks complete"
+   - Result: "Phase {N} executed: {total_tasks} tasks complete (phase-end validation: {$PHASE_END_VALIDATION.status})"
 4. Write updated STATE.md to disk
 
 ### Step 6b: Finalize Phase Metrics
@@ -470,6 +549,7 @@ After all waves complete:
    - `model_escalations`: `{$ESCALATION_COUNT}` (count of tasks that triggered model escalation in Step 5c.7)
    - `failure_types`: `$FAILURE_TYPE_COUNTS` (the `{ "transient": N, "persistent": N, "architectural": N }` histogram accumulated during Step 5c)
    - `per_wave`: array with one entry per wave: `{ "wave": M, "tasks": task_count, "duration_seconds": wave_duration, "retries": wave_retry_count }`
+   - `phase_end_validation`: `$PHASE_END_VALIDATION` (the object set by Step 5f: `{ status, stacks: [...], user_choice }`). Set to `null` if Step 5f was somehow not reached (legacy resume from before this field existed).
 5. Write the updated JSON back to `.bee/metrics/{spec-folder-name}/phase-{N}.json`.
 6. Display: "Phase metrics written: .bee/metrics/{spec-folder-name}/phase-{N}.json"
 
@@ -553,6 +633,20 @@ After updating STATE.md in Step 6, generate a phase execution summary before dis
    |-------------|-----------------|-----------------|------------|
    | {task_id} | {root_cause_task_id} | {signals} | {re-executed/skipped/paused} |
 
+   ## Phase-End Validation (Step 5f)
+
+   {If phase-end validation passed: "All stacks passed phase-end full validation."}
+
+   {If phase-end validation paused (user chose Pause to fix manually): "Paused at phase-end validation. See `Resolution: paused -- fix manually` row below."}
+
+   {If phase-end validation marked anyway (user chose Mark phase EXECUTED anyway despite failures): "Phase marked EXECUTED with KNOWN failures. Review must address these before phase is considered complete."}
+
+   | Stack | Tests | Lint | Static | Failures (sample) |
+   |-------|-------|------|--------|-------------------|
+   | {stack.name} | {test_status} | {lint_status} | {static_status} | {first 5 failed test node-ids} |
+
+   - **User choice:** {n/a | mark-anyway | retry | paused}
+
    ## Metrics
 
    | Metric | Value |
@@ -566,6 +660,7 @@ After updating STATE.md in Step 6, generate a phase execution summary before dis
    | Model escalations | {count} |
    | Failure types | transient: {N}, persistent: {N}, architectural: {N} |
    | Cascading failures | {count} detected |
+   | Phase-end validation | {passed | failed-paused | mark-anyway} |
    | Metrics file | `.bee/metrics/{spec-folder-name}/phase-{N}.json` |
    ```
 
