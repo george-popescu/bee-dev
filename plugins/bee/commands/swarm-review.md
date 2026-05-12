@@ -73,7 +73,20 @@ Read `config.implementation_mode` and store as `$IMPLEMENTATION_MODE`. If not se
 Before spawning any agents, read these files once and include their content in every agent's context packet:
 1. Stack skill: `skills/stacks/{stack}/SKILL.md` (if exists)
 2. Project context: `.bee/CONTEXT.md` (if exists)
-3. False positives: `.bee/false-positives.md` (if exists -- extract as formatted exclusion list)
+3. False positives: `.bee/false-positives.md` (if exists -- run dual-mode parse). For each `## FP-NNN` entry, extract its body (heading to next `## FP-` heading or EOF) and classify:
+   - **Stylistic-declined** if the body declares Class: STYLISTIC-DECLINED. Detect via the regex `/(?:\*\*)?Class(?:\*\*)?:?\s*(?:\*\*)?\s*STYLISTIC-DECLINED/` (the regex tolerates markdown bold variants such as `**Class:**` — a plain `Class:` substring search would fail on the bolded form, so the regex is REQUIRED).
+   - **Genuine FP** if Class is any other value (e.g., `FALSE-POSITIVE`) or the Class field is absent.
+   Emit two formatted blocks (each entry shaped as `FP-NNN: {summary} ({file}, {reason})`):
+   ```
+   EXCLUDE these documented false positives from your findings:
+   - FP-001: {summary} ({file}, {reason})
+   ...
+
+   EXCLUDE these stylistic-declined findings (apply only to STYLISTIC candidates):
+   - FP-NNN: {summary} ({file}, {reason})
+   ...
+   ```
+   **Strict class-matching filter (REQ-12, load-bearing):** stylistic-declined entries suppress ONLY candidate findings whose own class is STYLISTIC. A REAL BUG candidate sharing a summary with a stylistic-declined entry is NOT suppressed. Genuine FP entries apply across all classes; stylistic-declined entries are class-scoped. If only one block has entries, emit only that block (omit the empty block header).
 4. User preferences: `.bee/user.md` (if exists)
 5. CLAUDE.md at project root (if exists)
 
@@ -290,12 +303,25 @@ Unless `--skip-validation` was specified:
 1. For each consolidated finding (SF-NNN):
    - Build validation context with finding details + source agents
    - Spawn `finding-validator` agent
-   - Batch up to 5 validators at a time
+   - Batch up to 10 validators at a time
 2. Collect classifications (REAL BUG / FALSE POSITIVE / STYLISTIC)
 3. Handle MEDIUM confidence findings: escalate to a second finding-validator opinion (same two-opinion pattern as review.md Step 5.3)
 4. Update finding Validation field with final classification
 5. Handle FALSE POSITIVE findings: append to `.bee/false-positives.md` (if exists, and if `.bee/` directory exists)
-6. Handle STYLISTIC findings: AskUserQuestion per finding ("Fix it" / "Ignore" / "False Positive" / "Custom")
+6. Handle STYLISTIC findings: AskUserQuestion per finding with options ["Fix it", "Ignore", "False Positive", "Custom"].
+   - Fix it: add to confirmed fix list
+   - Ignore: mark as "Skipped (user ignored)" in the output report Fix Status. Also append the finding to .bee/false-positives.md with Class: STYLISTIC-DECLINED using the FP-NNN format (incrementing FP counter; entry includes Finding/Reason/File/Phase/Date/Class fields). Entry shape:
+     ```
+     ## FP-{NNN}: {one-line summary}
+     - **Finding:** {original finding description}
+     - **Reason:** user chose Ignore on STYLISTIC finding
+     - **File:** {file_path of the finding}
+     - **Phase:** {phase number}
+     - **Date:** {current ISO 8601 date}
+     - **Class:** STYLISTIC-DECLINED
+     ```
+   - False Positive: append to `.bee/false-positives.md` as a genuine FP (no Class field or `Class: FALSE-POSITIVE`)
+   - Custom: free-form user override
 7. Build confirmed findings list: all REAL BUG + user-approved STYLISTIC
 
 Validator model selection: Economy = sonnet, Quality/Premium = inherit.

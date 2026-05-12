@@ -118,6 +118,29 @@ If the file already exists (re-execution), read the existing file first. Preserv
 
 Metrics writes happen at phase boundaries only (start and end), NOT per-wave intermediate writes. This avoids metrics overhead during execution. Per-wave durations are tracked in memory and written at completion.
 
+### Step 4c: PHPStan Cache Warm
+
+Warm the PHPStan incremental cache once at phase start for each configured stack where PHPStan is available. This establishes the baseline that Step 5d.0 (scoped per-wave) and Step 5f (full phase-end) reuse — eliminating cold-cache cost on every subsequent wave.
+
+**Per-stack iteration:** Following the Stack/Linter/Test-Runner Resolution primitive at `skills/command-primitives/SKILL.md:366-405`, iterate `config.stacks[]` and, for each stack, resolve whether PHPStan is the configured static analyzer.
+
+**Detection rule:** PHPStan is the analyzer for a stack when either (a) `stacks[i].linter` equals `phpstan`, OR (b) `vendor/bin/phpstan` exists at the stack's path. Use `Bash test -f "{stack.path}/vendor/bin/phpstan"` to confirm.
+
+**Canonical warmup invocation:**
+```bash
+cd "{stack.path}" && vendor/bin/phpstan analyse --no-progress > /dev/null || true
+```
+
+The `--no-progress` flag suppresses progress output (matches existing Step 5d.0 and Step 5f convention at lines 366 and 479). Stdout is redirected to `/dev/null`; stderr is **preserved** so crash-recovery diagnostics survive (do NOT add `2>&1`). The trailing `|| true` makes the invocation **non-blocking** — a pre-existing PHPStan failure must NOT block phase start; the phase proceeds to Step 5 regardless of warmup exit status.
+
+**Idempotent across phase resumes (NFR-04):** re-running the warmup (e.g., on phase resume) is a no-op when the PHPStan incremental cache is already warm. The cache lookup itself is near-instantaneous; only first-run baseline establishment incurs cost. This idempotency is structural — the warmup writes to PHPStan's incremental cache, not to bee state, so re-invocation does not duplicate or accumulate.
+
+**Empty-stacks branch:** when zero stacks have PHPStan configured (or `config.stacks` is empty), Step 4c is skipped silently — no warning loop, no crash, no terminal output. The next stack iteration simply finds no PHPStan and continues; if all stacks resolve to "no PHPStan", the step exits cleanly.
+
+**Negative per-stack branch:** for stacks where PHPStan is NOT the configured static analyzer (e.g., stacks using a different analyzer or `"none"`), the warmup is skipped for that stack and the loop continues to the next stack.
+
+**Cross-reference:** the existing PHPStan cache contract at `execute-phase.md:366` (Step 5d.0 scoped runs) and `:479` (Step 5f full runs) leverages this baseline. Step 4c establishes the baseline; subsequent scoped and full runs reuse it via PHPStan's incremental result cache.
+
 ### Step 5: Execute Waves
 
 Initialize `$FAILURE_TYPE_COUNTS` before entering the wave loop: if this is a re-execution and Step 4b preserved existing `execution.failure_types` values, use those as starting counts; otherwise initialize to `{ transient: 0, persistent: 0, architectural: 0 }`.
@@ -134,17 +157,24 @@ Include in each context packet:
 - **Research notes:** The task's `research:` field -- patterns, reusable code, framework docs
 - **Context file paths:** The task's `context:` field -- list of file paths for the agent to read at runtime. Include paths only, NOT file contents (agents read files within their own context window)
 - **Dependency notes (Wave 2+ only):** Read the task's `needs:` field to find dependency task IDs. Look up each dependency task in TASKS.md and include its `notes:` section content. This is how completed Wave 1 work flows to Wave 2 agents.
-- **Stack skill instruction:** Resolve the correct stack(s) for each task using the following logic:
+- **Stack resolution (conductor-side):** Before assembling each task's packet, the conductor resolves which stack(s) the task touches. This is the conductor's pre-read step — the agent does NOT re-read stack skill files itself; see the next bullet for the inline-injection contract.
 
   1. **Read config:** Check `.bee/config.json`. If `config.stacks` exists, use it. If `config.stacks` is absent (v2 config), treat `config.stack` as a single-entry stacks array: `[{ "name": config.stack, "path": "." }]`.
 
-  2. **Single-stack fast path:** If the stacks array has exactly one entry, skip path-overlap logic entirely. Use the original instruction: "Read `.bee/config.json` to find your stack, then read the matching stack skill at `skills/stacks/{stack}/SKILL.md` for framework conventions."
+  2. **Single-stack fast path:** If the stacks array has exactly one entry, skip path-overlap logic entirely. The single stack is the resolved match for every task.
 
   3. **Multi-stack path overlap:** When the stacks array has more than one entry, compare each stack's `path` value against the file paths listed in the task's `context:` and `research:` fields. A file matches a stack if the file path starts with (or is within) the stack's `path` value. A stack with `path` set to `"."` matches everything. Collect all stacks that have at least one matching file.
 
-  4. **Build the instruction:**
-     - If one or more stacks matched by path overlap, include: "Read `.bee/config.json` for the stacks array. Read the stack skill at `skills/stacks/{stack}/SKILL.md` for each of these stacks: [{matched_stack1}, {matched_stack2}]."
-     - If NO files from the task overlap any specific stack path (or the task has no `context:` / `research:` files), include all stacks as a fallback: "No clear path overlap — including all stacks as auto-included: [{stack1}, {stack2}]. Read `.bee/config.json` for the stacks array. Read the stack skill at `skills/stacks/{stack}/SKILL.md` for each of these stacks: [{stack1}, {stack2}]."
+  4. **Resolution result:**
+     - If one or more stacks matched by path overlap → the conductor inlines those stacks' skill content under per-stack subsections in the packet (next bullet).
+     - If NO files overlap any specific stack path (or the task has no `context:` / `research:` files) → all stacks are auto-included as a fallback for inlining.
+- **Stack Skill (inline):** The conductor pre-reads stack skill + .bee/CONTEXT.md + .bee/user.md ONCE per phase entry and inlines their content verbatim into each packet. See `skills/command-primitives/SKILL.md` Context Cache + Dependency Scan.
+
+  **Multi-stack handling:** for each task, the conductor uses the path-overlap resolution from the previous "Stack resolution" bullet. For each resolved stack, the conductor inlines that stack's skill content under a per-stack subsection inside the single `## Stack Skill (inline)` parent section. Subsection headings use the format `### Stack: {stack-name}` so multiple matched stacks coexist under one top-level marker. CONTEXT.md and user.md are inlined ONCE per packet under their own top-level inline sections (`## CONTEXT.md (inline)`, `## user.md (inline)`) since they are not per-stack files.
+
+  **Empty-stacks fallback:** when zero stacks match a task's files, emit `## Stack Skill (inline)` section with body `*No matching stack — please read .bee/config.json and follow ## 1. Read Stack Skill instructions in your agent file.*` (preserves implementer.md fallback path documented at lines 14-20).
+
+  **Idempotent across phase resumes (NFR-04):** re-running execute-phase reads the same files and produces identical inlined content; no duplication or accumulation occurs because packets are rebuilt per-wave entry, not persisted across waves.
 - **TDD instruction:** "Follow TDD cycle: RED (write failing tests first), GREEN (minimal implementation to pass), REFACTOR (clean up with tests as safety net). Write structured Task Notes in your final message under a `## Task Notes` heading."
 - **Phase Learnings (if available):** Before building context packets for the first wave, check for active LEARNINGS.md files from recent phases. Active learnings are those whose "Expires after" phase number is greater than or equal to the current phase number.
 

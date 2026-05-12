@@ -505,6 +505,65 @@ assert(safeDate('2026/04/22') === todayIso, 'safeDate rejects wrong separator');
 assert(safeDate('26-04-22') === todayIso, 'safeDate rejects two-digit year');
 
 // ---------------------------------------------------------------------------
+// 8. STYLISTIC-DECLINED FP-NNN entry: backward-compat parsing (mode-b safety).
+//    A false-positives.md store may contain entries whose Class field is
+//    STYLISTIC-DECLINED, in markdown-bold form (`- **Class:** STYLISTIC-DECLINED`).
+//    The canonical regex used by review commands (Step 3.9 dual-mode parse)
+//    must recognize both bolded and unbolded forms; a plain `Class:` substring
+//    search would fail on the bolded form. We assert the parsing is safe and
+//    the canonical regex matches the fixture.
+// ---------------------------------------------------------------------------
+
+console.log('\n=== extract-fingerprint.js: STYLISTIC-DECLINED fixture (mode-b safety) ===');
+
+const FIXTURE_STYLISTIC_DECLINED = `# False Positives Store
+
+## Index
+- FP-001 — Stylistic naming preference
+
+## FP-001: Method name uses camelCase instead of snake_case
+- **Finding:** Reviewer flagged getUserById() should be get_user_by_id()
+- **Reason:** Project follows JS conventions; reviewer applied PHP style
+- **File:** app/Services/UserService.js
+- **Phase:** Phase 2 -- User Service
+- **Date:** 2026-04-22
+- **Class:** STYLISTIC-DECLINED
+`;
+
+// The canonical regex from Step 3.9 (review.md, review-implementation.md,
+// swarm-review.md). It tolerates markdown bold variants such as `**Class:**`.
+const CANONICAL_REGEX = /(?:\*\*)?Class(?:\*\*)?:?\s*(?:\*\*)?\s*STYLISTIC-DECLINED/;
+
+// Parse-safety check: simple line-by-line iteration mimicking the dual-mode
+// parser must not throw on a fixture containing a STYLISTIC-DECLINED entry.
+let parseError = null;
+try {
+  const lines = FIXTURE_STYLISTIC_DECLINED.split('\n');
+  for (const line of lines) {
+    CANONICAL_REGEX.test(line);
+  }
+} catch (e) {
+  parseError = e;
+}
+assert(
+  parseError === null,
+  'STYLISTIC-DECLINED fixture: canonical regex does not throw on bolded form'
+);
+
+assert(
+  CANONICAL_REGEX.test(FIXTURE_STYLISTIC_DECLINED),
+  'STYLISTIC-DECLINED fixture: canonical regex matches markdown-bold `- **Class:** STYLISTIC-DECLINED`'
+);
+
+// Also assert the regex matches an unbolded form (covers both v4.1 fixture
+// flow and any future plain-text emission).
+const UNBOLDED_FIXTURE = '- Class: STYLISTIC-DECLINED';
+assert(
+  CANONICAL_REGEX.test(UNBOLDED_FIXTURE),
+  'STYLISTIC-DECLINED fixture: canonical regex matches unbolded `- Class: STYLISTIC-DECLINED`'
+);
+
+// ---------------------------------------------------------------------------
 // Results
 // ---------------------------------------------------------------------------
 

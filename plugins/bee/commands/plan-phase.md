@@ -71,6 +71,10 @@ After reading discussion context (if present), extract locked decisions from pro
 5. Compile all extracted decisions into $LOCKED_DECISIONS as a numbered list.
 6. If no locked decisions found, set $LOCKED_DECISIONS = null (researcher has full discretion).
 
+#### 2.5.0: Context Cache
+
+See `skills/command-primitives/SKILL.md` Context Cache + Dependency Scan.
+
 Read `research_policy` from config.json (default: "recommended" if absent).
 
 #### Policy: "required" (research_policy = "required")
@@ -78,11 +82,9 @@ Read `research_policy` from config.json (default: "recommended" if absent).
 Display: "Research policy: required. Running full pre-planning analysis..."
 
 Execute all five sub-steps automatically with no interactive prompts:
-1. Run ecosystem research (2.5.1 below)
-2. Run provenance validation (2.5.1b below)
-3. Run assumptions analysis (2.5.2 below)
-4. Run dependency health check (2.5.3 below)
-5. Run test gap analysis (2.5.4 below)
+1. Run ecosystem research (2.5.1)
+2. Run provenance validation (2.5.1b) — this depends on RESEARCH.md from step 1, so it stays sequential.
+3. Run assumptions analysis (2.5.2), dependency health check (2.5.3), and test gap analysis (2.5.4) via three Task tool calls in a SINGLE message (parallel execution). Wait for all three to complete before proceeding to Step 3.
 
 No interactive prompts -- all steps run automatically.
 
@@ -103,7 +105,7 @@ AskUserQuestion(
   options: ["Full analysis (research + assumptions)", "Research only", "Assumptions only", "Skip all", "Custom"]
 )
 
-- "Full analysis": Run ecosystem research (2.5.1) -> provenance validation (2.5.1b) -> assumptions analysis (2.5.2) -> dependency health check (2.5.3) -> test gap analysis (2.5.4). All five steps in sequence.
+- "Full analysis": Run ecosystem research (2.5.1) -> provenance validation (2.5.1b) — this pair stays sequential because provenance validation reads RESEARCH.md. Then run assumptions analysis (2.5.2), dependency health check (2.5.3), and test gap analysis (2.5.4) via three Task tool calls in a SINGLE message (parallel execution). Wait for all three to complete before proceeding to Step 3.
 - "Research only": Run ecosystem research (2.5.1) -> provenance validation (2.5.1b). Skip assumptions, deps, test gaps. Set $ASSUMPTIONS = null. Set $DEP_HEALTH = null. Set $TEST_GAPS = null.
 - "Assumptions only": Skip research, deps, test gaps. Set $RESEARCH_PATH = null. Set $DEP_HEALTH = null. Set $TEST_GAPS = null. Run assumptions analysis (2.5.2) only.
 - "Skip all": Set $RESEARCH_PATH = null. Set $ASSUMPTIONS = null. Set $DEP_HEALTH = null. Set $TEST_GAPS = null. Proceed to Step 3.
@@ -427,6 +429,8 @@ If no wave sections were added, tell the user the wave assignment failed and sto
 
 ### Step 6: Plan Review -- Spawn Four Specialized Agents in Parallel
 
+Initialize `$PLAN_REVIEW_ISSUES_COUNT = 0` at the very start of this step (defensive default — overwritten by the exit-path assignments below). This variable is read by Step 9 to decide whether to render the "Plan Review" or "Re-review" menu label.
+
 After wave assignment completes, run a mandatory plan review. Four specialized agents review the plan against the spec to catch coverage gaps, pattern deviations, potential bugs, and stack best practice issues before the developer sees the plan.
 
 Read `config.implementation_mode` from config.json (defaults to `"premium"` if absent). This determines the model tier for the four review agents spawned in Step 6.2.
@@ -544,17 +548,19 @@ Format the consolidated output as:
 
 If a category has no issues from its agent, omit that category section entirely.
 
-If NO issues found across all four agents: display "Plan review complete. No changes required." and proceed directly to Step 7 (present plan to user). Set the plan review result to "clean" for use in Step 8.
+If NO issues found across all four agents: display "Plan review complete. No changes required." and proceed directly to Step 7 (present plan to user). Set the plan review result to "clean" for use in Step 8. Set `$PLAN_REVIEW_ISSUES_COUNT = 0` (clean review — Step 9 should render the "Re-review" label).
 
 #### 6.4: Fix issues and re-review (auto-fix loop)
 
-If no issues were found (the "clean" case from 6.3), set plan review result to "reviewed" and proceed directly to Step 7 without prompting. Display: "Plan review clean -- no issues found."
+If no issues were found (the "clean" case from 6.3), set plan review result to "reviewed" and `$PLAN_REVIEW_ISSUES_COUNT = 0`, then proceed directly to Step 7 without prompting. Display: "Plan review clean -- no issues found."
 
 If issues were found, **fix them automatically** in TASKS.md (this is the default, recommended behavior):
 
 Initialize ONCE (do NOT re-initialize on re-entry): `$PLAN_REVIEW_ITERATION = 1`. Read `config.review.max_plan_review_iterations` from config.json (default: 3). Store as `$MAX_PLAN_REVIEW_ITERATIONS`. These variables persist across re-review iterations — do not reset them when looping back from Step 6.4.2.
 
 **6.4.1: Present findings and fix**
+
+Set `$PLAN_REVIEW_ISSUES_COUNT = {X}` (the count of issues found across all four agents — this is the same `{X}` rendered in the display block below). Step 9 reads this value to render the "Plan Review" menu label when issues remain.
 
 Display the findings clearly to the developer with what you're about to fix:
 
@@ -585,21 +591,21 @@ AskUserQuestion(
 ```
 
 - **Re-review**: Proceed with re-review as described in 6.4.2 below.
-- **Accept fixes**: Set plan review result to "reviewed". Proceed to Step 7.
+- **Accept fixes**: Set plan review result to "reviewed" AND reset `$PLAN_REVIEW_ISSUES_COUNT = 0` (user accepted the auto-fix; issues are resolved — this is the `accept-fixes` setpoint, one of the 8 setpoints for `$PLAN_REVIEW_ISSUES_COUNT`). Proceed to Step 7.
 - **Custom**: User types what they want, conductor interprets and executes.
 
 **6.4.2: Re-review loop**
 
 After the user chooses "Re-review":
 1. Increment `$PLAN_REVIEW_ITERATION`
-2. If `$PLAN_REVIEW_ITERATION > $MAX_PLAN_REVIEW_ITERATIONS`: display "Max review iterations ({$MAX_PLAN_REVIEW_ITERATIONS}) reached. Proceeding with current plan." Set plan review result to "reviewed". Proceed to Step 7.
+2. If `$PLAN_REVIEW_ITERATION > $MAX_PLAN_REVIEW_ITERATIONS`: display "Max review iterations ({$MAX_PLAN_REVIEW_ITERATIONS}) reached. Proceeding with current plan." Set plan review result to "reviewed". Set `$PLAN_REVIEW_ISSUES_COUNT = {remaining count}` (the unresolved issue count carries forward so Step 9 renders "Plan Review", not "Re-review"). Proceed to Step 7.
 3. Otherwise: go back to **Step 6.2** (re-spawn all four review agents with the updated TASKS.md). After agents complete, re-run Steps 6.3 and 6.4.
-4. If the re-review finds 0 issues: display "Plan review clean after {$PLAN_REVIEW_ITERATION} iterations." Set plan review result to "reviewed". Proceed to Step 7.
+4. If the re-review finds 0 issues: display "Plan review clean after {$PLAN_REVIEW_ITERATION} iterations." Set plan review result to "reviewed". Set `$PLAN_REVIEW_ISSUES_COUNT = 0` (defensive — the clean branch in 6.3 also sets this, but reassign here in case the convergence path bypassed it). Proceed to Step 7.
 
 **6.4.3: Developer override (optional)**
 
 After presenting findings but BEFORE auto-fixing, the developer may interrupt with a message. If the developer intervenes:
-- "skip" or "skip review" → set plan review result to "skipped", proceed to Step 7
+- "skip" or "skip review" → set plan review result to "skipped", set `$PLAN_REVIEW_ISSUES_COUNT = 0` (the developer is bypassing review — treat as clean for menu-label purposes), proceed to Step 7
 - "I'll fix it manually" → display "Edit TASKS.md at `{phase_directory}/TASKS.md`, then re-run `/bee:plan-review {N}` for a fresh review." Stop.
 - Specific instructions → apply the developer's requested changes instead of auto-fix, then re-review
 
@@ -696,26 +702,21 @@ Read the final TASKS.md from disk. Present a formatted summary to the user:
 2. **Per wave:** List tasks with their acceptance criteria (brief summary)
 3. **Flags:** Highlight any tasks with empty research notes (flag for attention)
 
-Then ask the user:
+Step 7 is now a non-interactive plan-summary display only. Render the overview, per-wave breakdown, and flags above, then proceed directly to Step 8 (STATE.md commit). User approval is captured downstream via the Step 9 menu — do NOT prompt for approval here.
 
-Use AskUserQuestion:
-```
-AskUserQuestion(
-  question: "Phase {N} planned. {X} tasks in {W} waves.",
-  options: ["Plan Review", "Accept", "Revise", "Custom"]
-)
-```
-
-- **Plan Review**: Execute plan review pipeline (4 agents in parallel) — re-run Step 6 (spawn four specialized review agents in parallel) then continue to Step 8 on completion
-- **Accept**: Skip review, update STATE.md (Step 8), end command
-- **Revise**: Follow-up AskUserQuestion (free text) for revision instructions — apply changes to TASKS.md, re-present updated plan summary, repeat the menu
-- **Custom**: Free text
-
-IMPORTANT: Never auto-approve the plan. Always present it and wait for explicit user approval.
+**IMPORTANT:** STATE.md is committed automatically after the plan is displayed. User approval is captured via the Step 9 menu: picking Execute / Plan Review / Swarm Review approves the plan, while Revise plan triggers a rollback of the PLAN_REVIEWED status. Do not bypass the Step 9 menu or assume approval from silence.
 
 ### Step 8: Update STATE.md
 
-After the user approves the plan, re-read `.bee/STATE.md` from disk (Read-Modify-Write pattern — plan-phase is long-running, STATE.md may have changed during research/planning). Update:
+After the user approves the plan, re-read `.bee/STATE.md` from disk (Read-Modify-Write pattern — plan-phase is long-running, STATE.md may have changed during research/planning).
+
+**Pre-write snapshot (for Step 9 Revise rollback):** before writing any field, capture the current values for this phase row:
+- `$PRE_PLAN_STATUS = {current Status value}` (e.g., `PLANNED`, `PLAN_REVIEWED`, or whatever the row held before this plan-phase run)
+- `$PRE_PLAN_PLAN_COL = {current Plan column value}` (typically `No` on a fresh run, but may already be `Yes` on resume)
+
+These snapshots are referenced by Step 9 if the user chooses "Revise plan" — the rollback writes the PRE_ values back to STATE.md so the phase returns to its pre-plan-phase state. Without this snapshot, the rollback claim in Step 9 ("restore prior Status") would be unrealizable (no prior value preserved).
+
+Then update STATE.md:
 
 1. Set the phase row's **Plan** column to `Yes`
 2. Set the phase row's **Plan Review** column based on the plan review result from Step 6:
@@ -749,17 +750,23 @@ Wave breakdown:
 Next step: /bee:execute-phase {N}
 ```
 
+Read `$PLAN_REVIEW_ISSUES_COUNT` (set by Step 6 across its exit paths). The Step 9 menu label for the review option is conditional on this value:
+
+If `$PLAN_REVIEW_ISSUES_COUNT > 0`, present options: `["Execute Phase {N}", "Plan Review", "Swarm Review", "Revise plan", "Custom"]`. The "Plan Review" label signals that unresolved issues remain from the prior review pass. Choosing "Revise plan" triggers a STATE.md rollback (restore prior Status, clear the Plan: Yes column) before re-entering Step 6.2 — see the option detail below.
+
+If `$PLAN_REVIEW_ISSUES_COUNT == 0`, substitute "Re-review" for "Plan Review" in the options list: `["Execute Phase {N}", "Re-review", "Swarm Review", "Revise plan", "Custom"]`. The Re-review option leads to the same destination (re-run plan-review pipeline) but the label signals the review was already clean.
+
 ```
 AskUserQuestion(
   question: "Phase {N} planned. {X} tasks in {Y} waves.",
-  options: ["Execute Phase {N}", "Plan Review", "Swarm Review", "Revise plan", "Custom"]
+  options: [conditional per $PLAN_REVIEW_ISSUES_COUNT — see above]
 )
 ```
 
 - **Execute Phase {N}**: Execute `/bee:execute-phase {N}`
-- **Plan Review**: Execute `/bee:plan-review {N}` for another review round
+- **Plan Review** / **Re-review**: Execute `/bee:plan-review {N}` for another review round (label varies by `$PLAN_REVIEW_ISSUES_COUNT`; destination is identical)
 - **Swarm Review**: Execute `/bee:swarm-review --phase {N}` (multi-agent deep review with segmentation)
-- **Revise plan**: Follow-up AskUserQuestion for revision instructions, apply to TASKS.md
+- **Revise plan:** Triggers STATE.md rollback using the snapshots captured in Step 8 — write `$PRE_PLAN_STATUS` back to the phase row's Status field and write `$PRE_PLAN_PLAN_COL` back to the Plan column (restoring the pre-Step-8 values exactly, not generic "prior Status" guesswork). Then re-enter Step 6.2 (or Step 7 display per existing Revise behavior). This ensures no stale PLAN_REVIEWED state for a plan the user is rejecting, and the rollback claim is realizable because the snapshot was taken before the write.
 - **Custom**: Free text
 
 ---

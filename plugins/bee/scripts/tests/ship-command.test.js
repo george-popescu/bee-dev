@@ -235,8 +235,8 @@ assert(
 );
 // Batch validation
 assert(
-  step3b8Content.includes('batch') || step3b8Content.includes('Batch') || step3b8Content.includes('up to 5'),
-  'Finding validators are batched (up to 5 at a time)'
+  (step3b8Content.includes('batch') || step3b8Content.includes('Batch')) && step3b8Content.includes('up to 10'),
+  'Finding validators are batched (up to 10 at a time)'
 );
 
 // ============================================================

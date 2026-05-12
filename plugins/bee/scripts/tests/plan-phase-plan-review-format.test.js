@@ -126,6 +126,103 @@ assert(
   'Step 8 still sets PLANNED status for skipped result'
 );
 
+// ----------------------------------------------------------
+// Test 7: Menu-count -- exactly one AskUserQuestion( after Step 8 (REQ-13)
+// ----------------------------------------------------------
+console.log('\nTest 7: Exactly one AskUserQuestion( after Step 8 heading');
+const fromStep8 = planPhase.substring(planPhase.indexOf('### Step 8:'));
+const askCount = (fromStep8.match(/AskUserQuestion\(/g) || []).length;
+assert(
+  askCount === 1,
+  `D7: Exactly one AskUserQuestion( after Step 8 (got ${askCount}, expected 1)`
+);
+
+// ----------------------------------------------------------
+// Test 8: Step 7 body contains zero AskUserQuestion( (REQ-13)
+// ----------------------------------------------------------
+console.log('\nTest 8: Step 7 body has zero AskUserQuestion(');
+const step7Body = extractSection('### Step 7:', planPhase);
+const step7AskCount = (step7Body.match(/AskUserQuestion\(/g) || []).length;
+assert(
+  step7AskCount === 0,
+  `D7: Step 7 body contains zero AskUserQuestion( occurrences (got ${step7AskCount}, expected 0)`
+);
+
+// ----------------------------------------------------------
+// Test 9: Step 9 conditional rendering references signal + Re-review (REQ-14)
+// ----------------------------------------------------------
+console.log('\nTest 9: Step 9 references $PLAN_REVIEW_ISSUES_COUNT and "Re-review"');
+const step9Body = extractSection('### Step 9:', planPhase);
+assert(
+  step9Body.includes('$PLAN_REVIEW_ISSUES_COUNT'),
+  'D8: Step 9 region references $PLAN_REVIEW_ISSUES_COUNT signal'
+);
+assert(
+  step9Body.includes('Re-review'),
+  'D8: Step 9 region contains "Re-review" alternative label'
+);
+
+// ----------------------------------------------------------
+// Test 10: $PLAN_REVIEW_ISSUES_COUNT = {X} assignment is in non-fenced prose (REQ-14, F-001 fix)
+// ----------------------------------------------------------
+console.log('\nTest 10: $PLAN_REVIEW_ISSUES_COUNT setpoint assignment is outside display fence');
+const lines = planPhase.split('\n');
+let inFence = false;
+let setpointInsideFence = false;
+for (const line of lines) {
+  if (line.trim().startsWith('```')) inFence = !inFence;
+  if (line.includes('$PLAN_REVIEW_ISSUES_COUNT =') && !line.includes('==') && inFence) {
+    setpointInsideFence = true;
+    break;
+  }
+}
+assert(
+  !setpointInsideFence,
+  'D8 F-001 fix: $PLAN_REVIEW_ISSUES_COUNT assignment is in non-fenced prose (not inside display fence)'
+);
+
+// ----------------------------------------------------------
+// Test 11: Revise plan branch documents STATE.md rollback (F-002 corollary)
+// ----------------------------------------------------------
+console.log('\nTest 11: Step 9 Revise plan branch mentions rollback/restore');
+const reviseIdx = step9Body.indexOf('Revise plan');
+const reviseContext = reviseIdx >= 0 ? step9Body.substring(reviseIdx, reviseIdx + 500) : '';
+assert(
+  /rollback|restore/i.test(reviseContext),
+  'D8 F-002 corollary: Revise plan branch documents STATE.md rollback'
+);
+
+// ----------------------------------------------------------
+// Test 12: F-BUG-002 — Accept-fixes branch sets $PLAN_REVIEW_ISSUES_COUNT = 0
+//   (the "Accept fixes" option in Step 6.4.1's menu must reset the issues
+//   counter so Step 9 renders "Re-review" not "Plan Review").
+// ----------------------------------------------------------
+console.log('\nTest 12: F-BUG-002 — Step 6.4.1 Accept-fixes branch resets $PLAN_REVIEW_ISSUES_COUNT = 0');
+const acceptFixesIdx = planPhase.indexOf('Accept fixes');
+const acceptFixesRegion = acceptFixesIdx >= 0 ? planPhase.substring(acceptFixesIdx, acceptFixesIdx + 600) : '';
+assert(
+  /\$PLAN_REVIEW_ISSUES_COUNT\s*=\s*0/.test(acceptFixesRegion),
+  'F-BUG-002: Accept fixes branch sets $PLAN_REVIEW_ISSUES_COUNT = 0 (issues resolved on user acceptance)'
+);
+
+// ----------------------------------------------------------
+// Test 13: F-BUG-004 — Step 8 captures $PRE_PLAN_STATUS BEFORE writing new Status
+// ----------------------------------------------------------
+console.log('\nTest 13: F-BUG-004 — Step 8 snapshots $PRE_PLAN_STATUS before STATE.md write');
+assert(
+  step8.includes('$PRE_PLAN_STATUS'),
+  'F-BUG-004: Step 8 captures $PRE_PLAN_STATUS snapshot before writing new Status'
+);
+
+// ----------------------------------------------------------
+// Test 14: F-BUG-004 — Step 9 Revise plan branch references $PRE_PLAN_STATUS by name
+// ----------------------------------------------------------
+console.log('\nTest 14: F-BUG-004 — Step 9 Revise branch references $PRE_PLAN_STATUS for rollback');
+assert(
+  step9.includes('$PRE_PLAN_STATUS'),
+  'F-BUG-004: Step 9 Revise branch references $PRE_PLAN_STATUS by name (rollback target)'
+);
+
 // ============================================================
 // Results
 // ============================================================

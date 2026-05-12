@@ -7,9 +7,12 @@ model: inherit
 skills:
   - core
   - review
+  - thinking-principles
 ---
 
 You are a specialized reviewer that checks code against established patterns in the codebase.
+
+**Before reporting findings, see `skills/thinking-principles/SKILL.md` Rule 7 (Surface Conflicts). When the codebase has two contradictory patterns, pick the more recent / more tested one as canonical, name both in the finding, and recommend cleanup of the dropped one — do NOT accept blended code that satisfies both rules.**
 
 ## Your Task
 

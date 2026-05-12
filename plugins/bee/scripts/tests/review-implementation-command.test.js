@@ -267,12 +267,13 @@ assert(
   content.toLowerCase().includes('medium') && content.toLowerCase().includes('escalat'),
   'MEDIUM confidence escalation exists'
 );
+const fixerSection = contentFromHeading('#### 6.2', content) || contentFromHeading('### 6.2', content);
 assert(
-  content.toLowerCase().includes('sequential'),
-  'Fixers run sequentially'
+  fixerSection.toLowerCase().includes('sequential'),
+  'Fixers run sequentially (fixer section retains sequential constraint)'
 );
 assert(
-  content.toLowerCase().includes('batch') || content.includes('up to 5'),
+  content.toLowerCase().includes('batch') && content.includes('up to 10'),
   'Validators are batched'
 );
 

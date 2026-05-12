@@ -55,15 +55,7 @@ Estimated time: {rough estimate based on file count}
 
 ### Step 3.5: Context Cache and Dependency Scan
 
-**Context Cache (read once, pass to all agents):**
-
-Before spawning any agents, read these files once and include their content in every agent's context packet:
-1. Stack skill: `skills/stacks/{stack}/SKILL.md`
-2. Project context: `.bee/CONTEXT.md`
-3. False positives: `.bee/false-positives.md`
-4. User preferences: `.bee/user.md`
-
-Pass these as part of the agent's prompt context — agents should NOT re-read these files themselves.
+See `skills/command-primitives/SKILL.md` Context Cache + Dependency Scan.
 
 Note: Unlike `/bee:review` and `/bee:swarm-review` which scan specific files and expand dependencies, `/bee:audit` scans the ENTIRE codebase. Dependency expansion is not needed — all files are already in scope. Agents discover import/require relationships as part of their domain analysis (e.g., integration-checker builds dependency graphs, architecture-auditor traces cross-layer calls).
 

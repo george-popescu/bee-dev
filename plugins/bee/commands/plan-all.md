@@ -298,7 +298,7 @@ Move to the next phase in phase order. Repeat from Step 3a.
 
 After ALL phases have been individually planned and reviewed, run the cross-plan consistency review. This examines all phase plans together to catch inter-phase issues that per-phase reviews cannot detect.
 
-NOTE: Cross-plan review has no separate checkpoint in STATE.md. It always runs when all phases are individually plan-reviewed. This is intentional: cross-plan review is cheap (2 agents) and idempotent, so re-running it on resume is acceptable.
+NOTE: Cross-plan review has no separate checkpoint in STATE.md. It always runs when all phases are individually plan-reviewed. This is intentional: cross-plan review is bounded (3 agents — plan-compliance-reviewer, bug-detector, audit-bug-detector — all in cross-plan mode) and idempotent, so re-running it on resume is acceptable.
 
 **4a. Gather all phase TASKS.md paths**
 
@@ -350,17 +350,39 @@ Phase TASKS.md files (read ALL of these):
 Review ALL phase plans simultaneously. Look for potential bugs that span multiple phases: data flow issues where one phase produces output that another phase consumes incorrectly, race conditions in cross-phase dependencies, missing error handling at phase boundaries, and security gaps that emerge when phases interact. Report only HIGH confidence findings in your standard output format.
 ```
 
-**4c. Spawn both agents in parallel**
+**Agent 3: Audit Bug Detector -- Cross-Plan Mode** (`bee:audit-bug-detector`)
+```
+This is a CROSS-PLAN CONSISTENCY REVIEW. You are tracing end-to-end feature flows across ALL phase plans (BEFORE execution) to find cross-flow bugs that per-phase reviewers and the other two cross-plan reviewers miss.
 
-Use `$RESOLVED_MODEL` for both agents. Spawn both via two Task tool calls in a SINGLE message (parallel execution).
+Spec: {spec.md path}
+Requirements: {requirements.md path} (if it exists)
+Phases: {phases.md path}
+Phase TASKS.md files (read ALL of these):
+{For each phase: - Phase {N}: {phase_directory}/TASKS.md}
 
-Wait for both agents to complete.
+Review ALL phase plans simultaneously, tracing complete feature flows from entry point to completion. For each cross-phase flow:
+1. Follow data contracts between phases (field names, types, signal sources)
+2. Verify owned-literal anti-duplication holds across consumer commands (if a primitive owns a literal, no consumer plan should inline it)
+3. Check that scope coverage is consistent — if Phase A applies a contract to set X of files and Phase B should logically apply the same contract to set Y ⊇ X (or to the same set), flag mismatches
+4. Verify state transitions complete cleanly across phase boundaries (no orphaned setpoint paths, no consent-ordering inversions, no unrealizable rollback claims)
+5. Check that prose inside one phase does not contradict orchestration documented in another phase
+6. Verify documentation surfaces (CHANGELOG plans, release ceremony tasks) accurately describe the cross-phase implementation
+
+Report only HIGH confidence findings. Flag any bug that spans multiple plans or that single-plan reviewers structurally cannot see. Use the same CI-NNN code prefix as cross-phase integration findings.
+```
+
+**4c. Spawn all three agents in parallel**
+
+Use `$RESOLVED_MODEL` for all three agents. Spawn all three via three Task tool calls in a SINGLE message (parallel execution).
+
+Wait for all three agents to complete.
 
 **4d. Consolidate cross-plan findings**
 
-Parse both agents' output:
-- **Plan Compliance Reviewer** -> cross-phase integration issues (CI-NNN codes)
-- **Bug Detector** -> cross-phase bug risks
+Parse all three agents' output:
+- **Plan Compliance Reviewer** -> cross-phase integration issues (CI-NNN codes — coverage matrix, scope, drift)
+- **Bug Detector** -> cross-phase bug risks (data flow, race conditions, boundary error handling)
+- **Audit Bug Detector** -> cross-flow semantic bugs (owned-literal leakage, scope-mismatch, contract drift, prose contradictions across phases)
 
 Count total cross-plan issues.
 
@@ -381,6 +403,14 @@ Decision log entry per iteration:
 - **[Cross-plan auto-fix]:** Auto-fixed {X} inter-phase issues across {Y} phase(s) (iteration {$CROSS_PLAN_ITERATION}).
 - **Why:** Cross-plan review found inter-phase inconsistencies that could cause integration failures.
 - **Alternative rejected:** Ignoring cross-plan issues -- these are structural problems that would surface as bugs during execution.
+
+**4f. Always-emit cross-plan completion marker**
+
+After the auto-fix loop exits (regardless of whether any fixes were applied), unconditionally write the canonical completion marker to the Decisions Log. This marker is the single source of truth for downstream consumers (ship.md Step 3a.0 inherit-mode short-circuit) — every cross-plan completion must emit it, clean OR fixed. The marker is always written on EVERY cross-plan completion; the auto-fix marker above is supplementary (per-iteration when fixes were applied) and is preserved for backward compat as a legacy fallback signal.
+
+- **[Cross-plan consistency review]:** Cross-plan consistency review completed for {N} phases ({issues_count} issues found, {fixed} fixed, {unresolved} unresolved).
+- **Why:** Cross-plan review ran across all phase plans; downstream commands (ship.md inherit-mode) depend on this marker existing to skip redundant smart-discuss menus.
+- **Alternative rejected:** Conditional emission (only on issues found) -- ship's inherit-mode detection requires an unconditional signal because clean plan-all runs are the most common case.
 
 ### Step 5: Completion Summary
 
@@ -435,8 +465,8 @@ AskUserQuestion(
 - Plan-all is fully autonomous during its inner loop. No AskUserQuestion calls during planning, review, or cross-plan review. This is the same explicit exception to R3 that ship uses -- the command is designed to run unattended.
 - The three-pass planning pipeline (Steps 3b-3d) is identical to plan-phase.md Steps 3-5. The same agents are spawned with the same context packets. The difference is that plan-all orchestrates this per-phase in a loop.
 - The plan review pipeline (Step 3f) reuses the same four agents as plan-review.md Step 3 but operates autonomously: findings are auto-fixed without user confirmation, and re-review loops until clean or max iterations.
-- Cross-plan review (Step 4) uses only two of the four review agents: plan-compliance-reviewer and bug-detector. The pattern-reviewer and stack-reviewer are omitted because they operate on code patterns within a single phase and do not benefit from cross-plan scope.
-- Cross-plan review has no separate STATE.md checkpoint. It always runs when all phases are individually plan-reviewed. This is by design: cross-plan review is cheap (2 agents) and idempotent. Re-running on resume is acceptable and simpler than adding a separate state column.
+- Cross-plan review (Step 4) uses three agents: plan-compliance-reviewer (cross-plan mode — coverage matrix, drift), bug-detector (cross-plan mode — data flow, race conditions), and audit-bug-detector (cross-plan mode — end-to-end flow tracing, owned-literal leakage, scope-mismatch). The pattern-reviewer and stack-reviewer are still omitted from cross-plan scope because they operate on code patterns within a single phase; audit-bug-detector serves as the cross-flow tracer instead. Empirical justification: the v4.4.0 spec's first plan-all run found 5 cross-plan issues with the 2-agent setup but later surfaced ≥2 additional cross-flow bugs (owned-literal leakage, scope-mismatch) only at final implementation review — those would have been caught at plan-time with audit-bug-detector in cross-plan mode, saving rework.
+- Cross-plan review has no separate STATE.md checkpoint. It always runs when all phases are individually plan-reviewed. This is by design: cross-plan review is bounded (3 agents) and idempotent. Re-running on resume is acceptable and simpler than adding a separate state column.
 - Resume behavior checks both Plan and Plan Review columns independently. A crash between planning and reviewing resumes at the review step (needs_review), not from scratch. A crash during cross-plan review re-runs cross-plan review for all phases (idempotent, cheap).
 - The conductor is the sole writer to TASKS.md and STATE.md. All updates use the Read-Modify-Write pattern: read from disk, modify in memory, write back. This prevents stale overwrites.
 - When planning phase N > 1, the planner receives paths to ALL prior phases' TASKS.md files. This enables dependency awareness: later phases can reference what earlier phases produce.

@@ -183,7 +183,28 @@ Conductors pass file PATHS, not contents. Agents read files in their own context
 
 ## Test Patterns
 
-Plugin tests are plain Node.js scripts with no test runner dependency:
+### When to write tests for markdown command/agent/skill files
+
+**Do NOT write a `.test.js` file just to grep for a string in a markdown file you just edited.** The markdown is interpreted by an LLM at runtime — there is no branching code to test. Grep verification in the implementer's task notes IS the test contract for prose-only edits. Spawning task-named test files (e.g. `tX-Y-foo.test.js`) for individual prose edits is busywork that ships compute cost without proportional bug-catching value.
+
+**DO write/extend tests in these cases (high-value):**
+
+1. **Owned-literal anti-duplication** — primitives in `skills/command-primitives/SKILL.md` own specific literals (e.g. `Context Cache (read once, pass to all agents)`). When a consumer command references a primitive, the consumer must NOT inline the owned literal. The `command-primitives.test.js` `*_COMMANDS` roster pattern (CC_COMMANDS, VG_COMMANDS, etc.) is the canonical place to add this kind of paired-contract assertion (negative literal absent + positive reference present + min reference count). Extend an existing roster; do not invent a new test file.
+2. **Cross-flow integration verification** — when an edit changes a contract that flows across multiple commands or between conductor + agent, the audit-bug-detector (run as part of `/bee:review-implementation` or end-of-ship final review) is the right tool. It traces semantic intent, not just literal presence. A single audit-bug-detector pass catches more real bugs than 30 grep assertions.
+3. **Behavioral verification of helper scripts** (`scripts/*.sh`, `scripts/*.js`) — these DO have branching logic. Test them.
+
+**What grep verification looks like (preferred for prose-only tasks):**
+
+```
+$ grep -c "Batch up to 10 validators at a time" plugins/bee/commands/review.md
+1
+$ grep -c "up to 5 validators" plugins/bee/commands/review.md
+0
+```
+
+Pasted in task notes as evidence. No file created. This is sufficient TDD evidence for the SubagentStop hook on prose-only tasks.
+
+### Plain-Node test pattern (for the cases above where a test file IS warranted)
 
 ```js
 #!/usr/bin/env node
@@ -208,7 +229,7 @@ console.log(`\nResults: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);
 ```
 
-Test files live in `scripts/tests/`. Run all: `find scripts/tests -name "*.test.js" -exec node {} \;`
+Test files live in `scripts/tests/`. Run individually: `node plugins/bee/scripts/tests/{filename}.test.js`. (`/bee:test` is the manual testing handoff, not a unit-test orchestrator.)
 
 ## Must-Haves
 

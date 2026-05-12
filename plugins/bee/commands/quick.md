@@ -480,6 +480,7 @@ For each pair of findings from different agents, check if they reference the sam
      ## FP-{NNN}: {one-line summary}
      - **Finding:** {original finding description}
      - **Reason:** {validator's reason for FALSE POSITIVE classification}
+     - **File:** {file_path of the finding}
      - **Phase:** Quick Task
      - **Date:** {current ISO 8601 date}
      ```

@@ -286,6 +286,13 @@ assert(
   'swarm-review.md mentions "parallel" in dispatch step'
 );
 
+// Test 21b: swarm-review.md batches validators (cap = 10)
+console.log('\nTest 21b: Batch cap = 10');
+assert(
+  cmdContent.includes('up to 10') && cmdLower.includes('batch'),
+  'swarm-review.md pins validator batch cap at 10 (Batch up to 10 validators at a time)'
+);
+
 // Test 22: swarm-review.md spawns swarm-consolidator agent
 console.log('\nTest 22: Spawns swarm-consolidator');
 assert(

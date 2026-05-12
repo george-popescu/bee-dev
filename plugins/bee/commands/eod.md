@@ -47,6 +47,10 @@ Create the reports directory if it does not exist:
 mkdir -p .bee/eod-reports
 ```
 
+### Step 2.5: Context Cache
+
+See `skills/command-primitives/SKILL.md` Context Cache + Dependency Scan.
+
 ### Step 3: Spawn 4 Audit Agents in Parallel
 
 Spawn ALL 4 agents simultaneously using the Task tool. Do NOT wait for one to finish before spawning the next. All 4 audits are independent.

@@ -1,6 +1,6 @@
 ---
 description: Execute all plan-reviewed phases autonomously with review loops, decision logging, and final implementation review
-argument-hint: "[--skip-discuss]"
+argument-hint: "[--skip-discuss] [--full-final-review]"
 ---
 
 ## Current State (load before proceeding)
@@ -74,8 +74,19 @@ Process each phase in phase order (Phase 1 first, then Phase 2, etc.). For each 
 
 Skip this step if:
 - `$DISCUSS_ENABLED` is false
-- `--skip-discuss` flag was passed in `$ARGUMENTS`
+- `$ARGUMENTS` matches the exact-token regex `(^|\s)--skip-discuss(\s|$)` (boundary-anchored; a hypothetical `--no-skip-discuss` would NOT match because the preceding character is `o`, not whitespace/start)
 - Phase is classified as resume_execution, needs_review, or resume_review (already past planning)
+
+**Inherit-mode short-circuit (added v4.4.0 lessons-learned):** when the spec was produced via `/bee:plan-all` AND all phases show a populated Plan Review column in STATE.md AND a cross-plan review entry exists in STATE.md Decisions Log, smart discuss does NOT spawn AskUserQuestion menus. Instead, write a DISCUSS-CONTEXT.md programmatically per phase citing "auto-inherited from comprehensive prior planning (plan-all + cross-plan review)" with all decisions marked `[auto-approved]`. The decisions in this case come from the phase's TASKS.md acceptance criteria (which were hammered out during plan-all's per-phase 4-agent review + cross-plan 3-agent review).
+
+**Detection (table-cell-aware, NOT naive substring):** the Phases table in STATE.md has a `Plan Review` column (column 5). For each phase row, parse column 5 and match against the regex `Yes\s*\(\d+\)` — this matches table cells like `Yes (1)` or `Yes (3)` while explicitly rejecting bare `Yes`, `Skipped`, or `No`. The inherit-mode predicate fires when:
+
+1. Every phase row's Plan Review cell matches `Yes\s*\(\d+\)` (count of matching rows == total phase count), AND
+2. STATE.md Decisions Log contains the canonical marker literal `[Cross-plan consistency review]` (emitted unconditionally by `plan-all.md` Step 4f on every cross-plan completion, clean OR fixed). Legacy fallback for backward compat: also accept `[Cross-plan auto-fix]` (older plan-all runs may have written only this conditional marker).
+
+The naive `Plan Review: Yes` substring grep does NOT work because STATE.md stores the value as a markdown table cell (column 5 of the Phases table), not a `key: value` line — that legacy grep would never match and inherit-mode would never trigger.
+
+Empirical justification: v4.4.0 ship ran 4 phases through smart-discuss; every grey-area question resolved to HIGH-confidence locked decision because plan-all + cross-plan already exhausted them. Manual confirmation menus added zero new information; inherit mode skips the friction.
 
 This step runs in MAIN CONTEXT (not subagent) because it uses AskUserQuestion. Decisions are written to disk immediately via DISCUSS-CONTEXT.md -- do NOT accumulate them in orchestrator memory.
 
@@ -353,13 +364,9 @@ IMPORTANT: Always re-read TASKS.md from disk before each write (Read-Modify-Writ
 
 **After all agents in the wave complete:**
 
-1. Read current `.bee/STATE.md` from disk.
-2. Update the Executed column to `Wave {M}/{total_waves}`.
-3. Update Last Action:
-   - Command: `/bee:ship`
-   - Timestamp: current ISO 8601 timestamp
-   - Result: "Phase {N} -- Wave {M}/{total_waves} complete"
-4. Write updated STATE.md to disk.
+**Skip per-wave STATE.md write during ship** (added v4.4.0 lessons-learned): ship runs autonomously through all waves of a phase in one session; resume granularity already lives in TASKS.md checkboxes (`[x]` / `[ ]` / `[FAILED]`), which are written per-task by the conductor. Per-wave STATE.md writes are pure display bookkeeping that consume Read-Modify-Write cycles without changing resume correctness. Skip the wave-level STATE.md write here. The phase-level updates at Step 3a.3 (EXECUTING start) and Step 3a.5 (EXECUTED end) are sufficient. Crash recovery during ship still works correctly because TASKS.md checkbox state is the authoritative resume signal — Step 3a.2 reads it on re-entry.
+
+(Interactive `/bee:execute-phase` still writes per-wave STATE.md updates so the user can see live progress in `/bee:hive` dashboard or via STATE.md inspection. The per-wave skip applies ONLY during `/bee:ship`'s autonomous run.)
 
 If any task in the wave was marked `[FAILED]`:
 - Display failure details (task ID, failure reason).
@@ -440,6 +447,27 @@ Before spawning review agents, expand the file scope:
 4. Write updated STATE.md to disk.
 
 Display: "Phase {N}: Starting autonomous review (iteration {$REVIEW_ITERATION}/{$MAX_REVIEW_ITERATIONS})..."
+
+**3b.5.5: Test-coverage-based review short-circuit (added v4.4.0 lessons-learned)**
+
+Before spawning the 4-agent review pipeline, evaluate whether this phase's test coverage already validates the change surface. If ALL of the following hold:
+
+1. **Markdown-only edits (explicit extension allowlist):** every file in the phase's modified-files list (derived from TASKS.md task notes) is one of `{.md, *.test.js, *.test.ts, *.spec.js}`. Source markdown plus its sibling paired-contract test files are foreign-code-equivalent for this predicate — paired-contract tests ARE the test contract for prose edits, not foreign code. Any file outside this enumeration (e.g., `.js`, `.php`, `.tsx`, `.py`) fails the predicate and the full 4-agent pipeline runs.
+2. **Strong assertion coverage:** the phase added ≥10 NEW paired-contract assertions across its test surface (counted via TASKS.md task notes — implementer agents report assertion counts), AND all new + existing assertions pass when each test file is invoked individually via `node {filename}.test.js`.
+3. **Test pattern conformance:** any new test files added by the phase use the canonical v4.3.0 plain-Node `fs.readFileSync` + local `assert(condition, name)` + `process.exit(failed > 0 ? 1 : 0)` pattern (no Jest/Mocha imports, no orphan bash scripts).
+4. **No CRITICAL or HIGH bug-detector flags from previous iteration** (if iter >= 2): skip-eligibility decays — if iter 1 already surfaced HIGH findings, iter 2+ runs the full 4-agent pipeline.
+
+When all conditions hold, **skip the 4-agent review pipeline for this phase and mark the phase via the test-coverage-based variant** (see Step 3c writer for column layout). Set `$TEST_COVERAGE_BASED_PATH = true` so Step 3c emits the variant Reviewed-column value. Log the decision:
+
+- **[Test-coverage-based review]:** Phase {N} review marked complete via test-coverage verification ({$ASSERTION_COUNT} paired-contract assertions, all passing). 4-agent code-review pipeline skipped — surfaces same checks as assertion suite.
+- **Why:** Markdown-only phase with comprehensive paired-contract test coverage; per-phase code review would duplicate assertion-level checks. Final implementation review at Step 4 provides cross-spec safety net.
+- **Alternative rejected:** Running full 4-agent review — would spawn ~4 redundant agents per phase x N phases when test coverage already verifies the same surfaces.
+
+Then jump to **Step 3c (Update STATE.md as REVIEWED)** — skip Steps 3b.6 through 3b.10.
+
+**Otherwise** (any condition above fails), continue to Step 3b.6 (full 4-agent pipeline).
+
+**Empirical justification:** v4.4.0 ship execution marked Phase 3 and Phase 4 as `REVIEWED (test-coverage-based)` manually. Both phases had ≥10 new paired-contract assertions covering D5/D6 (Phase 3) and D7/D8 (Phase 4). Final implementation review caught the unique cross-flow bugs that single-phase code review could not have caught anyway (F-BUG-001 through F-BUG-008). Net: skipped 8 agent spawns across 2 phases, lost zero quality.
 
 **3b.6: Spawn 4-Agent Review Pipeline**
 
@@ -563,11 +591,12 @@ After all agents complete, consolidate findings using the same logic as review.m
 For each finding in REVIEW.md:
 1. Build validation context: finding ID, summary, severity, category, file path, line range, description, suggested fix, and `source_agent`.
 2. Spawn `finding-validator` agent via Task tool. Apply Model Selection (Reasoning) (referenced in Step 3a.4).
-3. Batch up to 5 validators at a time.
+3. Batch up to 10 validators at a time to avoid overwhelming the system.
 4. Collect classifications from each validator.
 
 **Escalate MEDIUM confidence classifications:**
 - For each MEDIUM confidence classification, spawn a fresh `finding-validator` agent for a second opinion (NOT the source specialist). Provide the original finding, the validator's uncertain classification, and request a second opinion.
+- Batch up to 10 validators at a time -- specialist escalations use the same parallel pattern as primary validation; each is a focused re-analysis.
 - Use the second opinion as the FINAL classification.
 
 **Handle FALSE POSITIVE findings:**
@@ -629,8 +658,10 @@ After fixing, check whether to re-review:
 After the review loop completes for this phase:
 
 1. Read current `.bee/STATE.md` from disk (fresh read).
-2. Set the phase row's **Reviewed** column to `Yes ({$REVIEW_ITERATION})` (the iteration that produced the clean or final review).
-3. Set the phase row's **Status** to `REVIEWED`.
+2. Set the phase row's **Reviewed** column based on the path taken in Step 3b.5.5:
+   - If `$TEST_COVERAGE_BASED_PATH == true` (Step 3b.5.5 short-circuit fired): set Reviewed column to `Yes (test-coverage-based)`. This variant lives ONLY in the Reviewed column; the Status field stays plain `REVIEWED` below. The work-list guard at Step 1 depends on the plain `REVIEWED` Status substring — do NOT encode the variant in Status, only in Reviewed.
+   - Otherwise (full 4-agent pipeline ran): set Reviewed column to `Yes ({$REVIEW_ITERATION})` (the iteration that produced the clean or final review).
+3. Set the phase row's **Status** to plain `REVIEWED` (regardless of which path Step 3b.5.5 took — Status stays plain so the Step 1 work-list guard recognizes the phase as completed; the test-coverage-based variant only annotates the Reviewed column).
 4. Set **Last Action** to:
    - Command: `/bee:ship`
    - Timestamp: current ISO 8601 timestamp
@@ -670,7 +701,29 @@ If `$FINAL_REVIEW_ENABLED` is false:
 If `$FINAL_REVIEW_ENABLED` is true:
 - Display: "Starting final implementation review across all phases..."
 
-**4b. Run review-implementation in Full Spec Mode**
+**4b. Run review-implementation in Full Spec Mode (lean default — added v4.4.0 lessons-learned)**
+
+Run the review-implementation pipeline autonomously as a single-pass review covering all executed phases.
+
+**Default agent set: 2 agents** — `plan-compliance-reviewer` (full-spec mode, requirements coverage + cross-phase integration) + `audit-bug-detector` (full-spec mode, end-to-end flow tracing). These two agents cover the unique value of final review: cross-spec compliance verification + cross-phase semantic bug detection. The 3 per-stack agents (bug-detector, pattern-reviewer, stack-reviewer) are NOT spawned by default at final review because:
+- Per-phase reviews already exercised them on each phase's modified files (single-phase scope is their strength).
+- Their cross-spec contribution duplicates what per-phase reviews already covered.
+- Phases marked `REVIEWED (test-coverage-based)` per Step 3b.5.5 already validated their surfaces via paired-contract assertions.
+
+**Resolve `$FINAL_REVIEW_MODE` at top of Step 4b:**
+
+1. Default `$FINAL_REVIEW_MODE = "lean"`.
+2. If `$ARGUMENTS` matches the regex `(^|\s)--full-final-review(\s|$)` (exact-token, boundary-anchored — `--no-full-final-review` does NOT match because the preceding character is `o`, not whitespace/start), set `$FINAL_REVIEW_MODE = "full"`.
+3. Else if `config.ship.final_review_mode == "full"`, set `$FINAL_REVIEW_MODE = "full"`.
+4. Else leave as `"lean"`.
+
+**Opt-in to full 5-agent final review:** when `$FINAL_REVIEW_MODE == "full"`, spawn `(3 x N) + 2` agents per the original spec (3 per-stack reviewers + plan-compliance + audit-bug-detector). Use full mode when:
+- Multi-stack project with stack-specific patterns that warrant cross-spec re-verification
+- Any phase had ≥1 HIGH-severity finding in per-phase review (signal that the surface needs deeper second pass)
+- Any phase was marked `REVIEWED (test-coverage-based)` via Step 3b.5.5 (per-stack reviewers skipped at phase level — final review provides the only safety net)
+- Spec explicitly opts in via config
+
+**Empirical justification:** v4.4.0 ship execution ran final review with 2 agents (plan-compliance + audit-bug-detector). plan-compliance verified all 14 REQ + 5 NFR covered. audit-bug-detector found 8 cross-flow bugs (4 High + 4 Medium) including F-BUG-001 (D4 implementer self-contradiction defeating the entire D4 speedup) — this was caught only by cross-flow tracing, NOT by per-stack pattern/bug review which already ran per-phase. Net: 3 fewer agents at final review, zero finding loss for the bug class final review uniquely catches.
 
 Run the review-implementation pipeline (Steps 2-7 from review-implementation.md) autonomously. This is a single-pass review covering all executed phases together.
 
@@ -682,13 +735,17 @@ Run the review-implementation pipeline (Steps 2-7 from review-implementation.md)
 
 **Dependency Scan:** Expand file scope using the same logic as Step 3b.4, but across ALL executed phases.
 
-**Spawn review agents in Full Spec Mode:**
+**Spawn review agents (mode-conditional):**
 
 Collect all executed phase directory paths (phases with status EXECUTED, REVIEWED, TESTED, or COMMITTED).
 
+**Lean mode (default — `$FINAL_REVIEW_MODE == "lean"`):** Build context packets ONLY for the 2 global agents below (`plan-compliance-reviewer` + `audit-bug-detector`). Skip per-stack agent packet construction. Per-phase reviews already exercised per-stack agents on each phase's modified files; the lean default avoids duplicating that coverage at final review.
+
+**Full mode (`$FINAL_REVIEW_MODE == "full"`):** Build per-stack agent packets (Bug Detector, Pattern Reviewer, Stack Reviewer — 3 per stack) AND the 2 global agents below, for a total of `(3 x N) + 2` agents where `N` is the number of configured stacks. Use this mode when any of the full-mode triggers above apply.
+
 Build agent context packets following review-implementation.md Step 4.1:
 
-**Per-stack Agent: Bug Detector** (full spec mode context)
+**Per-stack Agent: Bug Detector** (full spec mode context — only spawned when `$FINAL_REVIEW_MODE == "full"`)
 ```
 You are reviewing the FULL PROJECT implementation for bugs and security issues. This is a project-scope review across all executed phases, not a single-phase review.
 
@@ -708,7 +765,7 @@ Apply the Review Quality Rules from the review skill: same-class completeness (s
 Report only HIGH confidence findings in your standard output format.
 ```
 
-**Per-stack Agent: Pattern Reviewer** (full spec mode context)
+**Per-stack Agent: Pattern Reviewer** (full spec mode context — only spawned when `$FINAL_REVIEW_MODE == "full"`)
 ```
 You are reviewing the FULL PROJECT implementation for pattern deviations. This is a project-scope review across all executed phases, not a single-phase review.
 
@@ -728,7 +785,7 @@ Apply same-class completeness: when you find a pattern deviation in one location
 Report only HIGH confidence deviations in your standard output format.
 ```
 
-**Per-stack Agent: Stack Reviewer** (full spec mode context)
+**Per-stack Agent: Stack Reviewer** (full spec mode context — only spawned when `$FINAL_REVIEW_MODE == "full"`)
 ```
 You are reviewing the FULL PROJECT implementation for stack best practice violations. This is a project-scope review across all executed phases, not a single-phase review.
 
@@ -781,7 +838,11 @@ Trace complete user flows from entry point to completion. For each flow:
 Report bugs that span multiple files or phases -- the kind that single-file reviewers miss. Report only HIGH confidence findings in your standard output format.
 ```
 
-**Spawn agents:** Spawn all agents (per-stack + plan-compliance-reviewer + audit-bug-detector) using the same economy/quality/premium mode logic as Step 3b.6. Total agents in full spec mode: (3 x N) + 2 where N is number of stacks. Wait for all agents to complete.
+**Spawn agents:** Spawn agents using the same economy/quality/premium mode logic as Step 3b.6. The agent set depends on `$FINAL_REVIEW_MODE`:
+- **Lean mode (default):** spawn ONLY `plan-compliance-reviewer` + `audit-bug-detector`. Total agents in lean mode: 2.
+- **Full mode:** spawn per-stack agents (Bug Detector + Pattern Reviewer + Stack Reviewer per stack) + the 2 global agents. Total agents in full mode: (3 x N) + 2 where N is number of stacks.
+
+Wait for all agents to complete.
 
 **4c. Process Final Review Results**
 
