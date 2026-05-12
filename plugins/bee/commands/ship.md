@@ -1,6 +1,6 @@
 ---
 description: Execute all plan-reviewed phases autonomously with review loops, decision logging, and final implementation review
-argument-hint: "[--skip-discuss] [--full-final-review]"
+argument-hint: "[--skip-discuss] [--full-final-review] [--no-aggregate-validate]"
 ---
 
 ## Current State (load before proceeding)
@@ -48,14 +48,15 @@ Do NOT proceed.
 5. Read `config.implementation_mode` from config.json (defaults to `"premium"` if absent). Store as `$IMPLEMENTATION_MODE`.
 6. Read `config.autonomous.discuss` from config.json (default: true). Store as `$DISCUSS_ENABLED`.
 7. Read `config.autonomous.auto_approve_confidence` from config.json (default: `"high"`). Store as `$AUTO_APPROVE_CONFIDENCE`.
-8. Count completed prior phases. Count how many phases have status REVIEWED, TESTED, or COMMITTED. Store as `$COMPLETED_PHASE_COUNT`.
-9. Build a work list of phases in phase order (ascending by phase number). For each phase, classify its state:
+8. Resolve `$VALIDATE_MODE` (REQ-10, REQ-11 — first tier of two-tier Auto-Mode Marker defense). If `$ARGUMENTS` matches the exact-token regex `(^|\s)--no-aggregate-validate(\s|$)` (boundary-anchored; a hypothetical `--no-no-aggregate-validate` would NOT match because the preceding character is `o`, not whitespace/start), set `$VALIDATE_MODE = false`. Otherwise default to `$VALIDATE_MODE = true`. When `$VALIDATE_MODE` is true, every aggregate-validate sub-step below invokes the matching batch validator under `${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/` (REQ-09). When false, those sub-steps are skipped entirely. Precedence: `--no-aggregate-validate` overrides the Auto-Mode Marker. When the flag is set, batch validators are not invoked at all (the marker-skip prelude inside each batch validator is a separate defense-in-depth check for runs where the flag is absent). NOTE: `--no-aggregate-validate` is distinct from the existing `--skip-validation` flag used elsewhere.
+9. Count completed prior phases. Count how many phases have status REVIEWED, TESTED, or COMMITTED. Store as `$COMPLETED_PHASE_COUNT`.
+10. Build a work list of phases in phase order (ascending by phase number). For each phase, classify its state:
    - **skip:** Status is `REVIEWED`, `TESTED`, or `COMMITTED` -- fully skip this phase
    - **needs_execution:** Status is `PLAN_REVIEWED` -- needs the full execution-then-review pipeline
    - **resume_execution:** Status is `EXECUTING` -- resume execution from pending wave, then review
    - **needs_review:** Status is `EXECUTED` -- skip execution, go directly to review
    - **resume_review:** Status is `REVIEWING` -- skip execution, resume review
-10. Display the discovery summary:
+11. Display the discovery summary:
 
    ```
    Ship: {total} phases discovered.
@@ -364,6 +365,28 @@ IMPORTANT: Always re-read TASKS.md from disk before each write (Read-Modify-Writ
 
 **After all agents in the wave complete:**
 
+**3a.4.5: Aggregate-validate wave outputs**
+
+If `$VALIDATE_MODE` is true:
+
+Collect per-agent outputs for every implementer spawned in this wave: `{agent: "implementer" | "quick-implementer", transcript_path: <path-from-Task-result-or-.bee/events/<today>.jsonl-SubagentStop-entry>, exit_code: 0}`. The `agent` field MUST be the un-prefixed canonical slug matching a `VALIDATOR_ROSTER` entry from `validators-lib.js` (strip any stack prefix like `laravel-` before building agent_outputs — `runPerAgentValidator` resolves the validator path by literal filename concat, NOT by hooks.json's non-anchored regex routing). Build stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: <N>}` where `N` equals the number of tasks spawned in the wave. Invoke:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/ship-per-wave.js
+```
+
+Parse the stdout JSON verdict. If `ok:false`:
+
+Display: `"Aggregate validation failed at wave {M} of Phase {N}. Findings: {verdict.reason}"`
+
+Append to STATE.md Decisions Log: `[Aggregate-validate-failed]: wave-{M}-phase-{N} -- {verdict.reason}`.
+
+HALT -- exit the ship autonomous loop with an error code. Do NOT continue to the next wave or phase. The user must manually resolve the underlying per-agent output issue before re-invoking `/bee:ship`.
+
+Rationale: aggregate verdict is the AUTHORITATIVE blocking signal per REQ-09. Silent log-and-continue would defeat aggregation. This failure-handling behavior is CONSISTENT with audit / review / plan-phase / plan-all (all halt on aggregate-validate failure).
+
+If `ok:true`, proceed to the per-wave STATE.md skip note below.
+
 **Skip per-wave STATE.md write during ship** (added v4.4.0 lessons-learned): ship runs autonomously through all waves of a phase in one session; resume granularity already lives in TASKS.md checkboxes (`[x]` / `[ ]` / `[FAILED]`), which are written per-task by the conductor. Per-wave STATE.md writes are pure display bookkeeping that consume Read-Modify-Write cycles without changing resume correctness. Skip the wave-level STATE.md write here. The phase-level updates at Step 3a.3 (EXECUTING start) and Step 3a.5 (EXECUTED end) are sufficient. Crash recovery during ship still works correctly because TASKS.md checkbox state is the authoritative resume signal — Step 3a.2 reads it on re-entry.
 
 (Interactive `/bee:execute-phase` still writes per-wave STATE.md updates so the user can see live progress in `/bee:hive` dashboard or via STATE.md inspection. The per-wave skip applies ONLY during `/bee:ship`'s autonomous run.)
@@ -568,6 +591,28 @@ For model tier per `$IMPLEMENTATION_MODE`, see `skills/command-primitives/SKILL.
 
 Wait for all agents to complete.
 
+**3b.6.5: Aggregate-validate review outputs**
+
+If `$VALIDATE_MODE` is true:
+
+After all review agents complete (the per-stack Bug Detector / Pattern Reviewer / Stack Reviewer trio plus the global Plan Compliance Reviewer), collect per-agent outputs: `{agent: "bug-detector" | "pattern-reviewer" | "stack-reviewer" | "plan-compliance-reviewer", transcript_path: <path>, exit_code: 0}`. The `agent` field MUST be the un-prefixed canonical slug matching a `VALIDATOR_ROSTER` entry from `validators-lib.js` (strip any stack prefix like `laravel-inertia-vue-` before building agent_outputs — `runPerAgentValidator` resolves the validator path by literal filename concat, NOT by hooks.json's non-anchored regex routing). Build stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: <N>}` where `N` equals the total review-agent spawn count for this phase (mode-dependent — economy spawns sequentially per stack; quality/premium spawns all at once). Invoke:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/ship-per-phase-review.js
+```
+
+Parse the stdout JSON verdict. If `ok:false`:
+
+Display: `"Aggregate validation failed at per-phase review of Phase {N}. Findings: {verdict.reason}"`
+
+Append to STATE.md Decisions Log: `[Aggregate-validate-failed]: per-phase-review-phase-{N} -- {verdict.reason}`.
+
+HALT -- exit the ship autonomous loop with an error code. Do NOT continue to the next phase. The user must manually resolve the underlying per-agent output issue before re-invoking `/bee:ship`.
+
+Rationale: same as Step 3a.4.5 -- authoritative blocking per REQ-09; failure handling consistent with audit / review / plan-phase / plan-all.
+
+If `ok:true`, proceed to Step 3b.7.
+
 **3b.7: Parse, Deduplicate, Write REVIEW.md**
 
 After all agents complete, consolidate findings using the same logic as review.md Steps 4.3-4.5:
@@ -598,6 +643,28 @@ For each finding in REVIEW.md:
 - For each MEDIUM confidence classification, spawn a fresh `finding-validator` agent for a second opinion (NOT the source specialist). Provide the original finding, the validator's uncertain classification, and request a second opinion.
 - Batch up to 10 validators at a time -- specialist escalations use the same parallel pattern as primary validation; each is a focused re-analysis.
 - Use the second opinion as the FINAL classification.
+
+**3b.8.5: Aggregate-validate finding-validator outputs**
+
+If `$VALIDATE_MODE` is true:
+
+After all primary `finding-validator` agents (and any MEDIUM-confidence escalation `finding-validator` agents) complete, collect per-agent outputs across BOTH primary and escalation rounds: `{agent: "finding-validator", transcript_path: <path>, exit_code: 0}`. The agent NAME and the VALIDATOR FILE slug both resolve to `finding-validator` (review pipeline's `## Classification` schema — distinct from `audit-finding-validator` which validates the audit pipeline's `### Validation: F-` schema; routing through the wrong validator HALTs autonomous runs because the schemas are disjoint). Build stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: <N>}` where `N` equals the total `finding-validator` spawn count for this phase (primary + escalations). Invoke:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/ship-finding-validation.js
+```
+
+Parse the stdout JSON verdict. If `ok:false`:
+
+Display: `"Aggregate validation failed at finding-validation of Phase {N}. Findings: {verdict.reason}"`
+
+Append to STATE.md Decisions Log: `[Aggregate-validate-failed]: finding-validation-phase-{N} -- {verdict.reason}`.
+
+HALT -- exit the ship autonomous loop with an error code. Do NOT continue to FALSE POSITIVE / STYLISTIC handling. The user must manually resolve the underlying per-agent output issue before re-invoking `/bee:ship`.
+
+Rationale: same as Step 3a.4.5 -- authoritative blocking per REQ-09; failure handling consistent with audit / review / plan-phase / plan-all.
+
+If `ok:true`, proceed to FALSE POSITIVE handling below.
 
 **Handle FALSE POSITIVE findings:**
 - If `.bee/false-positives.md` does not exist, create it with a `# False Positives` header.

@@ -1,6 +1,6 @@
 ---
 description: Plan all unplanned phases sequentially with plan review and cross-plan consistency check
-argument-hint: ""
+argument-hint: "[--no-aggregate-validate]"
 ---
 
 ## Current State (load before proceeding)
@@ -43,6 +43,8 @@ If ALL phases have Plan set to "Yes" AND Plan Review set to a non-empty value (e
 
 See `skills/command-primitives/SKILL.md` Model Selection (Reasoning).
 Inputs: `$IMPLEMENTATION_MODE`. Output: `$RESOLVED_MODEL`.
+
+**Resolve `$VALIDATE_MODE`** (REQ-10, REQ-11 — first tier of two-tier Auto-Mode Marker defense). If `$ARGUMENTS` matches the exact-token regex `(^|\s)--no-aggregate-validate(\s|$)` (boundary-anchored; a hypothetical `--no-no-aggregate-validate` would NOT match because the preceding character is `o`, not whitespace/start), set `$VALIDATE_MODE = false`. Otherwise default to `$VALIDATE_MODE = true`. When `$VALIDATE_MODE` is true, every aggregate-validate sub-step below invokes the matching batch validator under `${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/` (REQ-09). When false, those sub-steps are skipped entirely. Precedence: `--no-aggregate-validate` overrides the Auto-Mode Marker. When the flag is set, batch validators are not invoked at all (the marker-skip prelude inside each batch validator is a separate defense-in-depth check for runs where the flag is absent). NOTE: `--no-aggregate-validate` is distinct from any other `--skip-*` flags used elsewhere; it controls only batch-validator aggregation.
 
 ### Step 2: Discover Phases
 
@@ -237,6 +239,28 @@ Use `$RESOLVED_MODEL` for all four agents. Spawn all four via four Task tool cal
 
 Wait for all four agents to complete.
 
+**3f.2.5: Aggregate-validate plan-review outputs**
+
+If `$VALIDATE_MODE` is true:
+
+After all four plan-review agents (Bug Detector / Pattern Reviewer / Plan Compliance Reviewer / Stack Reviewer) complete, collect per-agent outputs: `{agent: "bug-detector" | "pattern-reviewer" | "plan-compliance-reviewer" | "stack-reviewer", transcript_path: <path>, exit_code: 0}`. The `agent` field MUST be the un-prefixed canonical slug matching a `VALIDATOR_ROSTER` entry from `validators-lib.js`. plan-all spawns generic (non-stack-prefixed) review agents per command-level invariant — no prefix strip is required, but the slug-form must match the `VALIDATOR_ROSTER` filenames exactly. Build stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: 4}`. Invoke:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/plan-all-per-phase.js
+```
+
+Parse the stdout JSON verdict. If `ok:false`:
+
+Display: `"Aggregate validation failed at per-phase plan review of Phase {N}. Findings: {verdict.reason}"`
+
+Append to STATE.md Decisions Log: `[Aggregate-validate-failed]: per-phase-plan-review-phase-{N} -- {verdict.reason}`.
+
+Feed the failure reason into Step 3f.4's auto-fix loop -- treat the verdict reason as a synthetic plan-review finding so the existing auto-fix iteration can attempt remediation. If `$PLAN_REVIEW_ITERATION` has not yet reached `$MAX_PLAN_REVIEW_ITERATIONS`, increment and re-spawn at Step 3f.2; otherwise halt with the unresolved findings logged to the Decisions Log per the existing 3f.4 exhaustion behavior.
+
+Rationale: aggregate verdict is the AUTHORITATIVE blocking signal per REQ-09. plan-all already has an auto-fix loop (Step 3f.4); the aggregate verdict feeds that loop as its synthetic finding source, preserving the existing iteration semantics.
+
+If `ok:true`, proceed to Step 3f.3.
+
 **3f.3: Consolidate findings**
 
 After all four agents complete, consolidate their findings:
@@ -376,6 +400,28 @@ Report only HIGH confidence findings. Flag any bug that spans multiple plans or 
 Use `$RESOLVED_MODEL` for all three agents. Spawn all three via three Task tool calls in a SINGLE message (parallel execution).
 
 Wait for all three agents to complete.
+
+**4c.5: Aggregate-validate cross-plan outputs**
+
+If `$VALIDATE_MODE` is true:
+
+After all three cross-plan agents (Plan Compliance Reviewer / Bug Detector / Audit Bug Detector — all in cross-plan mode) complete, collect per-agent outputs: `{agent: "plan-compliance-reviewer" | "bug-detector" | "audit-bug-detector", transcript_path: <path>, exit_code: 0}`. The `agent` field MUST be the un-prefixed canonical slug matching a `VALIDATOR_ROSTER` entry from `validators-lib.js`. Cross-plan agents are global (non-stack-prefixed) — no prefix strip is required, but the slug-form must match the `VALIDATOR_ROSTER` filenames exactly. Build stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: 3}`. Invoke:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/plan-all-cross-plan.js
+```
+
+Parse the stdout JSON verdict. If `ok:false`:
+
+Display: `"Aggregate validation failed at cross-plan consistency review. Findings: {verdict.reason}"`
+
+Append to STATE.md Decisions Log: `[Aggregate-validate-failed]: cross-plan -- {verdict.reason}`.
+
+Feed the failure reason into Step 4e's cross-plan auto-fix loop -- treat the verdict reason as a synthetic cross-plan finding so the existing auto-fix iteration can attempt remediation. If `$CROSS_PLAN_ITERATION` has not yet reached the configured max, increment and re-spawn at Step 4c; otherwise halt with the unresolved findings logged to the Decisions Log per the existing 4e exhaustion behavior.
+
+Rationale: aggregate verdict is the AUTHORITATIVE blocking signal per REQ-09. plan-all already has a cross-plan auto-fix loop (Step 4e); the aggregate verdict feeds that loop as its synthetic finding source.
+
+If `ok:true`, proceed to Step 4d.
 
 **4d. Consolidate cross-plan findings**
 

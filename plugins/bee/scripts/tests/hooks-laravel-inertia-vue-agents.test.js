@@ -87,6 +87,10 @@ const agentFiles = fs.readdirSync(agentsDir)
   .map(f => f.replace('.md', ''));
 
 for (const entry of stopEntries) {
+  // Terminal catch-all entry (e.g., emit-event.js telemetry) has no matcher field — skip it.
+  // Phase 1 v4.5.0 introduced the catch-all at end-of-block per REQ-05; this guard prevents
+  // a TypeError on undefined.replace when iterating the rewired SubagentStop block.
+  if (!entry.matcher) continue;
   // Extract agent name from matcher (strip ^ and $)
   const agentName = entry.matcher.replace(/^\^/, '').replace(/\$$/, '');
   // Check agent file exists (skip matchers that don't look like agent names)

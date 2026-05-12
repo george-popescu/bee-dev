@@ -1,6 +1,6 @@
 ---
 description: Run a comprehensive code audit with specialized agents -- security, errors, database, architecture, API, frontend, performance, testing, integration wiring, and end-to-end bug detection
-argument-hint: "[--only security,database,...] [--skip-validation] [--severity critical,high] [--team] [--no-team]"
+argument-hint: "[--only security,database,...] [--skip-validation] [--severity critical,high] [--team] [--no-team] [--no-aggregate-validate]"
 ---
 
 ## Current State (load before proceeding)
@@ -31,6 +31,10 @@ Check `$ARGUMENTS` for flags:
 2. **`--skip-validation` flag:** If present, skip the validation step (Step 5). Findings go directly to the report as UNVALIDATED. Useful for speed when you trust the results and plan to manually review.
 
 3. **`--severity` flag:** Comma-separated severity filter for the final report. Valid values: `critical`, `high`, `medium`, `low`. If present, only include findings of the specified severities in the report. If not present, include all severities.
+
+4. **`--no-aggregate-validate` flag:** Controls whether the batch-validator aggregation (Step 4.5 and Step 5.6 below) runs. If `$ARGUMENTS` matches the exact-token regex `(^|\s)--no-aggregate-validate(\s|$)` (boundary-anchored; a hypothetical `--no-no-aggregate-validate` would NOT match because the preceding character is `o`, not whitespace/start), set `$VALIDATE_MODE = false`. Otherwise default to `$VALIDATE_MODE = true`.
+
+   **Precedence:** `--no-aggregate-validate` overrides the Auto-Mode Marker. When the flag is set, batch validators are not invoked at all (the marker-skip prelude inside each batch validator is a separate defense-in-depth check for runs where the flag is absent). NOTE: `--no-aggregate-validate` is distinct from the existing `--skip-validation` flag — the former controls the NEW batch-validator aggregation (Step 4.5 and Step 5.6); the latter controls the EXISTING per-finding validator spawn (Step 5).
 
 ### Step 3: Detect Stack & Project Scope
 
@@ -135,6 +139,22 @@ As agents complete, collect their findings. Track progress and notify the user:
 [2/10] security-auditor complete: 12 findings (2 CRITICAL, 4 HIGH, 3 MEDIUM, 3 LOW)
 ```
 
+**4.5: Aggregate-validate auditor outputs (REQ-09 / REQ-10 tier 1)**
+
+If `$VALIDATE_MODE` is true:
+
+After all auditor agents (Step 4) complete, collect one `agent_outputs` entry per spawned agent: `{ agent: "security-auditor" | "database-auditor" | "error-handling-auditor" | "architecture-auditor" | "api-auditor" | "frontend-auditor" | "performance-auditor" | "testing-auditor" | "audit-bug-detector" | "integration-checker", transcript_path: "{path}", exit_code: 0 }`. The `agent` field MUST be the un-prefixed canonical slug matching a `VALIDATOR_ROSTER` entry from `validators-lib.js`. audit agents are global (non-stack-prefixed) — no prefix strip is required, but the slug-form must match the `VALIDATOR_ROSTER` filenames exactly. The `transcript_path` comes from either (a) the Task tool result returned by Claude Code for each spawned agent, or (b) the matching SubagentStop entry in `.bee/events/{today}.jsonl` filtered by the wave's timestamp window. Path (b) is reliably reachable in autonomous runs after the autonomous-marker bypass landed in T2.11.
+
+Build the stdin payload `{ cwd: "{$ROOT}", agent_outputs: [...], expected_count: {N} }` where `expected_count` matches the number of auditor agents actually spawned for the current `$IMPLEMENTATION_MODE` (8 for quality batch 1, 2 for quality batch 2, 10 for premium single batch). Invoke the batch validator:
+
+```bash
+echo '{"cwd":"{$ROOT}","agent_outputs":[...],"expected_count":{N}}' | node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/audit-parallel-auditors.js
+```
+
+Parse the stdout JSON verdict (`{"ok":true}` or `{"ok":false,"reason":"..."}`). On `ok:false`, halt the audit with: `Display: "Batch validation failed: {verdict.reason}. Halting audit."` Do NOT proceed to Step 5. On `ok:true`, proceed.
+
+If `$VALIDATE_MODE == false` (the `--no-aggregate-validate` flag was passed), SKIP this step entirely. Proceed directly to Step 5. The per-script marker-skip prelude inside the batch validator is the second-tier defense for runs where the flag is absent — see Section 2 Precedence note.
+
 ### Step 5: Validate Findings
 
 Unless `--skip-validation` was specified:
@@ -158,6 +178,22 @@ Validation complete:
 - NEEDS CONTEXT: {N} findings (flagged for review)
 - False positive rate: {percentage}%
 ```
+
+**5.6: Aggregate-validate finding-validator outputs (REQ-09 / REQ-10 tier 1)**
+
+If `$VALIDATE_MODE` is true AND `--skip-validation` was NOT specified (Step 5 ran):
+
+After all `audit-finding-validator` batches complete, collect one `agent_outputs` entry per spawned validator agent: `{ agent: "audit-finding-validator", transcript_path: "{path}", exit_code: 0 }`. The `transcript_path` source follows the same dual-source rule as Step 4.5 (Task tool result OR `.bee/events/{today}.jsonl` SubagentStop filtered by batch timestamp window).
+
+Build the stdin payload `{ cwd: "{$ROOT}", agent_outputs: [...], expected_count: {N} }` where `expected_count` matches the number of validator agents actually spawned (one per 10-15 finding batch). Invoke the batch validator:
+
+```bash
+echo '{"cwd":"{$ROOT}","agent_outputs":[...],"expected_count":{N}}' | node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/audit-finding-validation.js
+```
+
+Parse the stdout JSON verdict. On `ok:false`, halt the audit with: `Display: "Batch validation failed: {verdict.reason}. Halting audit."` Do NOT proceed to Step 6. On `ok:true`, proceed.
+
+If `$VALIDATE_MODE == false` (the `--no-aggregate-validate` flag was passed) OR `--skip-validation` was specified (Step 5 was skipped, so there are no validator outputs to aggregate), SKIP this step entirely. Proceed directly to Step 6.
 
 ### Step 6: Generate Report
 

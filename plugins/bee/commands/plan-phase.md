@@ -86,6 +86,26 @@ Execute all five sub-steps automatically with no interactive prompts:
 2. Run provenance validation (2.5.1b) — this depends on RESEARCH.md from step 1, so it stays sequential.
 3. Run assumptions analysis (2.5.2), dependency health check (2.5.3), and test gap analysis (2.5.4) via three Task tool calls in a SINGLE message (parallel execution). Wait for all three to complete before proceeding to Step 3.
 
+**Aggregate-validate 3-analyzer outputs** (REQ-09 + REQ-10 — unconditional; plan-phase is interactive and does NOT receive the `--no-aggregate-validate` flag per REQ-11):
+
+After all three analyzers (assumptions-analyzer / dependency-auditor / testing-auditor) complete, collect per-agent outputs: `{agent: "assumptions-analyzer" | "dependency-auditor" | "testing-auditor", transcript_path: <path>, exit_code: 0}`. The `agent` field MUST be the un-prefixed canonical slug matching a `VALIDATOR_ROSTER` entry from `validators-lib.js` — note the canonical filenames are `assumptions-analyzer.js` / `dependency-auditor.js` / `testing-auditor.js`, NOT the human-readable shorthand (`assumptions` / `dep-health` / `test-gap`) used elsewhere in plan-phase prose. plan-phase analyzers are global (non-stack-prefixed) — no prefix strip is required, but the slug-form must match the `VALIDATOR_ROSTER` filenames exactly. Build stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: 3}`. Invoke:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/plan-phase-analyzers.js
+```
+
+Parse the stdout JSON verdict. If `ok:false`:
+
+Display: `"Aggregate validation failed at Step 2.5 pre-planning analysis. Findings: {verdict.reason}"`
+
+Append to STATE.md Decisions Log: `[Aggregate-validate-failed]: plan-phase-step-2.5 -- {verdict.reason}`.
+
+HALT -- do NOT proceed to Step 3. The user (plan-phase is interactive) sees the failure inline and must manually resolve before re-invoking `/bee:plan-phase`.
+
+Rationale: aggregate verdict is the AUTHORITATIVE blocking signal per REQ-09. Failure handling consistent with audit / review / ship / plan-all.
+
+If `ok:true`, proceed to Step 3.
+
 No interactive prompts -- all steps run automatically.
 
 #### Policy: "skip" (research_policy = "skip")
@@ -105,7 +125,7 @@ AskUserQuestion(
   options: ["Full analysis (research + assumptions)", "Research only", "Assumptions only", "Skip all", "Custom"]
 )
 
-- "Full analysis": Run ecosystem research (2.5.1) -> provenance validation (2.5.1b) — this pair stays sequential because provenance validation reads RESEARCH.md. Then run assumptions analysis (2.5.2), dependency health check (2.5.3), and test gap analysis (2.5.4) via three Task tool calls in a SINGLE message (parallel execution). Wait for all three to complete before proceeding to Step 3.
+- "Full analysis": Run ecosystem research (2.5.1) -> provenance validation (2.5.1b) — this pair stays sequential because provenance validation reads RESEARCH.md. Then run assumptions analysis (2.5.2), dependency health check (2.5.3), and test gap analysis (2.5.4) via three Task tool calls in a SINGLE message (parallel execution). Wait for all three to complete before proceeding to Step 3. After all three complete, run the aggregate-validate step described above (under the "required" policy block) UNCONDITIONALLY: collect per-agent outputs `{agent: "assumptions-analyzer" | "dependency-auditor" | "testing-auditor", transcript_path, exit_code: 0}` (un-prefixed canonical slugs matching `VALIDATOR_ROSTER` filenames — NOT the prose shorthand `assumptions` / `dep-health` / `test-gap`), build payload `{cwd: $ROOT, agent_outputs, expected_count: 3}`, invoke `node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/plan-phase-analyzers.js`, parse verdict. On `ok:false`, display the failure, append `[Aggregate-validate-failed]: plan-phase-step-2.5 -- {reason}` to STATE.md Decisions Log, and HALT (do NOT proceed to Step 3). On `ok:true`, proceed to Step 3. Same rationale as the "required" branch: authoritative blocking per REQ-09; plan-phase does NOT receive `--no-aggregate-validate` per REQ-11.
 - "Research only": Run ecosystem research (2.5.1) -> provenance validation (2.5.1b). Skip assumptions, deps, test gaps. Set $ASSUMPTIONS = null. Set $DEP_HEALTH = null. Set $TEST_GAPS = null.
 - "Assumptions only": Skip research, deps, test gaps. Set $RESEARCH_PATH = null. Set $DEP_HEALTH = null. Set $TEST_GAPS = null. Run assumptions analysis (2.5.2) only.
 - "Skip all": Set $RESEARCH_PATH = null. Set $ASSUMPTIONS = null. Set $DEP_HEALTH = null. Set $TEST_GAPS = null. Proceed to Step 3.

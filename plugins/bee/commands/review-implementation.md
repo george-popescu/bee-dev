@@ -306,6 +306,16 @@ Inputs: `config.implementation_mode`. Apply the rule to every agent below.
 
 Wait for all agents to complete before proceeding.
 
+#### 4.2.5: Aggregate-validate review-implementation agent outputs
+
+After all agents in Step 4.2 complete, collect `agent_outputs` per agent: `{agent: "bug-detector" | "pattern-reviewer" | "stack-reviewer" | "plan-compliance-reviewer" | "audit-bug-detector", transcript_path: <path>, exit_code: 0}`. The `agent` field MUST be the un-prefixed canonical slug matching a `VALIDATOR_ROSTER` entry from `validators-lib.js` (strip any stack prefix like `laravel-inertia-vue-` before building agent_outputs — `runPerAgentValidator` resolves the validator path by literal filename concat, NOT by hooks.json's non-anchored regex routing). Transcript paths come either from the Task tool result or from `.bee/events/<today>.jsonl` SubagentStop entries filtered by this wave's timestamp. Build the stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: <N>}` where `N` is `(3 × stack_count) + 2` in full-spec mode (adds plan-compliance-reviewer + audit-bug-detector) or `3 × stack_count` in ad-hoc mode (per-stack agents only). Invoke:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/review-implementation-4-agent.js
+```
+
+Parse the stdout JSON verdict. If `ok:false`, halt and surface the failure to the user via `Display: "Aggregate validation failed at review-implementation agent batch: {verdict.reason}. Halting review."` -- aggregate verdict is the authoritative blocking signal per REQ-09 and Rule 12 (Fail Visibly). If `ok:true`, proceed to Step 4.3. This step is unconditional -- `/bee:review-implementation` is interactive (not in the autonomous-flag list per REQ-11) so there is no `--no-aggregate-validate` flag; the per-script marker-skip prelude is the sole defense-in-depth tier.
+
 #### 4.3: Parse findings from each agent
 
 After all agents complete, parse findings from each agent's final message. Each agent has a distinct output format -- normalize all findings into a unified list:
@@ -397,6 +407,15 @@ This step is handled inline in Step 4.3 through 4.5 above. After the output repo
    - Multiple validators CAN be spawned in parallel (they are read-only and independent)
    - Batch up to 10 validators at a time to avoid overwhelming the system
 2. Collect classifications from each validator's final message (the `## Classification` section with Finding, Verdict, Confidence, Source Agent, and Reason fields)
+
+**Aggregate-validate finding-validator outputs (primary):** After collecting all classifications above, build `agent_outputs` with one entry per spawned finding-validator: `{agent: "finding-validator", transcript_path: <path>, exit_code: 0}`. The agent NAME and the VALIDATOR FILE slug both resolve to `finding-validator` (review pipeline's `## Classification` schema — distinct from `audit-finding-validator` which validates the audit pipeline's `### Validation: F-` schema). Build stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: <N>}` where `N` equals the number of findings dispatched in this batch (≤10 per Step 6.1.1). Invoke:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/review-implementation-finding-validation.js
+```
+
+Parse the stdout JSON verdict. If `ok:false`, halt with `Display: "Aggregate validation failed at finding-validator batch: {verdict.reason}. Halting review."`. If `ok:true`, proceed to the escalation step below. Unconditional invocation (no `--no-aggregate-validate` flag); the per-script marker-skip prelude handles non-autonomous runs.
+
 3. Escalate MEDIUM confidence classifications to specialist agents for a second opinion:
    - Filter the collected classifications: separate HIGH confidence (proceed unchanged) from MEDIUM confidence (need escalation)
    - For each MEDIUM confidence classification, spawn a fresh `finding-validator` agent for a second opinion (NOT the source specialist — specialist agents have SubagentStop hooks that expect their standard output format, not the escalation format). Spawn via Task tool. Apply the Model Selection (Reasoning) rule referenced in 4.2. Provide this context packet:
@@ -435,6 +454,15 @@ This step is handled inline in Step 4.3 through 4.5 above. After the output repo
    - If the specialist says FALSE POSITIVE: the finding's verdict becomes FALSE POSITIVE
    - Record the escalation: append " (Escalated to {source_agent} -- reclassified as {verdict})" to the finding's Validation field in the output report
    - Display each escalation: "Escalated F-{NNN} to {source_agent} -- reclassified as {verdict}"
+
+**Aggregate-validate specialist-escalation outputs:** After all specialist-escalation finding-validator spawns from step 3 complete, build `agent_outputs` with one entry per escalated finding-validator: `{agent: "finding-validator", transcript_path: <path>, exit_code: 0}`. The agent NAME and the VALIDATOR FILE slug both resolve to `finding-validator` (review pipeline's `## Classification` schema). Build stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: <M>}` where `M` equals the number of MEDIUM confidence classifications escalated in this batch (≤10 per the "Batch up to 10 validators at a time" rule above). Invoke:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/review-implementation-specialist-escalation.js
+```
+
+Parse the stdout JSON verdict. If `ok:false`, halt with `Display: "Aggregate validation failed at specialist-escalation batch: {verdict.reason}. Halting review."`. If `ok:true`, proceed to Step 4 (output report update). Unconditional invocation; the per-script marker-skip prelude is the only tier.
+
 4. Read current output report from disk (fresh read). Update the output report:
    - Set each finding's Validation field to the final classification:
      - HIGH confidence findings: the validator's verdict (REAL BUG / FALSE POSITIVE / STYLISTIC)

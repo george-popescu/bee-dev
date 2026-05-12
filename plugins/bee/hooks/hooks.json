@@ -87,9 +87,9 @@
         "matcher": "(?<!quick-)implementer$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate implementer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) TDD red-green cycle verified: test files exist BEFORE implementation code, and agent output shows tests were run and FAILED before implementation was written, then PASSED after 2) Task-specific tests run and passing (agent should run ONLY its test file(s), not the full suite -- full suite is run by the conductor post-wave) 3) Structured task notes written (files created, patterns used, decisions) 4) Task reported complete ('Task complete. [X] tests passing.') OR agent output contains BLOCKED: signal (both are valid completion states -- a blocked agent is not abandoned) 5) If task notes line 2 begins with `deviations:`, parse comma-separated `rule{N}=<short>` entries; verify each entry references a valid rule number (1-4) and includes a short description after the `=`. Absence of a `deviations:` line is acceptable (no deviations applied) and must NOT be flagged. The legacy `## Deviations` section heading is no longer required 6) If agent output contains `BLOCKED:` signal, validate it includes: Description, Proposed change, Why needed, Impact, Alternatives fields 7) Verification evidence: the agent's message MUST include actual test runner output (the pass/fail lines from the test framework, not just a count claim). If the message only says 'X tests passing' without showing the test runner output, flag as missing verification evidence.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/implementer.js",
+            "timeout": 5
           }
         ]
       },
@@ -97,9 +97,9 @@
         "matcher": "^fixer$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate fixer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Fix Report section present with Finding ID, Status, Files Changed, What Changed, Tests fields 2) Tests were run after the fix (test results mentioned) 3) If tests failed after two attempts, changes were reverted 4) Only ONE finding was addressed (not multiple).\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/fixer.js",
+            "timeout": 5
           }
         ]
       },
@@ -107,9 +107,9 @@
         "matcher": "^researcher$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate researcher agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field. The researcher runs in THREE modes -- validate based on which mode was used:\n\n**Phase research mode** (signal: 'Research complete: [N] tasks enriched'): 1) Research notes were written to TASKS.md (mentions updating research sections) 2) Completion signal present\n\n**Spec/quick research mode** (signal: structured research summary returned in final message, no TASKS.md write): 1) Output contains structured findings (project structure, patterns, reusable code) 2) No TASKS.md write expected -- findings are returned inline\n\n**Ecosystem research mode** (signal: 'Ecosystem research complete:'): 1) RESEARCH.md was written to the phase directory 2) Output contains ecosystem findings (patterns, pitfalls, don't-hand-roll) 3) Completion signal present 4) Output or RESEARCH.md mentions provenance tags ([VERIFIED], [CITED], or [ASSUMED]) -- at least one provenance tag referenced in the completion summary 5) If any [ASSUMED] claims are mentioned, an Assumptions Log section should be present in RESEARCH.md\n\nFor ALL modes: No production code was written (no file creation or modification outside TASKS.md, RESEARCH.md, and memory files).\n\nProvenance tag validation: For ecosystem mode, provenance tags are expected. For phase research and spec/quick modes, provenance tags are encouraged but their absence is NOT a validation failure (backward compatibility).\n\nExactly one mode must be detected. Respond {\"ok\": true} if ALL checks for the detected mode pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/researcher.js",
+            "timeout": 5
           }
         ]
       },
@@ -117,9 +117,9 @@
         "matcher": "^assumptions-analyzer$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate assumptions-analyzer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains '## Assumptions' heading with at least one assumption area 2) Each assumption has a 'Confidence:' field with value Confident, Likely, or Unclear 3) Each assumption cites at least one file path as evidence 4) Each assumption has an 'Impact:' field with value Low, Medium, or High 5) Each assumption has a 'Risk:' field with a numeric score and action in parentheses 6) Each assumption has a 'Mitigation:' field with a concrete action 7) Output contains '## Risk Matrix' section with a summary table 8) No code modifications were made -- this is a read-only agent that must not create or edit any files.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/assumptions-analyzer.js",
+            "timeout": 5
           }
         ]
       },
@@ -127,9 +127,9 @@
         "matcher": "^dependency-auditor$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate dependency-auditor agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains '## Dependency Health Report' heading 2) Output contains '### Phase-Relevant Dependencies' table or a statement about no phase-relevant dependencies 3) Output contains '### Summary' section with Dependencies scanned count and Verdict field 4) No code modifications were made -- this is a read-only agent that must not create or edit any files.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/dependency-auditor.js",
+            "timeout": 5
           }
         ]
       },
@@ -137,9 +137,9 @@
         "matcher": "(?<!audit-)bug-detector$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate bug-detector agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains a findings section with '## Bugs Detected' heading with severity-grouped subsections (### Critical, ### High, ### Medium), OR the 'No bugs detected.' message 2) Each finding has a file:line reference in backtick format (e.g. `file:line`) 3) A total count summary is present (e.g. '**Total: X critical, Y high, Z medium**') or 'No bugs detected.' was used 4) Only HIGH confidence findings are reported (no speculative or low-confidence issues) 5) No code modifications were made -- this is a read-only agent that must not create or edit any files 6) Each finding MUST include an Evidence field (trace path), Impact field (user-facing consequence), and Test Gap field.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/bug-detector.js",
+            "timeout": 5
           }
         ]
       },
@@ -147,9 +147,9 @@
         "matcher": "pattern-reviewer$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate pattern-reviewer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains '## Project Pattern Deviations' heading OR the 'No project pattern deviations found.' message 2) Each deviation shows an existing pattern vs current code comparison with '**Existing pattern:**' and '**This code:**' sub-items 3) file:line references are present in backtick format for each deviation 4) A total count is present (e.g. '**Total: X deviations**') or 'No project pattern deviations found.' was used 5) No code modifications were made -- this is a read-only agent that must not create or edit any files 6) Each finding MUST include an Evidence field (trace path), Impact field (user-facing consequence), and Test Gap field.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/pattern-reviewer.js",
+            "timeout": 5
           }
         ]
       },
@@ -157,9 +157,9 @@
         "matcher": "^plan-compliance-reviewer$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate plan-compliance-reviewer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains either '## Plan Compliance Findings' heading (code review mode) with categorized findings under '### Spec Gap' (SG-NNN), '### Cross-Phase Integration' (CI-NNN), '### Over-Scope' (OS-NNN), OR '## Plan Compliance Review: Phase' heading (plan review mode) with a '### Coverage Matrix' table showing COVERED/PARTIAL/NOT COVERED statuses 2) Appropriate categorization is present for the detected mode 3) A summary section is present with finding counts or coverage statistics 4) No code modifications were made other than requirements.md checkbox updates (which are expected in code review mode when marking covered requirements) 5) In code review mode, output MUST include an Acceptance Criteria checklist with explicit [x]/[ ] marks per criteria. Each finding MUST include Evidence, Impact, and Test Gap fields.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/plan-compliance-reviewer.js",
+            "timeout": 5
           }
         ]
       },
@@ -167,9 +167,9 @@
         "matcher": "stack-reviewer$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate stack-reviewer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains '## Stack Best Practice Violations' heading with violations listed, OR 'No stack best practice violations found.' message, OR 'no stack skill loaded, skipping' early exit message 2) If violations are present, each violation references a specific stack rule category from the skill file 3) file:line references are present in backtick format for each violation 4) A total count is present (e.g. '**Total: X violations**') or one of the no-findings/skip messages was used 5) No code modifications were made -- this is a read-only agent that must not create or edit any files 6) Each finding MUST include an Evidence field (trace path), Impact field (user-facing consequence), and Test Gap field.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/stack-reviewer.js",
+            "timeout": 5
           }
         ]
       },
@@ -177,29 +177,9 @@
         "matcher": "^quick-implementer$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate quick-implementer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) TDD red-green cycle verified: test files exist BEFORE implementation code, and agent output shows tests were run and FAILED before implementation was written, then PASSED after 2) Tests run and passing 3) Structured task notes written (files created, patterns used, decisions) 4) Task reported complete ('Task complete. [X] tests passing.') OR agent output contains BLOCKED: signal (both are valid completion states) 5) Verification evidence: the agent's message MUST include actual test runner output (the pass/fail lines from the test framework, not just a count claim). If the message only says 'X tests passing' without showing the test runner output, flag as missing verification evidence. If agent output contains BLOCKED: signal, verify it includes Description, Proposed change, Why needed, Impact fields.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
-          }
-        ]
-      },
-      {
-        "matcher": "^spec-reviewer$",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Validate spec-reviewer agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains '## Spec Review' heading 2) A '**Status:**' line is present with either 'Approved' or 'Issues Found' 3) If status is 'Issues Found', at least one issue is listed under '**Issues (if any):**' with [Section]: format 4) No files were modified -- this is a read-only agent that must not create or edit any files.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
-          }
-        ]
-      },
-      {
-        "matcher": "^discuss-partner$",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Validate discuss-partner agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and determine which mode the agent ran in by checking which completion signal is present, then validate accordingly:\n\n**Write-notes mode** (signal: 'Discussion notes written: {path}'): 1) The completion signal 'Discussion notes written:' is present with a file path 2) Required headings are present in the notes (required headings present: ## Topic, ## Discussion Summary, ## Notes for Spec Creation) 3) No code was generated -- discussion notes contain prose analysis, no code blocks or implementation\n\n**Scan mode** (signal: 'Scan complete:' with file and pattern counts): 1) The completion signal 'Scan complete:' is present 2) Output contains '## Relevant Files' heading with file paths listed 3) Output contains '## Existing Patterns' heading with pattern descriptions 4) No files written -- scan mode is read-only, the agent must not create or modify any files\n\nExactly one mode must be detected. If neither signal is found, validation fails.\n\nRespond {\"ok\": true} if ALL checks for the detected mode pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/quick-implementer.js",
+            "timeout": 5
           }
         ]
       },
@@ -207,9 +187,9 @@
         "matcher": "^security-auditor$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate security-auditor agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains findings using the audit finding format (### F-SEC-NNN prefix) with Severity, Category, File, Lines, Agent, Description, Evidence, Impact, Suggested Fix fields -- OR a 'No security issues found.' message 2) Each finding includes an Evidence section with actual code snippet 3) A '## Security Audit Summary' section is present at the end with files scanned count, finding counts by severity, and overall security posture rating 4) No code modifications were made -- this is a read-only agent that must not create or edit any files.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/security-auditor.js",
+            "timeout": 5
           }
         ]
       },
@@ -217,9 +197,9 @@
         "matcher": "^error-handling-auditor$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate error-handling-auditor agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains findings using the audit finding format (### F-ERR-NNN prefix) with Severity, Category, File, Lines, Agent, Description, Evidence, Impact, Suggested Fix fields -- OR a 'No error handling issues found.' message 2) Each finding specifies the failure mode: CRASH, SILENT FAILURE, DATA LOSS, or DEGRADED UX 3) A '## Error Handling Audit Summary' section is present at the end with finding counts and overall maturity rating 4) No code modifications were made -- this is a read-only agent.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/error-handling-auditor.js",
+            "timeout": 5
           }
         ]
       },
@@ -227,9 +207,9 @@
         "matcher": "^database-auditor$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate database-auditor agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains findings using the audit finding format (### F-DB-NNN prefix) with Severity, Category, File, Lines, Agent, Description, Evidence, Impact, Suggested Fix fields -- OR a 'No database issues found.' message 2) A '## Database Audit Summary' section is present at the end with migration files scanned, model files scanned, N+1 patterns found, missing indexes count, and overall data layer health rating 3) No code modifications were made -- this is a read-only agent.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/database-auditor.js",
+            "timeout": 5
           }
         ]
       },
@@ -237,9 +217,9 @@
         "matcher": "^architecture-auditor$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate architecture-auditor agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains findings using the audit finding format (### F-ARCH-NNN prefix) with Severity, Category, File, Lines, Agent, Description, Evidence, Impact, Suggested Fix fields -- OR a 'No architecture issues found.' message 2) A '## Architecture Audit Summary' section is present at the end with total files analyzed, god files count, duplicated patterns, separation of concerns violations, and overall architecture health rating 3) No code modifications were made -- this is a read-only agent.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/architecture-auditor.js",
+            "timeout": 5
           }
         ]
       },
@@ -247,9 +227,9 @@
         "matcher": "^api-auditor$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate api-auditor agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains findings using the audit finding format (### F-API-NNN prefix) with Severity, Category, File, Lines, Agent, Description, Evidence, Impact, Suggested Fix fields -- OR a 'No API issues found.' message 2) An '## Endpoint Inventory' table is present listing discovered endpoints with Method, Path, Auth, Validation columns 3) A '## API Audit Summary' section is present at the end with total endpoints, endpoints without validation, and overall API health rating 4) No code modifications were made -- this is a read-only agent.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/api-auditor.js",
+            "timeout": 5
           }
         ]
       },
@@ -257,9 +237,9 @@
         "matcher": "^frontend-auditor$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate frontend-auditor agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains findings using the audit finding format (### F-FE-NNN prefix) with Severity, Category, File, Lines, Agent, Description, Evidence, Impact, Suggested Fix fields -- OR a 'No frontend issues found.' message 2) A '## Frontend Audit Summary' section is present at the end with components scanned, missing loading/error states, memory leak risks, accessibility issues, and overall frontend health rating 3) No code modifications were made -- this is a read-only agent.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/frontend-auditor.js",
+            "timeout": 5
           }
         ]
       },
@@ -267,9 +247,9 @@
         "matcher": "^performance-auditor$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate performance-auditor agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains findings using the audit finding format (### F-PERF-NNN prefix) with Severity, Category, File, Lines, Agent, Description, Evidence, Impact, Suggested Fix fields -- OR a 'No performance issues found.' message 2) A '## Performance Audit Summary' section is present at the end with backend bottlenecks, frontend optimization issues, API performance issues, and overall performance health rating 3) No code modifications were made -- this is a read-only agent.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/performance-auditor.js",
+            "timeout": 5
           }
         ]
       },
@@ -277,9 +257,9 @@
         "matcher": "^testing-auditor$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate testing-auditor agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field. Determine which mode the agent ran in:\n\n**Scan mode** (signal: '## Testing Audit Summary' section present): 1) Output contains findings using F-TEST-NNN format OR 'No testing issues found.' message 2) A '## Test Coverage Map' table is present 3) A '## Testing Audit Summary' section is present with test files found, test cases found, critical paths covered, test suite pass rate, and overall test health rating 4) No code modifications were made -- this is a read-only agent in scan mode.\n\n**Generate mode** (signal: '## Test Generation Summary' section present): 1) Output contains a '## Requirement Coverage Map' table with criteria mapped to COVERED/PARTIAL/UNCOVERED 2) A '## Test Generation Summary' section is present with acceptance criteria count, tests generated count, tests passing count, and implementation bugs escalated count 3) Any implementation bugs are reported with F-TEST-NNN format and include Evidence and Impact fields 4) Only test files were created or modified -- implementation/production files must NOT have been written to.\n\n**Pre-plan mode** (signal: '## Test Gap Analysis' heading present): 1) Output contains '## Test Gap Analysis' heading 2) An 'Infrastructure Status' table is present with Stack, Test Runner, Config, Can Run, Status columns 3) A '### Verdict' section is present with one of: READY, NEEDS_SETUP, NO_INFRASTRUCTURE 4) A '### Summary' section is present with test infrastructure status and domain test coverage 5) No code modifications were made -- this is a read-only agent in pre-plan mode.\n\nExactly one of the three modes must be detected. Respond {\"ok\": true} if ALL checks for the detected mode pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/testing-auditor.js",
+            "timeout": 5
           }
         ]
       },
@@ -287,9 +267,9 @@
         "matcher": "^audit-bug-detector$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate audit-bug-detector agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains findings using the audit finding format (### F-BUG-NNN prefix) with Severity, Category, File, Lines, Agent, Description, Evidence, Impact, Suggested Fix fields -- OR a 'No cross-layer bugs found.' message 2) Each finding includes a Flow and Trace section showing the end-to-end path (Component → API → Controller → Service → DB) 3) A '## Bug Detection Summary' section is present at the end with critical flows traced, cross-layer bugs found, and overall flow integrity rating 4) No code modifications were made -- this is a read-only agent.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/audit-bug-detector.js",
+            "timeout": 5
           }
         ]
       },
@@ -297,9 +277,19 @@
         "matcher": "^audit-finding-validator$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate audit-finding-validator agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains validation results for each finding with '### Validation: F-' prefix, including Verdict (CONFIRMED/FALSE POSITIVE/NEEDS CONTEXT), Confidence (HIGH/MEDIUM), File verified, Evidence verified, and Reason fields 2) A '## Validation Summary' section is present at the end with total findings validated, counts per verdict, and false positive rate percentage 3) No code modifications were made -- this is a read-only agent that must not create or edit any files.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/audit-finding-validator.js",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "^finding-validator$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/finding-validator.js",
+            "timeout": 5
           }
         ]
       },
@@ -307,9 +297,9 @@
         "matcher": "^audit-report-generator$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate audit-report-generator agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) The agent wrote AUDIT-REPORT.md (mentions writing or creating the file) 2) The agent wrote audit-findings.json (mentions writing or creating the JSON file) 3) The report includes an Executive Summary table with severity counts 4) The report includes a Risk Assessment section 5) The report includes Recommendations grouped by Immediate Actions, Short-term Actions, and Technical Debt.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/audit-report-generator.js",
+            "timeout": 5
           }
         ]
       },
@@ -317,19 +307,9 @@
         "matcher": "^debug-investigator$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate debug-investigator agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains ONE of these signals: '## ROOT CAUSE FOUND', '## CHECKPOINT REACHED', or '## INVESTIGATION INCONCLUSIVE' 2) If ROOT CAUSE FOUND: Evidence section present with at least one file:line reference, Confidence level specified 3) If CHECKPOINT REACHED: Type field present (human-verify, need-info, or decision), What I Need field present 4) If INVESTIGATION INCONCLUSIVE: Checked section present with hypothesis count, Remaining Possibilities listed 5) No production code modifications were made -- this is a diagnostic agent. Check tool call metadata: Write or Edit tool calls to files OTHER than .bee/debug/ paths must not have succeeded (the agent MAY update session files at .bee/debug/sessions/{slug}/state.json and .bee/debug/sessions/{slug}/report.md, or legacy .bee/debug/{slug}.md). Read, Grep, Glob, Bash are allowed for any file 6) Hypothesis count does not exceed 7 active hypotheses (dynamic range 3-7 based on complexity) 7) Check that any pruned hypotheses are archived -- if agent mentions pruning, verify they were moved to archived_hypotheses (not deleted).\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
-          }
-        ]
-      },
-      {
-        "matcher": "^ui-auditor$",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Validate ui-auditor agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains '## UI REVIEW COMPLETE' completion heading 2) Output mentions all 6 pillar names (Design System, Accessibility, Performance, Responsiveness, Interaction Quality, Polish) either as headings or in a pillar summary table 3) Each pillar has a score in the 1-4 range (look for /4 or score patterns like 1/4, 2/4, 3/4, 4/4) 4) Each pillar has evidence (file references, file:line citations, or code patterns cited) 5) A Top 3 Priority Fixes or similar priority fixes section is present 6) UI-REVIEW.md was written (mentions writing or creating the file) 7) Check tool call metadata: no Write or Edit tool calls to files OTHER than UI-REVIEW.md succeeded. Read, Grep, Glob are allowed for any file.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/debug-investigator.js",
+            "timeout": 5
           }
         ]
       },
@@ -337,9 +317,9 @@
         "matcher": "^integration-checker$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate integration-checker agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check: 1) Output contains BOTH '## Integration Check Complete' heading AND 'Integration Audit Summary' section 2) Wiring Summary section present with Connected/Orphaned/Missing counts 3) Overall integration health rating present (one of: HEALTHY, MODERATE, CONCERNING, BROKEN) 4) Findings use F-INT-NNN format (or 'No integration issues found.' message) 5) Each finding has file references (file path citations in backtick format) 6) No code modifications were made -- check that no Write or Edit tool calls succeeded. This is a read-only agent (Read, Grep, Glob, Bash are allowed).\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/integration-checker.js",
+            "timeout": 5
           }
         ]
       },
@@ -347,9 +327,9 @@
         "matcher": "^swarm-consolidator$",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Validate swarm-consolidator agent output. The agent's last message and metadata are in the JSON below:\n$ARGUMENTS\n\nExtract the last_assistant_message field and check:\n\n1) Output contains '## Swarm Review Consolidation' heading\n2) A '### Summary' section is present with segments analyzed, agents dispatched, raw findings, after dedup, and consensus escalations counts\n3) A '### Findings (severity-ordered)' section is present\n4) Each finding entry (SF-NNN) contains a 'Consensus' field showing N/M agents\n5) Each finding entry contains 'Source Agents' field listing contributing agents\n6) Findings are grouped by severity: Critical first, then High, then Medium\n7) A '### Dedup Summary' section is present with merge counts\n8) No code modifications were made -- this is a read-only consolidation agent\n\nIf the agent produced no findings (all agents returned clean), a '## Swarm Review Consolidation' heading with '### Summary' showing 0 raw findings and 0 after dedup is valid.\n\nRespond {\"ok\": true} if ALL pass, or {\"ok\": false, \"reason\": \"<failure>\"} if ANY fail.",
-            "timeout": 30
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/swarm-consolidator.js",
+            "timeout": 5
           }
         ]
       },

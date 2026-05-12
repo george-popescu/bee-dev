@@ -194,10 +194,14 @@ console.log('\nTest 3: PreToolUse with Edit file_path payload');
       'success',
       'cwd',
     ];
-    const actualKeys = Object.keys(event).sort();
+    const actualKeys = new Set(Object.keys(event));
+    // Additive-schema contract: every original key MUST still be present
+    // (existing readers MUST NOT break). Extra fields (e.g., hookDurationMs
+    // added in NFR-03 instrumentation) are explicitly allowed.
+    const missing = expectedKeys.filter((k) => !actualKeys.has(k));
     assert(
-      JSON.stringify(actualKeys) === JSON.stringify(expectedKeys.slice().sort()),
-      'event has exactly the 10 expected keys (no extras, no missing)'
+      missing.length === 0,
+      'event still has all 10 original keys (additive-schema contract): missing=' + JSON.stringify(missing)
     );
     assert(event.kind === 'pre_tool_use', 'kind is "pre_tool_use"');
     assert(event.session === 'sess-abc', 'session is "sess-abc"');
@@ -541,20 +545,23 @@ if (hooksJson && hooksJson.hooks) {
     );
   }
 
-  // Count matcher-groups that use type: prompt — there are 25+ validators.
-  let promptValidatorCount = 0;
+  // Count matcher-groups that use type:"command" — Phase 1 v4.5.0 converted all 27 prompt validators
+  // to 24 retained type:"command" Node-script validators (3 removed per REQ-03), then F-BUG-001
+  // added finding-validator.js for the review-pipeline `## Classification` schema → 25 per-agent
+  // matchers + 1 terminal emit-event.js catch-all = 26 total command entries under SubagentStop.
+  let commandValidatorCount = 0;
   if (Array.isArray(hooksJson.hooks.SubagentStop)) {
     for (const grp of hooksJson.hooks.SubagentStop) {
       if (grp && Array.isArray(grp.hooks)) {
         for (const entry of grp.hooks) {
-          if (entry && entry.type === 'prompt') promptValidatorCount++;
+          if (entry && entry.type === 'command') commandValidatorCount++;
         }
       }
     }
   }
   assert(
-    promptValidatorCount >= 25,
-    `SubagentStop still has >= 25 prompt-type validator entries (found ${promptValidatorCount})`
+    commandValidatorCount === 26,
+    `SubagentStop has exactly 26 type:"command" entries (25 per-agent + 1 catch-all) (found ${commandValidatorCount})`
   );
 
   // Specific existing matcher-groups we promised to preserve.

@@ -131,24 +131,27 @@ function main() {
 
   const root = resolveRoot();
 
-  // Guard: only write events when the Bee Hive dashboard is actively running.
-  // Without a consumer, events accumulate on disk with nobody reading them.
-  // The .hive-pid file is written by hive-start.sh when the server starts and
-  // cleaned up by hive-stop.sh / auto-stop. Its presence signals an active
-  // consumer — without it, we exit silently to avoid:
+  // Guard: only write events when there is an active consumer for them.
+  // Two consumer signals exist; either one is sufficient to proceed:
+  //   1. .bee/.hive-pid — written by hive-start.sh, cleaned up by hive-stop.sh.
+  //      Signals the dashboard is actively reading events.
+  //   2. .bee/.autonomous-run-active — written by autonomous orchestration
+  //      (execute-phase / ship). Autonomous runs need SubagentStop telemetry
+  //      as the fallback transcript_path source for batch validator stdin
+  //      payloads (REQ-09 aggregation). Without this bypass, autonomous runs
+  //      without an active dashboard silently drop telemetry.
+  // When NEITHER marker is present we exit silently to avoid:
   //   (a) creating .bee/events/ in non-bee projects (no .bee/ dir at all)
   //   (b) growing stale .jsonl files in bee projects that don't use the dashboard
-  const pidFile = path.join(root, '.bee', '.hive-pid');
-  try {
-    fs.accessSync(pidFile, fs.constants.F_OK);
-  } catch (_) {
-    // No .hive-pid — no active consumer, skip event emission.
-    return;
-  }
+  const hivePidExists = fs.existsSync(path.join(root, '.bee', '.hive-pid'));
+  const autonomousActive = fs.existsSync(path.join(root, '.bee', '.autonomous-run-active'));
+  if (!hivePidExists && !autonomousActive) return;
 
+  const hookStart = Date.now();
   const raw = readStdinSync();
   const payload = safeJsonParse(raw);
   const event = buildEvent(kind, payload, root);
+  event.hookDurationMs = Date.now() - hookStart;
 
   const dir = path.join(root, '.bee', 'events');
   const file = path.join(dir, event.ts.slice(0, 10) + '.jsonl');

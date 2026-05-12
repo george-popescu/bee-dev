@@ -895,6 +895,57 @@ assert(
   '.bee/quick/019-thinking-principles-skill.md plan file exists (backfilled per review PAT-003; bee:quick ceremony compliance)'
 );
 
+console.log('\n=== Batch validator owned-literal anti-duplication (v4.5 T2.8) ===');
+
+// Pins the 6 batch validator literals inserted into /bee:review and
+// /bee:review-implementation by v4.5 T2.8. Failure mode this catches:
+// silent removal of the aggregate-validate invocation prose during a future
+// refactor would let the parent command spawn N parallel agents without
+// running the batch validator that aggregates their per-agent verdicts —
+// REQ-09 "authoritative blocking signal" would be defeated silently.
+// Each literal is asserted exactly once per parent command file (it is the
+// load-bearing token the conductor reads to know which batch script to
+// invoke). The T2.10 integration test cross-checks the roster against
+// BATCH_VALIDATOR_INSERTION_POINTS; this assertion is the per-file owned-
+// literal contract.
+const REVIEW_BATCH_LITERALS = {
+  'review.md': [
+    'validators/batch/review-4-agent.js',
+    'validators/batch/review-finding-validation.js',
+    'validators/batch/review-specialist-escalation.js',
+  ],
+  'review-implementation.md': [
+    'validators/batch/review-implementation-4-agent.js',
+    'validators/batch/review-implementation-finding-validation.js',
+    'validators/batch/review-implementation-specialist-escalation.js',
+  ],
+};
+
+for (const [cmdFile, literals] of Object.entries(REVIEW_BATCH_LITERALS)) {
+  const content = readFile(path.join(COMMANDS_DIR, cmdFile));
+  if (content === null) {
+    assert(false, `${cmdFile} readable for batch-literal assertions`);
+    continue;
+  }
+  for (const literal of literals) {
+    const count = countMatches(content, literal);
+    assert(
+      count === 1,
+      `${cmdFile} references "${literal}" exactly once — the aggregate-validate insertion point invoking this batch script (silent removal would defeat REQ-09 blocking signal)`
+    );
+  }
+  // Negative assertion: review.md and review-implementation.md are
+  // interactive commands NOT in the autonomous-flag list per REQ-11. The
+  // bare `--no-aggregate-validate` flag token MUST NOT appear (only quoted
+  // mentions inside backticks within explanatory prose, which the exact-
+  // token regex rejects).
+  const bareFlagRe = /(^|\s)--no-aggregate-validate(\s|$)/;
+  assert(
+    !bareFlagRe.test(content),
+    `${cmdFile} does NOT contain the bare \`--no-aggregate-validate\` flag token (REQ-11: interactive commands are not in the autonomous-flag list)`
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Final results
 // ---------------------------------------------------------------------------

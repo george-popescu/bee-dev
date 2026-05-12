@@ -1,6 +1,6 @@
 ---
 description: Execute a planned phase with wave-based parallel TDD implementation
-argument-hint: "[phase-number]"
+argument-hint: "[phase-number] [--no-aggregate-validate]"
 ---
 
 ## Current State (load before proceeding)
@@ -40,6 +40,14 @@ Check these guards in order. Stop immediately if any fails:
 5. **Already executed guard:** If the Status column shows "EXECUTED", "REVIEWED", "TESTED", or "COMMITTED" for the requested phase, warn the user:
    "Phase {N} is already executed (status: {status}). Re-executing will re-run all incomplete tasks. Continue?"
    Wait for explicit confirmation before proceeding. If the user declines, stop.
+
+### Step 1b: Parse Arguments
+
+Check `$ARGUMENTS` for the `--no-aggregate-validate` flag:
+
+- **`--no-aggregate-validate` flag:** Controls whether the per-wave batch-validator aggregation (Step 5c.6 below) runs. If `$ARGUMENTS` matches the exact-token regex `(^|\s)--no-aggregate-validate(\s|$)` (boundary-anchored; a hypothetical `--no-no-aggregate-validate` would NOT match because the preceding character is `o`, not whitespace/start), set `$VALIDATE_MODE = false`. Otherwise default to `$VALIDATE_MODE = true`.
+
+**Precedence:** `--no-aggregate-validate` overrides the Auto-Mode Marker. When the flag is set, the per-wave batch validator is not invoked at all (the marker-skip prelude inside the batch validator is a separate defense-in-depth check for runs where the flag is absent). NOTE: `--no-aggregate-validate` is distinct from the existing `config.phases.post_wave_validation` mode setting — the former controls the NEW aggregate-validator step (5c.6); the latter controls the EXISTING per-wave test/lint/static runs (5d.0).
 
 ### Step 2: Load TASKS.md
 
@@ -352,6 +360,22 @@ After all agents in the current wave complete (and all retries are exhausted), i
 7. If no overlap signals are found for a failed task, it is a standalone failure (not cascading). No additional action needed -- the normal failure handling from Step 5c already processed it.
 
 Note: Cascading failure detection runs AFTER all retries are exhausted and AFTER model escalation (Step 5c.7). It is a diagnostic layer, not a retry mechanism. It identifies the upstream root cause so the user can make an informed decision about re-execution order.
+
+**5c.6. Aggregate-validate wave outputs (REQ-09 / REQ-10 tier 1):**
+
+If `$VALIDATE_MODE` is true:
+
+After Step 5c per-agent collection, Step 5c.5 (BLOCKED detection), Step 5c.7 (model escalation), and Step 5c.8 (cascading-failure detection) have all completed for the current wave, collect one `agent_outputs` entry per spawned implementer agent: `{ agent: "implementer" | "quick-implementer", transcript_path: "{path}", exit_code: 0 }`. The `agent` field MUST be the un-prefixed canonical slug from `VALIDATOR_ROSTER` (strip any stack prefix like `laravel-` before building agent_outputs — `runPerAgentValidator` resolves the validator path by literal filename concat, NOT by hooks.json's non-anchored regex routing). The `transcript_path` comes from either (a) the Task tool result returned by Claude Code for each spawned agent, or (b) the matching SubagentStop entry in `.bee/events/{today}.jsonl` filtered by the wave's timestamp window. Path (b) is reliably reachable in autonomous runs after the autonomous-marker bypass landed in T2.11.
+
+Build the stdin payload `{ cwd: "{$ROOT}", agent_outputs: [...], expected_count: {N} }` where `expected_count` matches the number of pending tasks that were spawned for this wave (one agent per pending task). Invoke the batch validator:
+
+```bash
+echo '{"cwd":"{$ROOT}","agent_outputs":[...],"expected_count":{N}}' | node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/execute-phase-wave.js
+```
+
+Parse the stdout JSON verdict (`{"ok":true}` or `{"ok":false,"reason":"..."}`). On `ok:false`, halt the wave with: `Display: "Batch validation failed: {verdict.reason}. Halting phase execution."` Do NOT proceed to Step 5d. The conductor is still the SOLE writer to STATE.md / TASKS.md — the batch verdict is consumed by the conductor; the validator itself writes nothing. On `ok:true`, proceed to Step 5d.
+
+If `$VALIDATE_MODE == false` (the `--no-aggregate-validate` flag was passed in Step 1b), SKIP this step entirely. Proceed directly to Step 5d. The per-script marker-skip prelude inside the batch validator is the second-tier defense for runs where the flag is absent — see Step 1b Precedence note.
 
 **5d. After all agents in the wave complete:**
 
