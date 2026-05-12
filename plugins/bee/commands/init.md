@@ -701,7 +701,7 @@ If the user declines, skip this step.
 
 ### Step 10: Completion Summary
 
-Display a summary of everything that was created or updated:
+Display a summary of everything that was created or updated, INCLUDING the thinking-principles awareness block (critical context for new users):
 
 ```
 BeeDev initialized!
@@ -727,6 +727,25 @@ Created:
 {If any stack has ⚠ no skill:}
 Tip: Run /bee:create-skill to create custom stack skills for unsupported stacks.
 
+═══════════════════════════════════════════════════════════════════
+IMPORTANT: bee:thinking-principles skill
+═══════════════════════════════════════════════════════════════════
+The thinking-principles skill defines 4 review/fix rules that
+materially affect output quality:
+  - Rule 7: Surface Conflicts (don't merge contradictory patterns)
+  - Rule 8: Read Before Write (grep/inspect before modifying)
+  - Rule 9: Test Intent (write tests for WHY, not just shallow assertion)
+  - Rule 12: Fail Visibly (never report "Fixed" without explicit verification)
+
+Auto-loaded for 6 consumer agents (implementer, quick-implementer,
+researcher, bug-detector, pattern-reviewer, fixer) via their skills:
+frontmatter. The plan-checker (v4.5.0 Opt-5) and fixer self-verify
+(v4.5.0 Opt-1) features lean on these rules.
+
+When you see "Rule 7" / "Rule 8" / "Rule 9" / "Rule 12" callouts in
+agent output, that's the skill in action. Full text:
+plugins/bee/skills/thinking-principles/SKILL.md
+═══════════════════════════════════════════════════════════════════
 ```
 
 AskUserQuestion(

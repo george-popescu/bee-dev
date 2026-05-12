@@ -104,6 +104,34 @@ If the existing config's `max_tokens_per_team_op` differs from the computed valu
 
 **4. If status changed:** include a one-line note in the Step 5 summary (e.g., "Agent Teams: now enabled" or "Agent Teams: feature became available — declined").
 
+### Step 4d: Thinking-Principles Awareness Reminder
+
+Display this block as part of the Step 5 summary (do NOT skip — it's critical to bee's review/fix quality):
+
+```
+═══════════════════════════════════════════════════════════════════
+IMPORTANT: bee:thinking-principles skill
+═══════════════════════════════════════════════════════════════════
+The thinking-principles skill defines 4 review/fix rules that
+materially affect output quality:
+  - Rule 7: Surface Conflicts (don't merge contradictory patterns)
+  - Rule 8: Read Before Write (grep/inspect before modifying)
+  - Rule 9: Test Intent (write tests for WHY, not just shallow assertion)
+  - Rule 12: Fail Visibly (never report "Fixed" without explicit verification)
+
+Auto-loaded for 6 consumer agents via their skills: frontmatter:
+  implementer, quick-implementer, researcher, bug-detector,
+  pattern-reviewer, fixer.
+
+When you see "Rule 7" / "Rule 8" / "Rule 9" / "Rule 12" callouts in
+agent output, that's the skill in action. The plan-checker (Opt-5)
+and fixer self-verify (Opt-1) features in v4.5.0 BOTH lean on these
+rules — disabling or paraphrasing them weakens the review pipeline.
+
+Full text: plugins/bee/skills/thinking-principles/SKILL.md
+═══════════════════════════════════════════════════════════════════
+```
+
 ### Step 5: Summary
 
 Display the result:
