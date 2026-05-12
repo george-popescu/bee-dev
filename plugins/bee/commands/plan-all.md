@@ -53,7 +53,7 @@ Inputs: `$IMPLEMENTATION_MODE`. Output: `$RESOLVED_MODEL`.
 1. Read the Phases table from STATE.md. Extract all phase rows: phase number, phase name, Status, Plan column, Plan Review column.
 2. Read phases.md from the Spec Context above to get full phase names and descriptions.
 3. Build a work list of phases in phase order (ascending NUMERICALLY by phase number — not lexicographically. Decimal phases sort after their parent: 1, 2, 2.1, 2.2, 3, 3.1, 4). For each phase, classify its state:
-   - **needs_planning:** Plan column is empty (not "Yes") -- needs the full three-pass planning pipeline
+   - **needs_planning:** Plan column is empty (not "Yes") -- needs the full two-pass planning pipeline (merged decompose+research + wave assignment)
    - **needs_review:** Plan column is "Yes" but Plan Review column is empty -- skip planning, go directly to plan review
    - **complete:** Plan column is "Yes" AND Plan Review column is non-empty -- fully skip this phase
 4. Display the discovery summary:
@@ -89,7 +89,7 @@ Spawn the `phase-planner` agent as a subagent with `$RESOLVED_MODEL`. Provide th
 - The phase directory path (where to write TASKS.md)
 - The phase number being planned
 - The spec folder path (where spec.md and phases.md live)
-- Instruction: "This is Pass 1 (Plan What). Read spec.md and phases.md to understand the feature. Decompose phase {N} into granular tasks with testable acceptance criteria. Read the TASKS.md template at skills/core/templates/tasks.md for the output structure. Write initial TASKS.md (task list without waves) to the phase directory."
+- Instruction: "This is Pass 1 (Plan What — merged decompose+research). Read spec.md and phases.md to understand the feature. Decompose phase {N} into granular tasks with testable acceptance criteria. For each task, run codebase research inline (Grep for similar patterns, Read 1-3 reference files, Context7 for framework-API uncertainty) and populate a `research:` block with concrete file paths + brief notes. Read the TASKS.md template at skills/core/templates/tasks.md for the output structure. Produce a research-enriched task list (without waves) and write it to TASKS.md in the phase directory."
 - **DISCUSS-CONTEXT.md integration:** Check if `{phase-directory}/DISCUSS-CONTEXT.md` exists. If found, add to the planner prompt: "Read DISCUSS-CONTEXT.md from the phase directory for user decisions and constraints. Locked decisions from smart discuss override planner discretion."
 
 If the phase number is greater than 1, also provide:
@@ -104,22 +104,7 @@ ls {phase-directory}/TASKS.md
 
 If TASKS.md was not created, tell the user the planner failed for phase {N} and stop.
 
-**3c. Plan How -- Spawn researcher Agent (for needs_planning phases only)**
-
-Skip this step if the phase is classified as "needs_review".
-
-After the phase-planner completes, spawn the `researcher` agent as a subagent with `$RESOLVED_MODEL`. Provide the following context:
-
-- The phase directory path (where TASKS.md lives)
-- The spec folder path
-- Instruction: "Read TASKS.md from the phase directory. For each task, research the codebase for existing patterns to follow, identify reusable code, and if Context7 is enabled in config.json, fetch relevant framework docs. Update TASKS.md with research notes under each task's research: field."
-
-Wait for the researcher to complete. Verify that TASKS.md now has research notes:
-```
-grep "research:" {phase-directory}/TASKS.md
-```
-
-If no research notes were added, warn but continue (research enrichment is valuable but not blocking).
+<!-- Step 3c removed in v4.5.0: codebase research merged into Pass 1 (Step 3b). The phase-planner agent now produces a research-enriched TASKS.md in a single invocation; the separate researcher spawn is no longer needed. -->
 
 **3d. Plan Who -- Spawn phase-planner Agent (Pass 2) (for needs_planning phases only)**
 
@@ -139,7 +124,7 @@ If no wave sections were added, tell the user the wave assignment failed for pha
 
 **3e. Update STATE.md Plan Column**
 
-After the three-pass planning pipeline completes (or was skipped because the phase was "needs_review"):
+After the two-pass planning pipeline completes (or was skipped because the phase was "needs_review"):
 
 If the phase was classified as "needs_planning" (just completed planning):
 1. Read current `.bee/STATE.md` from disk (fresh read, not cached)
@@ -281,14 +266,25 @@ If `ok:true`, proceed to Step 3f.3.
 
 **3f.3: Consolidate findings**
 
-After all four agents complete, consolidate their findings:
+After all four agents complete, deduplicate and consolidate their findings.
+
+**Deduplication (apply BEFORE categorization).** Apply the four dedup rules in order (cheapest first). Each rule is layered on top of the previous: a finding pair that already merged under an earlier rule is excluded from later rule evaluation. Record every merge in a `## Consolidation Log` section of REVIEW.md (see template at `skills/core/templates/review-report.md`):
+
+- **Rule 0 — Same file + line range overlap (baseline):** For each pair of findings from different agents, check if they reference the same file AND their line ranges overlap (within 5 lines of each other). If so, merge — keep higher severity, concat categories.
+- **Rule 1 — root-cause signature:** For each remaining pair, merge if ≥80% body text overlap OR identical `Suggested Fix:` snippet. Keep higher severity; concat categories.
+- **Rule 2 — REQ-ID anchor:** For each remaining group, merge findings citing the same requirement (`REQ-NN`, `NFR-NN`, or equivalent anchor) into ONE composite finding that preserves all evidence chains.
+- **Rule 3 — cross-agent same-class consensus:** For each remaining group, if 3+ different agents flagged the same file:line area (within 5 lines) with similar defect-class descriptions, merge into ONE `[CONSENSUS]`-tagged finding with a single fix instruction.
+
+When merges happen, write a `## Consolidation Log` section to REVIEW.md documenting which finding IDs merged into which, which rule triggered the merge, source agents, and preserved evidence chains.
+
+Then parse each agent's output:
 
 - **Bug Detector** output -> **Bug Fixes Required**: extract entries from `## Bugs Detected`
 - **Pattern Reviewer** output -> **Pattern Issues**: extract entries from `## Project Pattern Deviations`
 - **Plan Compliance Reviewer** output -> **Spec Compliance Gaps**: extract entries from `## Plan Compliance Review` (gaps G-NNN, partial coverage P-NNN, spec drift D-NNN, over-engineering O-NNN)
 - **Stack Reviewer** output -> **Stack Best Practice Issues**: extract entries from `## Stack Best Practice Violations`
 
-Count total issues across all agents.
+Count total issues across all agents (post-dedup).
 
 **3f.4: Auto-fix loop**
 
@@ -443,12 +439,21 @@ If `ok:true`, proceed to Step 4d.
 
 **4d. Consolidate cross-plan findings**
 
-Parse all three agents' output:
+**Deduplication (apply BEFORE categorization).** Apply the four dedup rules in order (cheapest first). Each rule is layered on top of the previous: a finding pair that already merged under an earlier rule is excluded from later rule evaluation. Record every merge in a `## Consolidation Log` section of the cross-plan REVIEW artifact (see template at `skills/core/templates/review-report.md`):
+
+- **Rule 0 — Same file + line range overlap (baseline):** For each pair of findings from different agents, check if they reference the same file AND their line ranges overlap (within 5 lines of each other). If so, merge — keep higher severity, concat categories.
+- **Rule 1 — root-cause signature:** For each remaining pair, merge if ≥80% body text overlap OR identical `Suggested Fix:` snippet. Keep higher severity; concat categories.
+- **Rule 2 — REQ-ID anchor:** For each remaining group, merge findings citing the same requirement (`REQ-NN`, `NFR-NN`, or equivalent anchor) into ONE composite finding that preserves all evidence chains.
+- **Rule 3 — cross-agent same-class consensus:** For each remaining group, if 3+ different agents flagged the same file:line area (within 5 lines) with similar defect-class descriptions, merge into ONE `[CONSENSUS]`-tagged finding with a single fix instruction.
+
+When merges happen, write a `## Consolidation Log` section to the cross-plan REVIEW artifact documenting which finding IDs merged into which, which rule triggered the merge, source agents, and preserved evidence chains.
+
+Then parse all three agents' output:
 - **Plan Compliance Reviewer** -> cross-phase integration issues (CI-NNN codes — coverage matrix, scope, drift)
 - **Bug Detector** -> cross-phase bug risks (data flow, race conditions, boundary error handling)
 - **Audit Bug Detector** -> cross-flow semantic bugs (owned-literal leakage, scope-mismatch, contract drift, prose contradictions across phases)
 
-Count total cross-plan issues.
+Count total cross-plan issues (post-dedup).
 
 **4e. Cross-plan auto-fix loop**
 
@@ -527,7 +532,7 @@ AskUserQuestion(
 **Design Notes (do not display to user):**
 
 - Plan-all is fully autonomous during its inner loop. No AskUserQuestion calls during planning, review, or cross-plan review. This is the same explicit exception to R3 that ship uses -- the command is designed to run unattended.
-- The three-pass planning pipeline (Steps 3b-3d) is identical to plan-phase.md Steps 3-5. The same agents are spawned with the same context packets. The difference is that plan-all orchestrates this per-phase in a loop.
+- The two-pass planning pipeline (Steps 3b + 3d) mirrors plan-phase.md Steps 3 + 5. Pass 1 (phase-planner — merged decompose + codebase research) emits a research-enriched TASKS.md; Pass 2 (phase-planner — wave assignment) consumes it unchanged. The separate researcher spawn between passes was removed in v4.5.0 (research is now produced inline by Pass 1). The difference between this command and plan-phase is that plan-all orchestrates the two passes per-phase in a loop.
 - The plan review pipeline (Step 3f) reuses the same four agents as plan-review.md Step 3 but operates autonomously: findings are auto-fixed without user confirmation, and re-review loops until clean or max iterations.
 - Cross-plan review (Step 4) uses three agents: plan-compliance-reviewer (cross-plan mode — coverage matrix, drift), bug-detector (cross-plan mode — data flow, race conditions), and audit-bug-detector (cross-plan mode — end-to-end flow tracing, owned-literal leakage, scope-mismatch). The pattern-reviewer and stack-reviewer are still omitted from cross-plan scope because they operate on code patterns within a single phase; audit-bug-detector serves as the cross-flow tracer instead. Empirical justification: the v4.4.0 spec's first plan-all run found 5 cross-plan issues with the 2-agent setup but later surfaced ≥2 additional cross-flow bugs (owned-literal leakage, scope-mismatch) only at final implementation review — those would have been caught at plan-time with audit-bug-detector in cross-plan mode, saving rework.
 - Cross-plan review has no separate STATE.md checkpoint. It always runs when all phases are individually plan-reviewed. This is by design: cross-plan review is bounded (3 agents) and idempotent. Re-running on resume is acceptable and simpler than adding a separate state column.

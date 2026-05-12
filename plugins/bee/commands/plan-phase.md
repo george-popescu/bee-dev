@@ -392,7 +392,7 @@ Spawn the `phase-planner` agent as a subagent with `$RESOLVED_MODEL`. Provide th
 - The phase directory path (where to write TASKS.md)
 - The phase number being planned
 - The spec folder path (where spec.md and phases.md live)
-- Instruction: "This is Pass 1 (Plan What). Read spec.md and phases.md to understand the feature. Decompose phase {N} into granular tasks with testable acceptance criteria. Read the TASKS.md template at skills/core/templates/tasks.md for the output structure. Write initial TASKS.md (task list without waves) to the phase directory."
+- Instruction: "This is Pass 1 (Plan What — merged decompose+research). Read spec.md and phases.md to understand the feature. Decompose phase {N} into granular tasks with testable acceptance criteria. For each task, run codebase research inline (Grep for similar patterns, Read 1-3 reference files, Context7 for framework-API uncertainty) and populate a `research:` block with concrete file paths + brief notes. Read the TASKS.md template at skills/core/templates/tasks.md for the output structure. Produce a research-enriched task list (without waves) and write it to TASKS.md in the phase directory."
 - If $RESEARCH_PATH is set (ecosystem research was performed):
   Add RESEARCH.md path to context, with instruction addition: "Read RESEARCH.md from the phase directory for ecosystem patterns, libraries to reuse, and pitfalls to avoid. Use these findings to inform task decomposition."
 - If $ASSUMPTIONS is set (assumptions analysis was performed):
@@ -415,23 +415,7 @@ ls {phase-directory}/TASKS.md
 
 If TASKS.md was not created, tell the user the planner failed and stop.
 
-### Step 4: Plan How -- Spawn researcher Agent
-
-After the phase-planner completes, spawn the `researcher` agent as a subagent with `$RESOLVED_MODEL`. Provide the following context:
-
-- The phase directory path (where TASKS.md lives)
-- The spec folder path
-- Instruction: "Read TASKS.md from the phase directory. For each task, research the codebase for existing patterns to follow, identify reusable code, and if Context7 is enabled in config.json, fetch relevant framework docs. Update TASKS.md with research notes under each task's research: field."
-- If $LOCKED_DECISIONS is set, add to researcher instruction: "Locked decisions (DO NOT explore alternatives):
-  {$LOCKED_DECISIONS}
-  Research best practices FOR these choices. Tag locked-decision findings with [LOCKED]."
-
-Wait for the researcher to complete. Verify that TASKS.md now has research notes:
-```
-grep "research:" {phase-directory}/TASKS.md
-```
-
-If no research notes were added, warn the user but continue (research enrichment is valuable but not blocking).
+<!-- Step 4 removed in v4.5.0: codebase research merged into Pass 1 (Step 3). The phase-planner agent now produces a research-enriched TASKS.md in a single invocation; the separate researcher spawn is no longer needed. -->
 
 ### Step 5: Plan Who -- Spawn phase-planner Agent (Pass 2)
 
@@ -551,9 +535,18 @@ Wait for all four agents to complete.
 
 #### 6.3: Consolidate findings into categorized plan updates
 
-After all four agents complete, consolidate their findings into categorized plan updates. Do NOT present raw review reports -- transform agent output into actionable plan update categories.
+After all four agents complete, deduplicate and consolidate their findings into categorized plan updates. Do NOT present raw review reports -- transform agent output into actionable plan update categories.
 
-Parse each agent's output:
+**Deduplication (apply BEFORE categorization).** Apply the four dedup rules in order (cheapest first). Each rule is layered on top of the previous: a finding pair that already merged under an earlier rule is excluded from later rule evaluation. Record every merge in a `## Consolidation Log` section of REVIEW.md (see template at `skills/core/templates/review-report.md`):
+
+- **Rule 0 — Same file + line range overlap (baseline):** For each pair of findings from different agents, check if they reference the same file AND their line ranges overlap (within 5 lines of each other). If so, merge — keep higher severity, concat categories.
+- **Rule 1 — root-cause signature:** For each remaining pair, merge if ≥80% body text overlap OR identical `Suggested Fix:` snippet. Keep higher severity; concat categories.
+- **Rule 2 — REQ-ID anchor:** For each remaining group, merge findings citing the same requirement (`REQ-NN`, `NFR-NN`, or equivalent anchor) into ONE composite finding that preserves all evidence chains.
+- **Rule 3 — cross-agent same-class consensus:** For each remaining group, if 3+ different agents flagged the same file:line area (within 5 lines) with similar defect-class descriptions, merge into ONE `[CONSENSUS]`-tagged finding with a single fix instruction.
+
+When merges happen, write a `## Consolidation Log` section to REVIEW.md documenting which finding IDs merged into which, which rule triggered the merge, source agents, and preserved evidence chains.
+
+Then parse each agent's output:
 
 - **Bug Detector** output -> **Bug Fixes Required** section: extract entries from `## Bugs Detected` (severity-grouped findings)
 - **Pattern Reviewer** output -> **Pattern Issues** section: extract entries from `## Project Pattern Deviations`

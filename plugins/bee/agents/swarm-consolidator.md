@@ -18,7 +18,7 @@ The parent command provides:
 
 ## 2. Deduplication Protocol
 
-Process findings in three passes:
+Process findings in six passes (cheapest first). Each pass operates on the output of the previous pass — a finding pair that already merged under an earlier pass is excluded from later pass evaluation. Every merge is recorded in the `## Consolidation Log` section of the output report (see template at `skills/core/templates/review-report.md`).
 
 ### Pass 1 -- Exact match dedup (same segment)
 
@@ -36,6 +36,18 @@ For findings across DIFFERENT segments, check if they reference the same file AN
 ### Pass 3 -- Pattern dedup
 
 For findings with identical descriptions but different files, check if they describe the same systematic issue (e.g., "missing null check" across all controllers). Keep all unique file locations but group them under a single finding with multiple file references. Do NOT merge findings that happen to have similar descriptions but are genuinely different issues.
+
+### Pass 4 -- Root-cause signature dedup
+
+The root-cause signature rule. For each remaining pair of findings (already de-duplicated by Passes 1-3), merge if EITHER condition holds: (a) ≥80% body text overlap (description fields share most of their content even if framings differ) OR (b) identical `Suggested Fix:` snippet (the proposed code change is the same). These findings target the same root defect from different angles. Keep the higher severity; concat categories; preserve every contributing finding's evidence chain in the Consolidation Log.
+
+### Pass 5 -- REQ-ID anchor dedup
+
+For each remaining group of findings, identify findings that cite the same requirement (`REQ-NN`, `NFR-NN`, or equivalent anchor). If multiple findings cite the same anchor and describe related defects, merge them into ONE composite finding that preserves all evidence chains under a single REQ-ID anchor. This catches cases where 2+ agents independently mapped findings back to the same spec requirement.
+
+### Pass 6 -- Cross-agent same-class consensus dedup
+
+For each remaining group of findings, check if 3+ different agents flagged the same file:line area (within 5 lines) with similar defect-class descriptions (same defect class — e.g., "missing null check", "uninitialized state", "off-by-one"). If so, merge into ONE `[CONSENSUS]`-tagged finding with a single fix instruction. Record all contributing agents in the merged finding's Source Agents + Consensus fields. This pass is the strongest signal: 3+ independent agents converging on the same defect class at the same site is high-confidence evidence the finding is real and warrants priority routing.
 
 ## 3. Cross-Agent Consensus Scoring
 

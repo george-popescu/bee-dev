@@ -294,6 +294,8 @@ Apply deduplication, cross-agent consensus scoring, and produce severity-ordered
 
 Model selection for consolidator: Economy = sonnet, Quality/Premium = inherit (omit model parameter).
 
+After the consolidator's six dedup passes complete (see `agents/swarm-consolidator.md` Section 2), write the `## Consolidation Log` section to REVIEW.md per the template (`skills/core/templates/review-report.md`) — documenting which finding IDs merged into which, which dedup rule triggered each merge, source agents, and preserved evidence chains. The log preserves the audit trail so a single composite finding never erases its constituent evidence.
+
 Parse the consolidator's output. Extract the consolidated findings list with SF-NNN IDs.
 
 ### Step 8: Validation (finding-validator)

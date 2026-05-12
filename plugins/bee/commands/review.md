@@ -250,11 +250,22 @@ If an agent reports no findings (e.g., "No bugs detected.", "No project pattern 
 
 #### 4.4: Deduplicate and merge
 
-For each pair of findings from different agents, check if they reference the same file AND their line ranges overlap (within 5 lines of each other). If so, merge them:
-- Keep the higher severity (Critical > High > Medium)
+Apply the four dedup rules in order (cheapest first). Each rule is layered on top of the previous: a finding pair that already merged under an earlier rule is excluded from later rule evaluation. Record every merge in the `## Consolidation Log` section of REVIEW.md (see template at `skills/core/templates/review-report.md`).
+
+**Rule 0 — Same file + line range overlap (baseline, cheapest):** For each pair of findings from different agents, check if they reference the same file AND their line ranges overlap (within 5 lines of each other). If so, merge.
+
+**Rule 1 — Root-cause signature:** For each remaining pair of findings, check if either condition holds: (a) ≥80% body text overlap (description fields share most of their content even if framings differ) OR (b) identical `Suggested Fix:` snippet (the proposed code change is the same). If so, merge — the findings target the same root defect from different angles. Keep the higher severity; concatenate categories.
+
+**Rule 2 — REQ-ID anchor:** For each remaining group of findings, identify findings that cite the same requirement (`REQ-NN`, `NFR-NN`, or equivalent anchor). If multiple findings cite the same anchor and describe related defects, merge them into ONE composite finding that preserves all evidence chains under a single REQ-ID anchor.
+
+**Rule 3 — Cross-agent same-class consensus:** For each remaining group of findings, check if 3+ different agents flagged the same file:line area (within 5 lines) with similar descriptions (same defect class — e.g., "missing null check", "uninitialized state", "off-by-one"). If so, merge into ONE `[CONSENSUS]`-tagged finding with a single fix instruction. Record the contributing agents in the merged finding's Source Agents field.
+
+For every merge under any rule:
+- Keep the HIGHEST severity (Critical > High > Medium) among the merged findings
 - Combine categories (e.g., "Bug, Standards")
-- Combine descriptions (concatenate with "; " separator)
+- Combine descriptions (concatenate with "; " separator) — but preserve each contributing finding's evidence chain in the Consolidation Log
 - Use the broader line range
+- Write an entry to `## Consolidation Log`: which finding IDs merged into which, which rule triggered the merge, source agents, preserved evidence chains
 
 #### 4.5: Assign IDs and write REVIEW.md
 
@@ -467,7 +478,7 @@ Spawn using the same economy/quality/premium mode logic as Step 4.2. Wait for al
 
 Apply the same consolidation and deduplication logic as Steps 4.3 through 4.5:
 1. Parse findings from each agent's final message using the same category/severity mapping as Step 4.3
-2. Deduplicate and merge overlapping findings using the same rules as Step 4.4 (same file + line ranges within 5 lines -> merge with higher severity, combined categories/descriptions)
+2. Deduplicate and merge overlapping findings using the same four rules as Step 4.4 (Rule 0 same file + line ranges within 5 lines; Rule 1 root-cause signature; Rule 2 REQ-ID anchor; Rule 3 cross-agent same-class consensus). Write merge entries to the `## Consolidation Log` section of REVIEW.md.
 3. Assign sequential IDs (F-001, F-002, ...) and write the new `{phase_directory}/REVIEW.md` using the review-report template, with the iteration number set to the current iteration counter in the Summary section
 
 #### 7.5: Evaluate re-review findings
@@ -562,7 +573,7 @@ AskUserQuestion(
 - The command (not the agents) writes REVIEW.md. Agents report findings in their own output formats; the command normalizes, deduplicates, and writes the unified REVIEW.md.
 - Step 3.9 extracts false positives BEFORE spawning agents. Each agent receives the formatted false-positives list in its context packet so it can self-filter. The command does NOT need to post-filter.
 - The plan-compliance-reviewer operates in "code review mode" (not plan review mode). The context packet explicitly states this.
-- Deduplication merges findings from different agents when they reference the same file AND line ranges overlap within 5 lines. Higher severity is kept, categories and descriptions are combined.
+- Deduplication applies four layered rules in order (cheapest first): Rule 0 same file + line ranges within 5 lines (baseline); Rule 1 root-cause signature (≥80% body overlap OR identical Suggested Fix); Rule 2 REQ-ID anchor (multiple findings citing same REQ-NN/NFR-NN merge into one composite); Rule 3 cross-agent same-class consensus (3+ agents flagging the same file:line area get a single `[CONSENSUS]` finding). Higher severity is kept, categories and descriptions are combined, and every merge is recorded in a `## Consolidation Log` section of REVIEW.md (template: `skills/core/templates/review-report.md`) so the audit trail survives consolidation.
 - REVIEW.md is the pipeline state, progressively updated as validation and fixing proceed. Analogous to TASKS.md checkboxes in execute-phase.
 - Finding validation can be parallel (up to 10 at a time). Fixing uses file-based parallelism: fixers for different files run in parallel; fixers for the same file run sequentially to prevent conflicts.
 - Specialist escalation for MEDIUM confidence findings happens AFTER batch validation completes (not inline during validation batching). Flow: (1) batch validate up to 10 findings, (2) collect all classifications, (3) for MEDIUM confidence ones, batch up to 10 validators at a time for second opinions using the same parallel pattern as primary validation, (4) then proceed to update REVIEW.md with final classifications. Escalation uses `bee:finding-validator` (not the source specialist — specialist SubagentStop hooks expect their standard format, not second-opinion format). HIGH confidence classifications proceed unchanged -- only MEDIUM triggers escalation.

@@ -1082,11 +1082,70 @@ const idx45 = fixerMd.indexOf('## 4.5. Self-Verify Each Edit');
 const idx5 = fixerMd.indexOf('## 5. Run Tests');
 assert(idx4 > 0 && idx45 > idx4 && idx5 > idx45, 'fixer.md sections in order: 4 < 4.5 < 5');
 
-// FSV-7: CHANGELOG mentions Opt-1
+// FSV-7: CHANGELOG mentions fixer self-verification (user-facing wording, no internal Opt-N tag)
 assert(
-  /Opt-1.*[Ff]ixer (self-?verif|self verif)/.test(changelogMd) || /[Ff]ixer self-?verif.*Opt-1/.test(changelogMd),
-  'CHANGELOG.md mentions Opt-1 fixer self-verification'
+  /[Ff]ixer (agent )?self-?verif/.test(changelogMd),
+  'CHANGELOG.md mentions fixer self-verification'
 );
+
+// ===== v4.5.0 Surface Contracts — pipeline orchestration bundle =====
+console.log('\n=== v4.5.0 Surface Contracts — pipeline orchestration bundle ===');
+
+{
+  // Sub-opt A: Mid-pipeline cross-plan markers
+  const planAllMd = readFile(path.join(COMMANDS_DIR, 'plan-all.md'));
+  assert(planAllMd.includes('[Cross-plan mid-pipeline]'), 'plan-all.md emits [Cross-plan mid-pipeline] marker');
+  assert(planAllMd.includes('[Cross-plan final-verification]'), 'plan-all.md emits [Cross-plan final-verification] marker');
+  assert(planAllMd.includes('[Cross-plan consistency review]'), 'plan-all.md still emits legacy [Cross-plan consistency review] for ship.md inherit-mode backward compat');
+  assert(/\*\*3f\.5:\s*Mid-pipeline cross-plan/.test(planAllMd), 'plan-all.md Step 3f.5 mid-pipeline cross-plan');
+
+  // Sub-opt B: Dedup rules across 4 surfaces
+  const dedupSurfaces = [
+    { file: 'review.md', content: readFile(path.join(COMMANDS_DIR, 'review.md')) },
+    { file: 'plan-phase.md', content: readFile(path.join(COMMANDS_DIR, 'plan-phase.md')) },
+    { file: 'plan-all.md', content: planAllMd },
+    { file: 'swarm-consolidator.md', content: readFile(path.join(AGENTS_DIR, 'swarm-consolidator.md')) },
+  ];
+  // The 3 new dedup rule phrases (canonical):
+  const dedupRules = [
+    'root-cause signature',
+    'REQ-ID anchor',
+    'cross-agent',  // matches "cross-agent same-class consensus" or "cross-agent same-class"
+  ];
+  for (const surface of dedupSurfaces) {
+    for (const rule of dedupRules) {
+      assert(surface.content.includes(rule), `${surface.file} contains dedup rule "${rule}"`);
+    }
+  }
+  // Consolidation Log section in template
+  const reviewTemplate = readFile(path.join(SKILLS_DIR, 'core', 'templates', 'review-report.md'));
+  assert(reviewTemplate.includes('## Consolidation Log'), 'review-report.md template has ## Consolidation Log section');
+
+  // Sub-opt C: phase-planner research tools + plan-phase Step 4 removed
+  const phasePlannerMd = readFile(path.join(AGENTS_DIR, 'phase-planner.md'));
+  assert(phasePlannerMd.includes('mcp__context7__resolve-library-id'), 'phase-planner.md tools includes Context7 resolve');
+  assert(phasePlannerMd.includes('mcp__context7__query-docs'), 'phase-planner.md tools includes Context7 query');
+  // skills frontmatter — match "context7" inside skills: list
+  assert(/skills:\s*\n(?:\s*-\s*\w+\n)*\s*-\s*context7/.test(phasePlannerMd), 'phase-planner.md skills frontmatter includes context7');
+
+  const planPhaseMd = readFile(path.join(COMMANDS_DIR, 'plan-phase.md'));
+  assert(!/^###\s+Step 4:\s*Plan How.*[Rr]esearcher/m.test(planPhaseMd), 'plan-phase.md does NOT contain Step 4 Plan How (researcher pass removed)');
+  assert(/research-enriched/.test(planPhaseMd), 'plan-phase.md mentions "research-enriched" (merged Pass 1 output)');
+
+  // plan-all.md: per-phase researcher spawn removed (negative)
+  const planAllPerPhaseSlice = planAllMd.split(/\*\*3b\./)[1]?.split(/\*\*3d\./)[0] || '';
+  assert(!planAllPerPhaseSlice.includes('bee:researcher'), 'plan-all.md per-phase 3b-3d block does NOT spawn bee:researcher');
+  assert(!planAllMd.includes('three-pass planning pipeline'), 'plan-all.md Design Notes no longer say "three-pass planning pipeline"');
+
+  // Researcher agent still exists (positive — must not be deleted, still used by quick.md + new-spec.md)
+  assert(fs.existsSync(path.join(AGENTS_DIR, 'researcher.md')), 'researcher.md still exists (used by quick.md + new-spec.md)');
+
+  // CHANGELOG: new bundle entries
+  const changelogMd_local = readFile(path.join(REPO_ROOT, 'CHANGELOG.md'));
+  assert(/[Mm]id-pipeline cross-plan/.test(changelogMd_local) || /cross-plan.*incremental/i.test(changelogMd_local), 'CHANGELOG mentions mid-pipeline cross-plan');
+  assert(/[Cc]onsolidation [Ll]og/.test(changelogMd_local) || /root-cause signature/.test(changelogMd_local), 'CHANGELOG mentions consolidation/dedup');
+  assert(/research-enriched/i.test(changelogMd_local) || /merged.*pass/i.test(changelogMd_local), 'CHANGELOG mentions merged Pass 1 + research');
+}
 
 // ---------------------------------------------------------------------------
 // Final results
