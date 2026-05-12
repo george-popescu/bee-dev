@@ -288,7 +288,7 @@ Count total issues across all agents (post-dedup).
 
 **3f.4: Auto-fix loop**
 
-If 0 issues found: display "Plan review for Phase {N} clean -- no issues found." Set plan review result to "reviewed". Proceed to Step 3g.
+If 0 issues found: display "Plan review for Phase {N} clean -- no issues found." Set plan review result to "reviewed". Proceed to **Step 3f.5** (mid-pipeline cross-plan).
 
 If issues found:
 
@@ -307,11 +307,46 @@ Log the decision to STATE.md Decisions Log:
 - **Why:** Plan review found issues that could be resolved automatically without user input.
 - **Alternative rejected:** Stopping for manual fix -- plan-all is autonomous; auto-fix is faster and consistent.
 
-If `$PLAN_REVIEW_ITERATION >= $MAX_PLAN_REVIEW_ITERATIONS`: display "Max review iterations ({$MAX_PLAN_REVIEW_ITERATIONS}) reached for Phase {N}. Proceeding with current plan." Log unresolved findings to Decisions Log. Set plan review result to "reviewed". Proceed to Step 3g.
+If `$PLAN_REVIEW_ITERATION >= $MAX_PLAN_REVIEW_ITERATIONS`: display "Max review iterations ({$MAX_PLAN_REVIEW_ITERATIONS}) reached for Phase {N}. Proceeding with current plan." Log unresolved findings to Decisions Log. Set plan review result to "reviewed". Proceed to **Step 3f.5** (mid-pipeline cross-plan).
 
 Increment `$PLAN_REVIEW_ITERATION`.
 
-Go back to **Step 3f.2** (re-spawn all four review agents with the updated TASKS.md). After agents complete, re-run 3f.3 and 3f.4. If the re-review finds 0 issues: display "Plan review for Phase {N} clean after {$PLAN_REVIEW_ITERATION} iterations." Set plan review result to "reviewed". Proceed to Step 3g.
+Go back to **Step 3f.2** (re-spawn all four review agents with the updated TASKS.md). After agents complete, re-run 3f.3 and 3f.4. If the re-review finds 0 issues: display "Plan review for Phase {N} clean after {$PLAN_REVIEW_ITERATION} iterations." Set plan review result to "reviewed". Proceed to **Step 3f.5** (mid-pipeline cross-plan).
+
+**3f.5: Mid-pipeline cross-plan after each phase converges**
+
+After Phase N's per-phase plan-review converges (clean or max-iter exhausted), run the cross-plan consistency review INCREMENTALLY against the set of ALL completed phases so far: `[Phase 1, Phase 2, ..., Phase N]`. This catches cross-cutting issues as soon as Phase N's plan stabilizes — earlier phases never need re-review for cross-phase drift introduced by the new phase.
+
+Rationale: the final cross-plan pass at Step 4 (post-loop) can find issues that affect Phase 1, but Phase 1 has already PLAN_REVIEWED its per-phase 4-agent cycle. A late-arriving cross-plan finding that touches Phase 1 then patches Phase 1 in place WITHOUT re-running its per-phase plan review — contract drift risk. Running cross-plan incrementally after EACH phase converges closes that gap.
+
+Inputs:
+- Phase TASKS.md paths: `[Phase 1: {path}, ..., Phase N: {path}]` — all phases in `[1..N]` whose Plan Review column is `Yes (...)` (including the just-converged Phase N)
+- Iter cap: `config.ship.max_review_iterations` (default 3) — same setting as Step 3f.4 and Step 4. Reuse the same `$MAX_PLAN_REVIEW_ITERATIONS` value already in scope.
+- Loop variable: `$MID_CROSS_PLAN_ITERATION = 1` (reset for each phase's mid-pipeline cross-plan run)
+
+If N == 1 (this is the very first phase to converge — there is nothing else to compare against), SKIP this step and proceed to Step 3g. Display: "Mid-pipeline cross-plan skipped for Phase 1 (no prior phases to compare against)."
+
+Otherwise:
+
+1. **Build cross-plan context packets** using the same 3 agents and prompts as Step 4 (cross-plan mode): `bee:plan-compliance-reviewer`, `bee:bug-detector`, `bee:audit-bug-detector`. The agent prompt body (`This is a CROSS-PLAN CONSISTENCY REVIEW. ...`) is reused verbatim from Step 4b — the only difference is the Phase TASKS.md list passed in (currently `[1..N]` instead of `[1..total]`).
+
+2. **Spawn all 3 agents in parallel** via three Task tool calls in a SINGLE message (matches Step 4c).
+
+3. **Aggregate-validate cross-plan outputs (if `$VALIDATE_MODE` true)** using the same `plan-all-cross-plan.js` batch validator as Step 4c.5. Failure feeds the auto-fix loop below.
+
+4. **Consolidate findings** using the same dedup pipeline as Step 4d (Rule 0 + 3 new rules — root-cause signature, REQ-ID anchor, cross-agent same-class consensus). Write merge entries to the cross-plan REVIEW artifact's `## Consolidation Log` section.
+
+5. **Auto-fix loop** (mirrors Step 4e pattern):
+   - If 0 findings: display "Mid-pipeline cross-plan for Phase {N} clean -- no issues found across [1..{N}]." Log the canonical marker to STATE.md Decisions Log:
+     - **[Cross-plan mid-pipeline]:** Mid-pipeline cross-plan consistency review for phases [1..{N}] after Phase {N} converged. 0 issues found.
+     - **Why:** Cross-plan review runs incrementally after each phase converges so cross-cutting issues are caught when the affecting phase stabilizes — earlier phases never need re-review for cross-phase drift.
+   - If findings present: apply fixes to the affected phases' TASKS.md per the same fix mapping as Step 4e (data contract mismatches → update field names in inconsistent phase; dependency chain breaks → add/update dependency refs; file ownership conflicts → coordination notes; etc.). Log:
+     - **[Cross-plan mid-pipeline]:** Auto-fixed {X} cross-plan issues across phases [1..{N}] after Phase {N} converged (iteration {$MID_CROSS_PLAN_ITERATION}).
+     - **Why:** Mid-pipeline cross-plan review found cross-phase issues that surfaced when Phase {N} converged.
+   - Iter exhaustion: if `$MID_CROSS_PLAN_ITERATION >= $MAX_PLAN_REVIEW_ITERATIONS`, display "Max mid-pipeline cross-plan iterations ({$MAX_PLAN_REVIEW_ITERATIONS}) reached after Phase {N}. Proceeding with current plans." Log unresolved findings; proceed to Step 3g.
+   - Otherwise increment `$MID_CROSS_PLAN_ITERATION` and re-spawn at step 1 of this 3f.5.
+
+After mid-pipeline cross-plan converges (clean or max-iter), proceed to Step 3g.
 
 **3g. Update STATE.md Plan Review Column**
 
@@ -332,11 +367,13 @@ Display: "Phase {N} planned and reviewed. {task_count} tasks in {wave_count} wav
 
 Move to the next phase in phase order. Repeat from Step 3a.
 
-### Step 4: Cross-Plan Consistency Review
+### Step 4: Final cross-plan verification (single-iter)
 
-After ALL phases have been individually planned and reviewed, run the cross-plan consistency review. This examines all phase plans together to catch inter-phase issues that per-phase reviews cannot detect.
+After ALL phases have been individually planned and reviewed AND each phase has run its mid-pipeline cross-plan (Step 3f.5), run a FINAL single-iteration verification pass across all phases. This is a VERIFICATION pass, not an auto-fix loop — Step 3f.5 has already run cross-plan incrementally after each phase converged, so this pass is expected to find ZERO findings.
 
-NOTE: Cross-plan review has no separate checkpoint in STATE.md. It always runs when all phases are individually plan-reviewed. This is intentional: cross-plan review is bounded (3 agents — plan-compliance-reviewer, bug-detector, audit-bug-detector — all in cross-plan mode) and idempotent, so re-running it on resume is acceptable.
+If findings re-appear here, HALT with a diagnostic: the mid-pipeline runs missed something. The expected outcome is a clean single-iter verification that produces a canonical completion marker for downstream consumers.
+
+NOTE: Cross-plan verification has no separate checkpoint in STATE.md. It always runs after all phases are individually plan-reviewed. Cross-plan verification is bounded (3 agents — plan-compliance-reviewer, bug-detector, audit-bug-detector — all in cross-plan mode) and idempotent, so re-running it on resume is acceptable.
 
 **4a. Gather all phase TASKS.md paths**
 
@@ -455,31 +492,41 @@ Then parse all three agents' output:
 
 Count total cross-plan issues (post-dedup).
 
-**4e. Cross-plan auto-fix loop**
+**4e. Single-iter verification — HALT on findings**
 
-See `skills/command-primitives/SKILL.md` Auto-Fix Loop (Autonomous).
-Inputs: `$MAX_ITERATIONS_KEY = ship.max_review_iterations` (default 3); decision marker `[Cross-plan auto-fix]`. Loop variable: `$CROSS_PLAN_ITERATION`. Re-spawn step: Step 4c.
+This is a single-iteration VERIFICATION pass, NOT an auto-fix loop. Step 3f.5 already ran cross-plan incrementally after each phase converged, so this pass is expected to find ZERO findings.
 
-Apply fixes to the affected TASKS.md file(s) per finding:
-- Data contract mismatches -> update field names/types in the phase that is inconsistent
-- Dependency chain breaks -> add or update dependency references in the later phase's tasks
-- File ownership conflicts -> add coordination notes to the affected tasks in both phases
-- Scope overlap -> consolidate duplicated work into the appropriate phase, remove from the other
-- API contract misalignment -> align the frontend or backend phase's task to match the other
-- Test coverage gaps -> add integration test tasks to the appropriate phase boundary
+- **If 0 findings:** display "Final cross-plan verification clean — all {N} phases passed cross-plan consistency check." Proceed to Step 4f to emit the canonical completion markers.
 
-Decision log entry per iteration:
-- **[Cross-plan auto-fix]:** Auto-fixed {X} inter-phase issues across {Y} phase(s) (iteration {$CROSS_PLAN_ITERATION}).
-- **Why:** Cross-plan review found inter-phase inconsistencies that could cause integration failures.
-- **Alternative rejected:** Ignoring cross-plan issues -- these are structural problems that would surface as bugs during execution.
+- **If findings present:** HALT with a diagnostic. Display:
+  ```
+  Final cross-plan verification FAILED for {N} phases — expected zero findings.
+  {X} cross-plan issues re-appeared after mid-pipeline cross-plan (Step 3f.5) reported clean:
+  {list each finding with file:line + agent + severity}
 
-**4f. Always-emit cross-plan completion marker**
+  Mid-pipeline cross-plan should have caught these. Investigate before proceeding:
+  - Did a late-arriving phase introduce a new cross-cutting concern that didn't trigger during its mid-pipeline run?
+  - Is one of the 3 cross-plan agents producing flaky verdicts (clean during mid-pipeline, findings now)?
+  - Is the dedup pipeline collapsing distinct findings inconsistently between mid-pipeline and final passes?
+  ```
+  Log to STATE.md Decisions Log:
+  - **[Cross-plan verification-halt]:** Final cross-plan verification found {X} unexpected issues across {N} phases after mid-pipeline runs all reported clean — investigation required before /bee:ship or /bee:execute-phase.
+  - **Why:** Mid-pipeline cross-plan (Step 3f.5) should have caught all cross-cutting issues. Findings re-appearing at final verification indicates a missed signal in the mid-pipeline path.
+  - **Alternative rejected:** Auto-fixing here — but if mid-pipeline missed it once, auto-fixing without investigating WHY it was missed risks repeated drift on the next plan-all run.
 
-After the auto-fix loop exits (regardless of whether any fixes were applied), unconditionally write the canonical completion marker to the Decisions Log. This marker is the single source of truth for downstream consumers (ship.md Step 3a.0 inherit-mode short-circuit) — every cross-plan completion must emit it, clean OR fixed. The marker is always written on EVERY cross-plan completion; the auto-fix marker above is supplementary (per-iteration when fixes were applied) and is preserved for backward compat as a legacy fallback signal.
+  Exit non-zero. Do NOT proceed to Step 5.
 
-- **[Cross-plan consistency review]:** Cross-plan consistency review completed for {N} phases ({issues_count} issues found, {fixed} fixed, {unresolved} unresolved).
-- **Why:** Cross-plan review ran across all phase plans; downstream commands (ship.md inherit-mode) depend on this marker existing to skip redundant smart-discuss menus.
+**4f. Always-emit cross-plan completion markers (dual emission for backward compat)**
+
+After the single-iter verification exits cleanly (0 findings), unconditionally write BOTH completion markers to the Decisions Log in the same entry. The first is the new canonical v4.5.0 marker; the second is the legacy v4.4.0 marker preserved verbatim for backward compatibility with `commands/ship.md` Step 3a.0 inherit-mode detection (which literal-substring-matches the old phrase).
+
+- **[Cross-plan final-verification]:** Final cross-plan verification completed cleanly for {N} phases. Mid-pipeline cross-plan (Step 3f.5) caught all cross-cutting issues during planning; final verification confirmed zero residual findings.
+- **Why:** Final verification is a single-iteration check that proves the mid-pipeline incremental cross-plan covered every cross-cutting concern. Downstream commands (ship.md inherit-mode) read these markers to skip redundant smart-discuss menus.
 - **Alternative rejected:** Conditional emission (only on issues found) -- ship's inherit-mode detection requires an unconditional signal because clean plan-all runs are the most common case.
+
+- **[Cross-plan consistency review]:** Cross-plan consistency review completed for {N} phases (final-verification pass after mid-pipeline runs — 0 residual findings).
+- **Why:** Legacy v4.4.0 marker preserved verbatim for backward compatibility with `commands/ship.md` Step 3a.0 inherit-mode detection (which literal-substring-matches this exact phrase). Emitted alongside the new `[Cross-plan final-verification]` marker so old ship.md inherit-mode logic keeps working unchanged.
+- **Alternative rejected:** Removing the legacy marker — would break ship.md inherit-mode short-circuit detection.
 
 ### Step 5: Completion Summary
 
