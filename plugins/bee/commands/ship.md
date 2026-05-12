@@ -83,7 +83,7 @@ Skip this step if:
 **Detection (table-cell-aware, NOT naive substring):** the Phases table in STATE.md has a `Plan Review` column (column 5). For each phase row, parse column 5 and match against the regex `Yes\s*\(\d+\)` — this matches table cells like `Yes (1)` or `Yes (3)` while explicitly rejecting bare `Yes`, `Skipped`, or `No`. The inherit-mode predicate fires when:
 
 1. Every phase row's Plan Review cell matches `Yes\s*\(\d+\)` (count of matching rows == total phase count), AND
-2. STATE.md Decisions Log contains the canonical marker literal `[Cross-plan consistency review]` (emitted unconditionally by `plan-all.md` Step 4f on every cross-plan completion, clean OR fixed). Legacy fallback for backward compat: also accept `[Cross-plan auto-fix]` (older plan-all runs may have written only this conditional marker).
+2. STATE.md Decisions Log contains the canonical marker literal `[Cross-plan consistency review]` (emitted by `plan-all.md` Step 4f when final cross-plan verification finds zero residual findings — the expected steady-state for v4.5.0 mid-pipeline-converged runs. If plan-all HALTed at final verification, the marker is absent by design; the user must remediate and re-run plan-all before ship inherit-mode can apply.). Legacy fallback for backward compat: also accept `[Cross-plan auto-fix]` (older plan-all runs may have written only this conditional marker).
 
 The naive `Plan Review: Yes` substring grep does NOT work because STATE.md stores the value as a markdown table cell (column 5 of the Phases table), not a `key: value` line — that legacy grep would never match and inherit-mode would never trigger.
 

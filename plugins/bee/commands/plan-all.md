@@ -322,11 +322,13 @@ Rationale: the final cross-plan pass at Step 4 (post-loop) can find issues that 
 Inputs:
 - Phase TASKS.md paths: `[Phase 1: {path}, ..., Phase N: {path}]` — all phases in `[1..N]` whose Plan Review column is `Yes (...)` (including the just-converged Phase N)
 - Iter cap: `config.ship.max_review_iterations` (default 3) — same setting as Step 3f.4 and Step 4. Reuse the same `$MAX_PLAN_REVIEW_ITERATIONS` value already in scope.
-- Loop variable: `$MID_CROSS_PLAN_ITERATION = 1` (reset for each phase's mid-pipeline cross-plan run)
+- Loop variable: `$MID_CROSS_PLAN_ITERATION`
 
 If N == 1 (this is the very first phase to converge — there is nothing else to compare against), SKIP this step and proceed to Step 3g. Display: "Mid-pipeline cross-plan skipped for Phase 1 (no prior phases to compare against)."
 
 Otherwise:
+
+Initialize: `$MID_CROSS_PLAN_ITERATION = 1` at entry to Step 3f.5 (resets per phase — when Step 3h returns control here for Phase N+1, re-run this initialization).
 
 1. **Build cross-plan context packets** using the same 3 agents and prompts as Step 4 (cross-plan mode): `bee:plan-compliance-reviewer`, `bee:bug-detector`, `bee:audit-bug-detector`. The agent prompt body (`This is a CROSS-PLAN CONSISTENCY REVIEW. ...`) is reused verbatim from Step 4b — the only difference is the Phase TASKS.md list passed in (currently `[1..N]` instead of `[1..total]`).
 
@@ -343,8 +345,8 @@ Otherwise:
    - If findings present: apply fixes to the affected phases' TASKS.md per the same fix mapping as Step 4e (data contract mismatches → update field names in inconsistent phase; dependency chain breaks → add/update dependency refs; file ownership conflicts → coordination notes; etc.). Log:
      - **[Cross-plan mid-pipeline]:** Auto-fixed {X} cross-plan issues across phases [1..{N}] after Phase {N} converged (iteration {$MID_CROSS_PLAN_ITERATION}).
      - **Why:** Mid-pipeline cross-plan review found cross-phase issues that surfaced when Phase {N} converged.
-   - Iter exhaustion: if `$MID_CROSS_PLAN_ITERATION >= $MAX_PLAN_REVIEW_ITERATIONS`, display "Max mid-pipeline cross-plan iterations ({$MAX_PLAN_REVIEW_ITERATIONS}) reached after Phase {N}. Proceeding with current plans." Log unresolved findings; proceed to Step 3g.
-   - Otherwise increment `$MID_CROSS_PLAN_ITERATION` and re-spawn at step 1 of this 3f.5.
+   - Iter exhaustion: if `$MID_CROSS_PLAN_ITERATION >= $MAX_PLAN_REVIEW_ITERATIONS`, display "Max mid-pipeline cross-plan iterations ({$MAX_PLAN_REVIEW_ITERATIONS}) reached after Phase {N}. Proceeding with current plans." Log unresolved findings; proceed to Step 3g. Log to Decisions Log: **[Cross-plan mid-pipeline]:** Max iterations ({$MAX_PLAN_REVIEW_ITERATIONS}) reached for mid-pipeline cross-plan across phases [1..{N}] after Phase {N} converged — {X} unresolved cross-plan findings carried forward to final verification (Step 4).
+   - Otherwise increment `$MID_CROSS_PLAN_ITERATION` and re-spawn at the `1. Build cross-plan context packets` step (do NOT re-execute the Initialize step — `$MID_CROSS_PLAN_ITERATION` keeps incrementing within the same phase's mid-pipeline run; the reset only fires when the outer Step 3 loop re-enters 3f.5 for a new phase).
 
 After mid-pipeline cross-plan converges (clean or max-iter), proceed to Step 3g.
 
@@ -385,9 +387,7 @@ Build a list of all phase TASKS.md paths in phase order.
 
 **4b. Build cross-plan context packets**
 
-Read `config.ship.max_review_iterations` from config.json (default: 3). Store as `$MAX_CROSS_PLAN_ITERATIONS`.
-
-Initialize: `$CROSS_PLAN_ITERATION = 1`.
+The single-iter pass needs no iteration state — no `$MAX_CROSS_PLAN_ITERATIONS`, no `$CROSS_PLAN_ITERATION`. Step 4e HALTs on findings unconditionally; iteration logic moved to Step 3f.5 (mid-pipeline cross-plan).
 
 Build two agent-specific context packets:
 
@@ -468,9 +468,9 @@ Display: `"Aggregate validation failed at cross-plan consistency review. Finding
 
 Append to STATE.md Decisions Log: `[Aggregate-validate-failed]: cross-plan -- {verdict.reason}`.
 
-Feed the failure reason into Step 4e's cross-plan auto-fix loop -- treat the verdict reason as a synthetic cross-plan finding so the existing auto-fix iteration can attempt remediation. If `$CROSS_PLAN_ITERATION` has not yet reached the configured max, increment and re-spawn at Step 4c; otherwise halt with the unresolved findings logged to the Decisions Log per the existing 4e exhaustion behavior.
+On aggregate-validate failure, follow Step 4e's HALT-on-findings semantics directly — emit the same diagnostic and exit non-zero. There is no iteration retry at the final-verification stage; cross-plan iteration logic moved to Step 3f.5 (mid-pipeline).
 
-Rationale: aggregate verdict is the AUTHORITATIVE blocking signal per REQ-09. plan-all already has a cross-plan auto-fix loop (Step 4e); the aggregate verdict feeds that loop as its synthetic finding source.
+Rationale: aggregate verdict is the AUTHORITATIVE blocking signal per REQ-09. plan-all's cross-plan auto-fix loop now lives in Step 3f.5 (mid-pipeline); Step 4e is a single-iter HALT-on-findings verification; the aggregate verdict at the final stage triggers HALT, not retry.
 
 If `ok:true`, proceed to Step 4d.
 
