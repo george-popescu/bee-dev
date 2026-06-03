@@ -1,7 +1,6 @@
 ---
 name: laravel-inertia-react-implementer
 description: TDD implementer for Laravel + Inertia + React projects. Writes failing tests first, then minimal implementation, then refactors. Runs scoped tests only — conductor handles full suite, pint, and phpstan post-wave.
-tools: Read, Write, Edit, Bash, Grep, Glob
 model: inherit
 color: green
 skills:

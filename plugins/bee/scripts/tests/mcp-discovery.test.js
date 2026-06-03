@@ -199,15 +199,39 @@ console.log('\n10. graceful-fallback marker co-occurs in researcher + phase-plan
 const fallback = /codebase patterns|not available|never hard-fail/i;
 assert(
   fallback.test(researcherMd),
-  'researcher.md retains a graceful-fallback clause (degrades to codebase patterns when Context7 is unavailable)'
+  'researcher.md retains a graceful-fallback clause (codebase patterns are the last-resort tier after Context7 + web research)'
 );
 assert(
   fallback.test(phasePlannerMd),
-  'phase-planner.md retains a graceful-fallback clause (degrades to codebase patterns when Context7 is unavailable)'
+  'phase-planner.md retains a graceful-fallback clause (codebase patterns are the last-resort tier after Context7 + web research)'
 );
 assert(
   fallback.test(context7Skill),
   'context7 SKILL.md retains a graceful-fallback clause (never hard-fails on missing MCP)'
+);
+
+// ============================================================
+// 10b. WEB-RESEARCH TIER: researcher + phase-planner prefer web docs over codebase
+// ============================================================
+// WHY: when Context7 is exhausted, the closest substitute for latest framework
+// docs is the docs themselves (web), not what the project already does (codebase).
+// The two inherit-all agents (which HAVE WebFetch/WebSearch) must carry this tier
+// BEFORE codebase patterns. Without this guard, a future edit could silently drop
+// the web tier and regress to codebase-only — the presence/fallback greps wouldn't catch it.
+console.log('\n10b. web-research tier present in researcher + phase-planner (Context7 -> web -> codebase order)');
+const webTier = /WebFetch|web research/i;
+assert(
+  webTier.test(researcherMd),
+  'researcher.md carries the web-research tier (WebFetch official docs) as the Context7 substitute before codebase patterns'
+);
+assert(
+  webTier.test(phasePlannerMd),
+  'phase-planner.md carries the web-research tier (WebFetch official docs) as the Context7 substitute before codebase patterns'
+);
+// The shared skill must NOT instruct web research — it is loaded by tight reviewers without WebFetch.
+assert(
+  !webTier.test(context7Skill),
+  'context7 SKILL.md does NOT instruct web research (it is loaded by restricted-toolset agents that lack WebFetch)'
 );
 
 // ============================================================
@@ -221,6 +245,25 @@ console.log('\n11. default mcp__context7__resolve-library-id retained in context
 assert(
   context7Skill.includes('mcp__context7__resolve-library-id'),
   'context7 SKILL.md retains the default mcp__context7__resolve-library-id name (tight-frontmatter consumers depend on it)'
+);
+
+// ============================================================
+// 12. LARAVEL IMPLEMENTERS INHERIT-ALL: Boost tool names callable
+// ============================================================
+// WHY: config.mcp.laravel_boost discovery is inert unless the only readers (the
+// two Laravel implementers) can call a per-install Boost tool name. Like
+// researcher/phase-planner, they must omit tools: (inherit-all) so the discovered
+// name is reachable. A restricted allowlist would silently force the php-artisan
+// fallback even when Boost is correctly installed and discovered.
+console.log('\n12. Laravel implementers omit tools: (inherit-all so discovered Boost names are callable)');
+const fmOf = (s) => (s && s.match(/^---\n([\s\S]*?)\n---/) || [null, ''])[1];
+assert(
+  !/^tools:/m.test(fmOf(reactImplMd)),
+  'laravel-inertia-react implementer omits tools: (inherit-all so config.mcp.laravel_boost tool names are callable)'
+);
+assert(
+  !/^tools:/m.test(fmOf(vueImplMd)),
+  'laravel-inertia-vue implementer omits tools: (inherit-all so config.mcp.laravel_boost tool names are callable)'
 );
 
 // ============================================================
