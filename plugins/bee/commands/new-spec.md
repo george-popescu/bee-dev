@@ -31,6 +31,9 @@ First, check if `$ARGUMENTS` contains `--from-discussion {path}`. If it does:
 
 Then, check the (potentially stripped) `$ARGUMENTS` for `--amend`. If it contains `--amend`, skip to **Step 10: Amend Flow**. Otherwise, continue with the standard new spec flow below.
 
+See `skills/command-primitives/SKILL.md` Conversation Context Capture.
+Inputs: live chat after the most recent state-loading command. Apply: FEATURE-SCOPE capture against the nascent spec scope (`$INITIAL_DESCRIPTION` plus what the discovery conversation surfaces) — capture once at feature level into the spec artifact's `## Conversation Context`, then slice per-task into each spawned subagent's `## Prior Discussion`. When `--from-discussion` is used, the source-boundary rule confines capture to live chat after Step 2.5's discussion-file load, so already-loaded `$DISCUSSION_NOTES` content is not re-captured from chat.
+
 ### Step 2.5: Load Discussion Notes
 
 When `$USE_DISCUSSION` is true, read the discussion notes file at `$DISCUSSION_PATH` using the Read tool. Store its content as `$DISCUSSION_NOTES`.
@@ -133,6 +136,9 @@ Task(
     SPEC RESEARCH MODE -- No TASKS.md, no phase context.
 
     Research the codebase to inform a new feature spec: {$INITIAL_DESCRIPTION}
+
+    ## Prior Discussion
+    {Feature-scope Conversation Context Capture buckets — Decisions / Constraints / Ruled-out — relevant to scoping research. Omit this block entirely when buckets are empty.}
 
     Project stack: {stack from config.json}
 
@@ -356,6 +362,13 @@ Write `requirements.md` to the spec folder using the Write tool. Populate it wit
   - Scope Boundaries: In scope vs. out of scope
   - Technical Considerations: Integration points, constraints, dependencies
 
+When the feature-scope Conversation Context Capture buckets are non-empty, append this section to `requirements.md` (the spec artifact is the persistent plan-file analogue here). Silent-skip when buckets are empty — write no header.
+
+```markdown
+## Conversation Context
+{Captured Decisions / Constraints / Ruled-out bullets from the live discovery chat, FEATURE-SCOPE. This is the source the per-task `## Prior Discussion` slices draw from.}
+```
+
 Display to user: "Requirements written to `{spec_folder}/requirements.md`"
 
 ### Step 9: Spawn spec-writer Agent
@@ -370,6 +383,7 @@ Spawn the `spec-writer` agent as a subagent with the model determined above. Pro
 
 - The spec folder path
 - Instruction: "Read requirements.md from the spec folder, then write spec.md and phases.md following the templates in skills/core/templates/"
+- A `## Prior Discussion` block sliced toward the spec sections the spec-writer consumes (the feature-scope Conversation Context Capture buckets — Decisions / Constraints / Ruled-out). Omit this block entirely when buckets are empty.
 
 The spec-writer agent will:
 1. Read `requirements.md` and any visuals

@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.5.2] - 2026-06-03 -- Bee Velocity — Conversation context capture across entry commands
+
+Stops bee commands from losing the conversation when they hand work to subagents. Previously, when you discussed a feature in chat and then ran `/bee:quick`, `/bee:quick-phase`, `/bee:new-spec`, or `/bee:discuss`, only the short task description reached the spawned researcher/implementer/planner agents — every decision, constraint, and rejected alternative agreed in the conversation was dropped. This release teaches those four commands to carry that context forward automatically.
+
+### Added
+- **Conversation Context Capture primitive (`skills/command-primitives/SKILL.md`):** before spawning any subagent, the orchestrator distills the live conversation into three buckets — Decisions (what was agreed), Constraints (what bounds the work), and Ruled-out (rejected alternatives and why) — and propagates them. A hybrid confirmation gate keeps it low-friction: small extractions (≤5 points) are injected silently; larger ones surface for Accept / Edit / Skip / Custom review so you stay in control of what propagates. A source boundary limits capture to conversation after the most recent state-loading command (`/bee:resume`, `/bee:thread`, `/bee:progress`) so already-persisted context isn't re-injected, and an empty extraction is a silent no-op. Relevance filtering is tight — only context that changes the work being delegated is carried.
+- **Wired into four entry-point commands** (`/bee:quick`, `/bee:quick-phase`, `/bee:new-spec`, `/bee:discuss`): each writes captured context into its plan/notes artifact as a `## Conversation Context` section and injects a `## Prior Discussion` block into every spawned subagent prompt. Single-task commands filter against the one task; multi-task commands capture against the whole feature, then slice the relevant subset into each task's subagent. `/bee:new-spec` respects the source boundary so a discussion file loaded via `--from-discussion` isn't double-captured from chat.
+
+### Changed
+- Plugin version: 4.5.1 → 4.5.2 (`plugins/bee/.claude-plugin/plugin.json`)
+- Marketplace version: 1.9.1 → 1.9.2 (`.claude-plugin/marketplace.json` lockstep)
+
+---
+
 ## [4.5.1] - 2026-05-13 -- Bee Velocity — /bee:quick-phase command + thinking-principles surfacing
 
 Adds a new command that fills the gap between `/bee:quick` (single task) and `/bee:new-spec` (full ceremony) — generates a single TASKS.md with research-enriched tasks and wave plan, with three execute paths (quick / phase / plan-only).

@@ -45,6 +45,9 @@ What's the quick task? Describe what you want to do.
 
 Wait for the user's response. Store as `$DESCRIPTION`.
 
+See `skills/command-primitives/SKILL.md` Conversation Context Capture.
+Inputs: live chat after the most recent state-loading command. Apply: filter TIGHT against the single `$DESCRIPTION` (no feature-scope/per-task split — that two-stage shape is multi-task commands only); capture only context that changes this one task.
+
 ---
 
 #### Step 2a: Amend Flow
@@ -120,6 +123,9 @@ If "Cancel", stop. If "Proceed", continue. If "Edit scope", let user refine.
 ## Description
 {DESCRIPTION}
 
+## Conversation Context
+{Per `skills/command-primitives/SKILL.md` Conversation Context Capture, write the captured Decisions / Constraints / Ruled-out buckets here when non-empty. Silently omit this section entirely when all buckets are empty.}
+
 ## Acceptance Criteria
 {Derive 3-8 testable acceptance criteria from the task description. Each criterion should be a concrete, verifiable statement that the implementer can write a test for. Format as a numbered list.}
 
@@ -192,6 +198,9 @@ Task(
 
     Research the codebase to understand how to: {DESCRIPTION}
 
+    ## Prior Discussion
+    {Captured Conversation Context buckets filtered tight against {DESCRIPTION}, per `skills/command-primitives/SKILL.md` Conversation Context Capture. Omit this block when buckets are empty.}
+
     Project stack: {stack from config.json}
 
     Find:
@@ -238,6 +247,9 @@ Task(
   description="Implement (TDD): {DESCRIPTION}",
   prompt="
     Implement this task using TDD (Red-Green-Refactor): {DESCRIPTION}
+
+    ## Prior Discussion
+    {Captured Conversation Context buckets filtered tight against {DESCRIPTION}, per `skills/command-primitives/SKILL.md` Conversation Context Capture. Omit this block when buckets are empty.}
 
     Project stack: {stack from config.json}
     Linter: {resolved linter for this stack: stacks[i].linter ?? config.linter ?? "none"}

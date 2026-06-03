@@ -35,6 +35,9 @@ Wait for the user's response. Store their answer as `$TOPIC`.
 
 Derive a slug from the topic for later use: slugify the first 3-4 words (lowercase, hyphens, no spaces or special characters).
 
+See `skills/command-primitives/SKILL.md` Conversation Context Capture.
+Inputs: live chat since the most recent state-loading command + `$TOPIC`. Apply: filter tight against the discussion `$TOPIC` (discuss spawns only the discuss-partner agent, no implementers); inject the captured buckets into the discuss-partner `## Prior Discussion` block (Step 3) and persist them to the discussion notes artifact (Step 5), since discuss has no plan file.
+
 ### Batch Mode Detection
 
 If `$ARGUMENTS` contains `--batch`:
@@ -171,6 +174,9 @@ Task(
     $MODE = \"scan\"
 
     Discussion topic: {$TOPIC}
+
+    ## Prior Discussion
+    {Captured Conversation Context buckets (Decisions / Constraints / Ruled-out) filtered tight against $TOPIC per the Conversation Context Capture primitive. Omit this block when the buckets are empty.}
 
     Project stack: {stack from config.json}
 
@@ -360,7 +366,13 @@ Task(
     Scan results:
     {$SCAN_RESULT — codebase context from Step 3}
 
-    Write structured discussion notes to the output path.
+    ## Prior Discussion
+    {Captured Conversation Context buckets (Decisions / Constraints / Ruled-out) filtered tight against $TOPIC per the Conversation Context Capture primitive — fed to you as input. Provided only when non-empty; omit when empty.}
+
+    Write structured discussion notes to the output path. When the Prior Discussion input above is non-empty, persist it into the notes artifact as a section under this exact heading (the discussion notes artifact is the persistent analogue for this command, since discuss has no plan file):
+
+    ## Conversation Context
+    {The captured Decisions / Constraints / Ruled-out buckets, written into the notes file verbatim. Omit this section entirely when the Prior Discussion input is empty.}
   "
 )
 ```

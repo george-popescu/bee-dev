@@ -363,6 +363,105 @@ verbatim in every agent's context packet -- agents must NOT re-read them:
    changes, and side effect changes. Verify test files cover the modified
    behavior."
 
+## Conversation Context Capture
+
+Extract the decisions, constraints, and ruled-out alternatives that lived in
+the live chat and inject them into plan artifacts and spawned subagent prompts.
+Subagents start with NO inherited transcript — they see only what the
+orchestrator stuffs into their prompt. Without this, every decision agreed in
+chat is lost the moment a subagent spawns, leaving only the bare description
+string.
+
+**Inputs:** the live conversation transcript; the unit of work the command
+delegates (`$DESCRIPTION` for single-task commands, the feature scope for
+multi-task commands, `$TOPIC` for discuss); the most recent state-loading
+command boundary.
+
+**Behavior:**
+
+1. **Extract** from the live conversation into exactly 3 buckets:
+   - **Decisions** — what we agreed to do.
+   - **Constraints** — what bounds the work (must / must-not, files, perf,
+     compat).
+   - **Ruled-out** — alternatives rejected + WHY, so subagents don't
+     re-propose them.
+2. **Source boundary.** **Capture only chat after the most recent state-loading command**. State-loading commands (`/bee:resume`, `/bee:thread`,
+   `/bee:progress`) already loaded persisted context into the chat; pulling
+   from before them would re-inject what they already loaded. Capture only the
+   conversation that happened after the last such command.
+3. **Tight relevance filtering.** Keep only context that changes the task being
+   delegated. Drop anything that doesn't alter what a subagent would do. The
+   goal is lean subagent prompts, not a chat dump.
+4. **Hybrid confirmation gate.** Count the total bullets across all 3 buckets.
+   - **≤5 bullets** → inject silently, no prompt.
+   - **>5 bullets** → `AskUserQuestion` showing the buckets, with options
+     **Accept** (inject as-is) / **Edit** (revise the buckets, then inject) /
+     **Skip** (inject nothing) / **Custom** (free-text affordance). Custom is
+     the LAST option, without exception.
+5. **Empty buckets** (fresh session, nothing relevant) → skip entirely: zero
+   output, no injection, no `## Conversation Context` header written. This is
+   the natural no-op; the behavior is unconditional, gated only by whether
+   anything relevant was captured.
+
+**Two injection sites:**
+
+The captured buckets land in two places, each identified by a literal heading.
+
+1. **Plan / notes file** gets a `## Conversation Context` section. This
+   persists for `--amend` re-runs and serves as the audit trail. Written only
+   when buckets are non-empty.
+
+   ```markdown
+   ## Conversation Context
+
+   **Decisions**
+   - <what we agreed to do>
+
+   **Constraints**
+   - <must / must-not, files, perf, compat>
+
+   **Ruled-out**
+   - <rejected alternative> — <why>
+   ```
+
+2. **Every spawned subagent prompt** gets a `## Prior Discussion` block
+   adjacent to the description / topic. This directly fixes the
+   "description string is the only input" gap.
+
+   ```markdown
+   {DESCRIPTION}
+
+   ## Prior Discussion
+
+   **Decisions**
+   - <sliced for this task>
+
+   **Constraints**
+   - <sliced for this task>
+
+   **Ruled-out**
+   - <sliced for this task> — <why>
+   ```
+
+**Per-command filtering nuance:**
+
+"Tight" means something different per command because the unit of work differs.
+
+- **Single-task commands** (`/bee:quick`) — one task exists at capture time.
+  Filter tight against that one `$DESCRIPTION` and inject directly.
+- **Multi-task commands** (`/bee:quick-phase`, `/bee:new-spec`) — produce many
+  tasks across waves; no single "this task" exists at capture time. Capture
+  tight against the **feature scope** at command level into the plan file's
+  `## Conversation Context`, then **slice per-task** into each subagent's
+  `## Prior Discussion` block — only the bullets touching that task's
+  files / AC. The per-task slice is where "tight" actually bites.
+- **`/bee:discuss`** — spawns only discuss-partner (no implementers). Filter
+  tight against the discussion `$TOPIC`.
+
+**Output:** when buckets are non-empty, a `## Conversation Context` section in
+the plan / notes artifact and a per-task-sliced `## Prior Discussion` block in
+every spawned subagent prompt; when empty, nothing. No config key gates this.
+
 ## Stack/Linter/Test-Runner Resolution
 
 Standard fallback chain used wherever a command needs a per-stack linter or

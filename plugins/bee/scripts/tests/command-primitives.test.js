@@ -86,6 +86,7 @@ if (skillContent !== null) {
     'Per-Stack Agent Resolution',
     'Auto-Fix Loop (Autonomous)',
     'Re-Review Loop (Interactive)',
+    'Conversation Context Capture',
   ];
 
   for (const section of REQUIRED_SECTIONS) {
@@ -105,6 +106,15 @@ if (skillContent !== null) {
   assert(
     skillContent.includes('Context Cache (read once, pass to all agents)'),
     'SKILL.md contains the "Context Cache (read once, pass to all agents)" literal'
+  );
+  // Owned source-boundary rule for Conversation Context Capture. Lives ONLY
+  // here; if a command file copied it instead of referencing the primitive by
+  // name, the per-command negative assertion below would fire. This positive
+  // assertion fails if a refactor deletes the rule from SKILL.md, which would
+  // silently drop the boundary that stops re-injecting already-persisted state.
+  assert(
+    skillContent.includes('Capture only chat after the most recent state-loading command'),
+    'SKILL.md owns the "Capture only chat after the most recent state-loading command" source-boundary rule (single source of truth — commands reference by name, never copy)'
   );
 }
 
@@ -156,14 +166,16 @@ const MIN_REFERENCES = {
   'review.md': 5,                 // VG, BTG-I, CC, MSI, PSAR
   'plan-all.md': 3,               // VG, MSI, AFL
   'plan-phase.md': 3,             // VG, MSI, CC
-  'quick.md': 5,                  // VG, BTG-I, CC, MSI (reasoning), MSI (scanning)
+  'quick.md': 6,                  // VG, BTG-I, CC, MSI (reasoning), MSI (scanning), Conversation Context Capture
   'complete-spec.md': 1,          // VG
   'archive-spec.md': 1,           // VG
   'review-implementation.md': 5,  // VG, BTG-I, CC, MSI, PSAR
   'audit.md': 1,                  // CC
   'eod.md': 1,                    // CC
   'execute-phase.md': 1,          // CC
-  'quick-phase.md': 6,            // VG, BTG-A, CC, MSI (reasoning), MSI (scanning), AFL
+  'quick-phase.md': 7,            // VG, BTG-A, CC, MSI (reasoning), MSI (scanning), AFL, Conversation Context Capture
+  'new-spec.md': 1,               // Conversation Context Capture (first skill reference)
+  'discuss.md': 1,                // Conversation Context Capture (first skill reference)
 };
 
 // ---------------------------------------------------------------------------
@@ -1227,6 +1239,73 @@ console.log('\n=== v4.5.0 Surface Contracts — quick-phase command ===');
   for (const expansion of operationalExpansions) {
     assert(quickPhaseMd.includes(expansion), `quick-phase.md Step 6.1 contains operational expansion: ${expansion}`);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Conversation Context Capture (Quick-Phase 24) — paired-contract wiring across
+// the 4 entry-point commands. The primitive makes each orchestrator extract
+// conversation context into Decisions/Constraints/Ruled-out buckets and inject
+// it at two sites: the plan/notes artifact gets a `## Conversation Context`
+// section, and every spawned subagent prompt gets a `## Prior Discussion` block.
+// Roster-driven so adding/removing a consumer is a one-line edit (mirrors
+// CC_COMMANDS). The owned source-boundary literal asserted PRESENT-in-skill
+// above and ABSENT-in-every-command below is the paired contract that enforces
+// "reference the primitive by name, never copy its mechanics".
+// ---------------------------------------------------------------------------
+
+console.log('\n=== Conversation Context Capture (Quick-Phase 24) — 4-command wiring ===');
+
+const CONTEXT_CAPTURE_COMMANDS = ['quick.md', 'quick-phase.md', 'new-spec.md', 'discuss.md'];
+
+for (const rel of CONTEXT_CAPTURE_COMMANDS) {
+  const content = readFile(path.join(COMMANDS_DIR, rel));
+  console.log(`\nCommand: ${rel}`);
+  ensureCmdReadable(rel, content);
+  if (content === null) continue;
+
+  // (a) Canonical reference to the skill — this is how the orchestrator knows to
+  // run the capture mechanics instead of inlining them. Removing it strands the
+  // command with no path to the primitive's gate/filtering/boundary rules.
+  assertSkillReferenced(rel, content);
+
+  // (b) Names the primitive by its section title so the reference resolves to
+  // Conversation Context Capture specifically (not some other primitive) — a
+  // bare skill-path reference is ambiguous without this.
+  assert(
+    /Conversation Context Capture/.test(content),
+    `${rel} names the Conversation Context Capture primitive by reference (resolves the skill path to this section, not another primitive)`
+  );
+
+  // (c) Plan/notes injection site present. The end-anchored regex pins the
+  // `## Conversation Context` heading (the captured buckets written into the
+  // plan/notes artifact) WITHOUT matching the `## Conversation Context Capture`
+  // skill-heading reference: leading `\s*` tolerates discuss.md's 4-space indent
+  // inside its write-notes prompt template (a hard `/^##/` anchor returns 0 for
+  // discuss.md), and trailing `\s*$` rejects the " Capture"-suffixed skill
+  // heading. Missing this heading means captured context never reaches the
+  // persistent artifact.
+  assert(
+    /^\s*##\s+Conversation Context\s*$/m.test(content),
+    `${rel} writes a "## Conversation Context" section into its plan/notes artifact so captured buckets persist beyond the live chat (end-anchored to avoid the "## Conversation Context Capture" skill-heading collision)`
+  );
+
+  // (d) Subagent injection site present. Without the `## Prior Discussion` block
+  // adjacent to the description/topic in the spawn prompt, subagents only receive
+  // the bare description string and lose the captured chat context entirely —
+  // this is the description-string-only gap the primitive closes.
+  assert(
+    /## Prior Discussion/.test(content),
+    `${rel} carries a "## Prior Discussion" block in its spawn prompt so subagents receive captured chat context (closes the description-string-only gap)`
+  );
+
+  // (e) Negative — the owned source-boundary literal must NOT be copied here. It
+  // lives only in SKILL.md; a copy would mean the command inlined the primitive's
+  // mechanics instead of referencing them, defeating the single-source-of-truth
+  // contract and drifting when SKILL.md updates.
+  assert(
+    !content.includes('Capture only chat after the most recent state-loading command'),
+    `${rel} does NOT copy the "Capture only chat after the most recent state-loading command" source-boundary literal (it references the primitive by name; the rule lives only in SKILL.md)`
+  );
 }
 
 // ---------------------------------------------------------------------------
