@@ -1138,8 +1138,8 @@ console.log('\n=== v4.5.0 Surface Contracts — pipeline orchestration bundle ==
 
   // Sub-opt C: phase-planner research tools + plan-phase Step 4 removed
   const phasePlannerMd = readFile(path.join(AGENTS_DIR, 'phase-planner.md'));
-  assert(phasePlannerMd.includes('mcp__context7__resolve-library-id'), 'phase-planner.md tools includes Context7 resolve');
-  assert(phasePlannerMd.includes('mcp__context7__query-docs'), 'phase-planner.md tools includes Context7 query');
+  assert(!phasePlannerMd.includes('mcp__context7__resolve-library-id'), 'phase-planner.md does NOT hardcode mcp__context7__resolve-library-id (now inherit-all; resolves Context7 via config.mcp.context7)');
+  assert(!phasePlannerMd.includes('mcp__context7__query-docs'), 'phase-planner.md does NOT hardcode mcp__context7__query-docs (now inherit-all; resolves Context7 via config.mcp.context7)');
   // skills frontmatter — match "context7" inside skills: list
   assert(/skills:\s*\n(?:\s*-\s*\w+\n)*\s*-\s*context7/.test(phasePlannerMd), 'phase-planner.md skills frontmatter includes context7');
 

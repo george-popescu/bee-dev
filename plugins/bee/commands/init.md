@@ -317,6 +317,34 @@ Use the resolved `implementation_mode` from earlier step. If unset, default to `
 
 Whatever the outcome (`enabled`, `declined`, `unavailable`), include the `agent_teams` block in the `.bee/config.json` written in Step 4. Default values for unset fields are documented in the config schema below.
 
+### Step 3.8: MCP Tool Discovery
+
+Discover which MCP tools are installed under THIS install's per-install names, and resolve them to two stable capability keys (`context7`, `laravel_boost`) that the rest of bee keys off. MCP plugin tool names vary per install (Anthropic's Context7 plugin exposes `mcp__claude_ai_Context7__query-docs`, not the hardcoded `mcp__context7__query-docs`), so a hardcoded name in an agent allowlist silently fails. This step probes the real names once and persists them, mirroring Step 3.7's probe → decide → persist-into-Step-4 structure.
+
+**1. Probe with ToolSearch:**
+
+Run **ToolSearch** — the tool-enumeration mechanism — with queries like `"context7"` and `"laravel boost"`. ToolSearch enumerates available AND deferred MCP tools by exact name, so it surfaces the user's `mcp__claude_ai_Context7__*` tools even when bee hardcodes a different name elsewhere. Read the returned exact tool names from the results.
+
+**2. Fingerprint-match the returned names to capability keys:**
+
+Match each returned tool name (case-insensitive substring) to a capability key:
+
+- name contains `context7` / `Context7` → `context7` capability. Identify which matched name is the library-ID resolver (resolve) and which is the docs query (query) — by convention the resolver name contains `resolve-library-id` (or similar) and the query name contains `query-docs` (or similar).
+- name contains `laravel-boost` / `boost` → `laravel_boost` capability. Collect every matched name into a list.
+
+**3. Decide the resolved values:**
+
+- **context7:** if a match is found, set `available: true`, `resolve: "<matched resolve tool name>"`, `query: "<matched query tool name>"`. If ToolSearch returns no context7 match, set `available: false`, `resolve: null`, `query: null`.
+- **laravel_boost:** if one or more matches are found, set `available: true`, `tools: [<all matched names>]`. If no match, set `available: false`, `tools: []`.
+
+**4. Persist into Step 4 (forward reference):**
+
+These resolved values feed directly into the `mcp` block written by Step 4 — the `mcp.context7.{available,resolve,query}` and `mcp.laravel_boost.{available,tools}` fields in `.bee/config.json` are populated from the decisions above (overwriting the all-false default the schema documents).
+
+**Discovery NEVER hard-fails.** If ToolSearch is unavailable (older Claude Code, tool not present, or the call errors), write the all-false default — exactly the `mcp` block shown in the Step 4 schema (`context7.available: false`, `resolve`/`query` null; `laravel_boost.available: false`, `tools: []`) — and continue init. A missed discovery degrades to bee's existing hardcoded-default-name fallback behavior, never a blocking error.
+
+**Re-discovery:** if MCP tools are not yet enumerable at first init (plugin installed later, or ToolSearch returned nothing), `/bee:refresh-context` re-runs this same discovery contract on every refresh and repopulates `config.mcp` in a later session. The discovery contract (ToolSearch + fingerprint-match rule + the `context7`/`laravel_boost` capability keys) is identical across init and refresh — do not let them diverge.
+
 ### Step 4: Create .bee/ Directory and config.json
 
 Create the `.bee/` directory and write `.bee/config.json` with the confirmed values.
@@ -332,6 +360,10 @@ The `stacks` array contains one entry per each confirmed stack-path pair from St
   "implementation_mode": "premium",
   "ci": "{detected_ci}",
   "context7": true,
+  "mcp": {
+    "context7": { "available": false, "resolve": null, "query": null },
+    "laravel_boost": { "available": false, "tools": [] }
+  },
   "research_policy": "{research_policy}",
   "review": {
     "against_spec": true,
@@ -407,6 +439,16 @@ The `stacks` array contains one entry per each confirmed stack-path pair from St
 | `require_review_before_next` | `true` | Block phase N+1 execution until phase N has `Reviewed: Yes`. Set `false` to allow back-to-back execution without reviews (not recommended). |
 | `post_wave_validation` | `"auto"` | Per-wave test scope strategy in `/bee:execute-phase` post-wave validation. `auto` = scoped where supported, full elsewhere. `full` = always full. `scoped` = scoped only, skip-with-warn if unsupported. `skip` = no per-wave tests; phase-end full suite is sole validation. Phase-end full suite ALWAYS runs regardless of this value. See `skills/command-primitives/SKILL.md` Scoped Test Selection for per-runner behavior. |
 
+**`mcp` field reference:**
+
+| Field | Default | Purpose |
+|---|---|---|
+| `mcp.context7.available` | `false` | Whether a Context7 MCP tool was found under any per-install name. Populated by Step 3.8 MCP discovery; default false/null until discovery runs. |
+| `mcp.context7.resolve` | `null` | Exact per-install tool name for Context7 library-ID resolution (e.g. `mcp__claude_ai_Context7__resolve-library-id`). Populated by Step 3.8 MCP discovery; default false/null until discovery runs. |
+| `mcp.context7.query` | `null` | Exact per-install tool name for Context7 doc queries. Populated by Step 3.8 MCP discovery; default false/null until discovery runs. |
+| `mcp.laravel_boost.available` | `false` | Whether Laravel Boost MCP tools were found under any per-install name. Populated by Step 3.8 MCP discovery; default false/null until discovery runs. |
+| `mcp.laravel_boost.tools` | `[]` | String array of matched per-install Laravel Boost tool names. Populated by Step 3.8 MCP discovery; default false/null until discovery runs. |
+
 **Substitute `{adaptive_ceiling}`** in both single-stack and multi-stack JSON templates above with the integer computed from `implementation_mode` (Step 3.7 step 5):
 - `premium` → `2400000`
 - `quality` → `1200000`
@@ -426,6 +468,10 @@ The placeholder must be replaced with a bare integer (no quotes) before writing 
   "implementation_mode": "premium",
   "ci": "github-actions",
   "context7": true,
+  "mcp": {
+    "context7": { "available": false, "resolve": null, "query": null },
+    "laravel_boost": { "available": false, "tools": [] }
+  },
   "research_policy": "{research_policy}",
   "review": {
     "against_spec": true,
@@ -481,6 +527,8 @@ The placeholder must be replaced with a bare integer (no quotes) before writing 
 The `"metrics": { "enabled": true }` section is always included by default. No user question needed -- metrics collection is enabled automatically.
 
 Replace `{detected_stack}`, `{detected_linter}`, `{detected_runner}`, and `{detected_ci}` with the confirmed values from Steps 2-3. For multi-stack projects, populate the `stacks` array with all confirmed stack-path pairs, each with their own `linter` and `testRunner`.
+
+**Populate the `mcp` block with the capability values resolved in Step 3.8** (MCP Tool Discovery): write the discovered `context7.{available,resolve,query}` and `laravel_boost.{available,tools}` values. Use the all-false default shown in the templates ONLY when Step 3.8 discovery found no matching tools or ToolSearch was unavailable — a successful discovery MUST overwrite the default with the resolved per-install tool names, otherwise every downstream consumer falls back to defaults and the discovery is wasted.
 
 ### Step 5: Verify Statusline
 

@@ -1,7 +1,6 @@
 ---
 name: phase-planner
 description: Decomposes phases into research-enriched tasks with acceptance criteria and groups them into parallel waves
-tools: Read, Grep, Glob, Bash, Write, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: inherit
 color: cyan
 skills:
@@ -40,7 +39,7 @@ Pass 1 is the **merged decompose+research pass**: it produces a research-enriche
 12. **Codebase research (merged contract — REQUIRED before finalizing each task).** Before writing the task to TASKS.md, run codebase research and populate a `research:` block:
     - Use **Grep** to locate similar patterns / existing implementations (search for component names, route definitions, service shapes, similar acceptance flows)
     - Use **Read** to inspect 1-3 reference files identified by Grep (concrete file paths to cite in the research notes)
-    - Use **Context7** (`mcp__context7__resolve-library-id` + `mcp__context7__query-docs`) when framework-API uncertainty matters (only when actually needed — not as boilerplate)
+    - Use **Context7** for live framework-API verification when uncertainty matters (only when actually needed — not as boilerplate). Resolve the tool names from config: read `config.mcp.context7`; if `available` is true, call the tool names listed in its `resolve` and `query` fields (these are the per-install names ToolSearch discovered). If `available` is false or the tool call errors, follow the context7 skill's fallback chain (it attempts the default Context7 plugin name before giving up), and only then fall back to codebase patterns (the reference files Grep/Read surfaced) — never hard-fail planning over a missing docs lookup.
     - Populate the task's `research:` field with concrete file paths + brief notes (e.g., `research: [Pattern: app/Http/Controllers/UserController.php; Reuse: app/Services/AuthService.php::login(); Context7: laravel/framework -- Form Request validation]`)
 13. Write initial TASKS.md to the phase directory (research-enriched task list without waves)
 

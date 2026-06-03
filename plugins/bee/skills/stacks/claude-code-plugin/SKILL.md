@@ -51,7 +51,7 @@ Agents are Markdown files in `agents/` with YAML frontmatter and structured inst
 
 - `name:` -- agent identifier, kebab-case (required)
 - `description:` -- one-line summary (required)
-- `tools:` -- comma-separated list of tools the agent can use (required)
+- `tools:` -- comma-separated list of tools the agent can use (required, EXCEPT for inherit-all agents). Agents that must call per-install-named MCP tools (currently `researcher` and `phase-planner`, which call the per-install Context7 tool) OMIT `tools:` entirely so they inherit all tools. Agent `tools:` frontmatter has no wildcard support, and the Context7 MCP tool name varies per install, so inherit-all is the only name-agnostic mechanism that keeps the per-install tool callable. Do not re-add a hardcoded `tools:` line to these agents.
 - `color:` -- terminal color for the agent's output (required)
 - `model:` -- always `inherit` (the conductor overrides at spawn time) (required)
 - `skills:` -- YAML block sequence of skill names to load (required)
@@ -244,7 +244,7 @@ Test files live in `scripts/tests/`. Run individually: `node plugins/bee/scripts
 
 ## Good Practices
 
-- Maintain consistent frontmatter format across all commands, agents, and skills. Commands use `description:` and `argument-hint:`. Agents use `name:`, `description:`, `tools:`, `color:`, `model:`, `skills:`. Skills use `name:`, `description:`.
+- Maintain consistent frontmatter format across all commands, agents, and skills. Commands use `description:` and `argument-hint:`. Agents use `name:`, `description:`, `tools:`, `color:`, `model:`, `skills:`. Skills use `name:`, `description:`. Exception: `tools:` is omitted from agents that must call per-install-named MCP tools (currently `researcher` and `phase-planner`) so they inherit all tools — agent `tools:` frontmatter has no wildcard support and the per-install Context7 tool name is not known ahead of time, so inherit-all is the only name-agnostic mechanism. A stack-reviewer must not flag these agents for the missing `tools:` line, nor re-add a hardcoded one.
 - Use numbered steps in agent instructions for clear workflow sequencing. Steps like "1. Read Stack Skill", "2. Understand Your Task", "3. TDD Cycle" give agents a deterministic path to follow.
 - Context packets assembled by conductors include file paths, not file contents. Agents read files within their own context window at runtime. This keeps conductor context lean (~30% of agent window per task).
 - Apply progressive disclosure in skills: most important conventions first, detailed patterns next, edge cases and gotchas last. This mirrors how agents consume information -- they need the rules before the examples.

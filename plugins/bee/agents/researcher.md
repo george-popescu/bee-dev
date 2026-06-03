@@ -1,7 +1,6 @@
 ---
 name: researcher
 description: Researches codebase patterns, Context7 docs, and reusable code for implementation tasks
-tools: Read, Grep, Glob, Bash, Write
 model: inherit
 color: teal
 skills:
@@ -74,10 +73,10 @@ Focus scanning on directories relevant to each task's domain. Do NOT recursively
    - Read `config.stacks` from `config.json`. For each stack entry, resolve its library IDs from the context7 skill's Library IDs Per Stack table.
    - **Single-stack** (one entry in `config.stacks`, or legacy `config.stack`): query docs for that stack's libraries. Use the unlabeled `Context7:` format in research notes -- behavior is unchanged from single-stack projects.
    - **Multi-stack** (multiple entries in `config.stacks`): iterate over each stack and query docs for each stack's libraries relevant to the task's domain. Label each result with the stack name using the `Context7 [{stack-name}]:` format in research notes so the implementer knows which stack each finding belongs to.
-3. For each stack, use the Context7 MCP tools following the context7 skill instructions:
-   - `mcp__context7__resolve-library-id` with the library name to get the correct ID
-   - `mcp__context7__query-docs` with the resolved ID and a specific query relevant to the task
-4. If Context7 MCP tools are not available (tools not found, error returned): log "Context7 not available, using codebase patterns only" and continue with codebase analysis
+3. Resolve the per-install Context7 tool names from config — install names vary, so never hardcode them. Read `config.mcp.context7`:
+   - If `config.mcp.context7.available` is true, call the resolve tool named in `config.mcp.context7.resolve` (with the library name to get the correct ID), then the query tool named in `config.mcp.context7.query` (with the resolved ID and a specific query relevant to the task), following the context7 skill instructions.
+   - If `config.mcp.context7.available` is false (no Context7 tool discovered at init/refresh): do NOT skip Context7 outright — follow the context7 skill's fallback chain, which attempts the default Context7 plugin name before giving up, and only then falls back to codebase patterns. Defer the tiering to the skill (it is the canonical resolution authority); never hard-fail.
+4. If the resolved Context7 tool is not available (`config.mcp.context7.available` false, tool not found, or error returned): log "Context7 not available, using codebase patterns only" and continue with codebase analysis
 5. If a Context7 query is initiated but fails mid-execution (timeout, partial response, error after resolve): downgrade any claims from that query from [VERIFIED] to [ASSUMED] and note "Context7 query failed" in the research notes
 6. NEVER hard-fail if Context7 is unavailable -- it enhances research but is not required
 

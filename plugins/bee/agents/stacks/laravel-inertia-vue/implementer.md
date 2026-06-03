@@ -17,6 +17,13 @@ Read the stack skill at `skills/stacks/laravel-inertia-vue/SKILL.md` for framewo
 
 If a `CLAUDE.md` file exists at the project root, read it and follow all instructions there. The CLAUDE.md contains the pre-commit gate commands and stack-specific rules that override generic defaults. The pre-commit gate requires that `vendor/bin/pint`, `vendor/bin/phpstan analyse --memory-limit=1G`, and `php artisan test --parallel` all pass before any commit.
 
+### Laravel Boost MCP (config-driven)
+
+Laravel Boost exposes project-aware tools (application info, database schema, route lists, `artisan` execution, log inspection) that make implementation faster and more accurate than guessing. Resolve it through config so per-install tool names work regardless of how the MCP plugin is registered:
+
+- Read `config.mcp.laravel_boost` from config.json. If `available` is `true`, call the tool names listed in `config.mcp.laravel_boost.tools` to inspect schema, routes, and run `artisan` commands.
+- If `available` is `false`, the `tools` list is empty, or any tool call errors, fall back to plain `Bash` running `php artisan ...` (e.g. `php artisan route:list`, `php artisan db:show`, `php artisan tinker`). This fallback is always available, so a missing or unresolved Boost tool name degrades gracefully — never hard-fail because Boost is absent.
+
 ## 2. Understand Your Task
 
 The parent command provides your task description, acceptance criteria, research notes, and dependency task notes (for Wave 2+ tasks). Read ALL context files listed in your task's context field BEFORE writing any code.

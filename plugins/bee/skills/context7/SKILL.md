@@ -15,10 +15,10 @@ Use Context7 MCP to fetch up-to-date framework documentation in three contexts:
 
 ## How to Use
 
-Two-step process for every lookup:
+Two-step process for every lookup. **Resolve the tool names first:** if `config.mcp.context7.available` is true, call the tool names recorded in `config.mcp.context7.resolve` and `config.mcp.context7.query` (these hold the per-install MCP tool names discovered at init). Otherwise — when the config block is absent or discovery has not yet run — call the default Context7 plugin names `mcp__context7__resolve-library-id` and `mcp__context7__query-docs`.
 
-1. **Resolve the library ID:** Call `mcp__context7__resolve-library-id` with the library name (e.g., `laravel/framework`). This returns the correct Context7 identifier.
-2. **Query the docs:** Call `mcp__context7__query-docs` with the resolved ID and a specific query string.
+1. **Resolve the library ID:** Call the resolve tool (`config.mcp.context7.resolve`, default `mcp__context7__resolve-library-id`) with the library name (e.g., `laravel/framework`). This returns the correct Context7 identifier.
+2. **Query the docs:** Call the query tool (`config.mcp.context7.query`, default `mcp__context7__query-docs`) with the resolved ID and a specific query string.
 
 **Rules:**
 - Always use specific queries: "Inertia useForm validation display" -- not "Inertia docs"
@@ -42,8 +42,8 @@ Read `config.json` to determine the project stack, then query only the relevant 
 
 Context7 enhances research but is never required. Follow this three-tier check:
 
-1. **Check config:** Read `config.json` for the `"context7"` field. If `false`, skip Context7 entirely.
-2. **Attempt the call:** If enabled, call the MCP tools. If the tools are not available (error, not configured), fall back to codebase analysis.
+1. **Check the master switch:** Read `config.json` for the `"context7"` field (the `config.context7` master on/off switch). If `false`, skip Context7 entirely.
+2. **Resolve the tool and attempt the call:** If enabled, check `config.mcp.context7.available` to learn whether the tool is present under a discovered name — if true, call the names in `config.mcp.context7.resolve` / `config.mcp.context7.query`; otherwise (no `config.mcp.context7` block, or `available` is false) call the default plugin names `mcp__context7__resolve-library-id` / `mcp__context7__query-docs`. If the call errors or the tool is not actually available, fall back to codebase analysis.
 3. **Log and proceed:** When falling back, note "Context7 not available, using codebase patterns only" and continue. Never hard-fail because Context7 is unavailable.
 
 ## Query Strategies
