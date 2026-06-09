@@ -72,10 +72,11 @@ console.log('\nTest Group 2: Version display');
 
   assert(plain.includes(shortVersion), `Short version "${shortVersion}" present (trimmed from ${fullVersion})`);
 
-  // Version after bee emoji (design: 🐝 4.0 ┊ ...)
-  const versionIdx = plain.indexOf(shortVersion);
+  // Version after bee emoji (design: 🐝 4.0 ┊ ...). Search from the emoji onward:
+  // the version string can legitimately occur earlier too (e.g. a model display
+  // name like "Opus 4.6" colliding with plugin version 4.6).
   const beeIdx = plain.indexOf('\u{1F41D}');
-  assert(beeIdx >= 0 && versionIdx > beeIdx, 'Version appears after bee emoji (🐝 4.0 ┊ ...)');
+  assert(beeIdx >= 0 && plain.indexOf(shortVersion, beeIdx) > beeIdx, 'Version appears after bee emoji (🐝 4.0 ┊ ...)');
 }
 
 // ============================================================

@@ -4,6 +4,32 @@ All notable changes to the Bee plugin are documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
+## v4.6.0 — Bee Precision: Self-Gating Meta-Tests, LSP Navigation & Critical-Model Modes
+
+### Self-gating meta-test suite
+- **Aggregate runner** (`scripts/run-meta-tests.js`) — runs every meta-test suite with dynamic discovery (no registration needed), per-suite PASS/FAIL/WARN/SKIP reporting, subset execution, wallclock budgets with per-suite timeouts, and a known-failing baseline that ratchets down only (`--generate` refuses to hide new regressions without `--force`).
+- **Affected-suite selection** (`scripts/affected-suites.js`) — maps changed file paths to the suites that reference them, so commit-time checks run in seconds instead of minutes.
+- **Commit self-gate** — when the project being committed is bee itself, the pre-commit gate now runs the affected meta-suites instead of skipping markdown-only commits: non-baselined failures block, baselined failures and budget skips warn, tooling failures fail open. Other projects see zero behavior change.
+- **Test-grain rule** — the plugin-development stack skill now codifies what a meta-test may pin: durable contracts (cross-file invariants, rosters, output-structure behaviors, exit codes) — never step counts, prose literals, styling classes, or model wording. Includes re-aim guidance for chronic breakers.
+- **Suite health: full meta-suite green for the first time** — every previously failing suite received a documented disposition: re-aimed to durable contracts, deleted where only superseded prose was pinned, or fixed at the producer where the pinned contract was real (restored output headings consumers grep in both Laravel stack reviewer variants; the finding validator is now wallclock-verified like its siblings). The known-failing baseline ships empty: every failure blocks.
+
+### LSP-first code intelligence
+- **Per-stack LSP discovery** — `/bee:init` and `/bee:refresh-context` probe language-server availability per configured stack and persist it to a new `lsp` config section (same do-not-diverge discovery contract as MCP tool discovery). Absent or all-false config keeps the exact pre-existing grep behavior.
+- **Shared navigation contract** — a new thinking-principles rule defines LSP-first navigation in one place: prefer `findReferences` / `goToDefinition` / call-hierarchy over grep for symbol tracing when a server is available; grep remains correct for string literals, markdown, config text, and as the universal fallback. LSP errors always degrade silently to grep.
+- **Agent wiring** — researcher, bug-detector, pattern-reviewer, debug-investigator, fixer, implementer, and quick-implementer (plus stack reviewer variants) reference the shared rule; restricted agents gain the read-only `LSP` tool in their allowlists.
+- **Stronger dead-code evidence** — the dead-field detector accepts a zero-result `findReferences` as conclusive absent-consumer evidence on symbolic identifiers (it sees aliased imports and re-exports a text grep misses); string-addressed keys stay grep-based by design.
+
+### Critical-model implementation modes
+- **Two new modes** — `max-critical` routes high-criticality work to a configurable critical model (`config.models.critical`, default `"fable"`) and inherits everywhere else; `max` routes all reasoning work (scanning included) to the critical model. Existing modes are untouched; unknown values behave as premium.
+- **Criticality stamping** — the phase planner stamps every task `criticality: high|normal` from defined traits (data-model/migrations, security surfaces, cross-cutting contracts, concurrency, public API). Stamping is mode-independent, so switching modes later needs no replanning.
+- **Critical review spots** — under `max-critical`, plan-review convergence, deep re-reviews, and the final implementation review also run on the critical model; fixers elevate on Critical/High-severity findings or high-criticality work.
+- **Graceful degradation** — if the critical model is unavailable, spawns fall back to inherit with a one-time notice; execution never blocks on model availability.
+
+### Context & polish
+- **Session-start digest** — sessions now receive a compact STATE.md digest (current spec, phases table, last action) instead of a fixed 60-line slice dominated by history that never reached the last action.
+- **Dashboard build freshness** — the build-output suite now verifies the committed Bee Hive bundle is not stale relative to the dashboard sources.
+- **Plugin manifest** — description rewritten as one concise sentence.
+
 ## v4.1.0 — Skills Expansion & Quality Optimization
 
 ### 18 New Conditional Skills
