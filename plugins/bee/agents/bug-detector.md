@@ -138,7 +138,7 @@ Vendor citation is the predominant evidence mode. Cite OWASP / CWE / CVE / MDN /
 
 Output ONLY bugs found with severity. Do not report low-confidence issues.
 
-Use the finding format defined in `skills/review/SKILL.md` "Output Format" section (13 fields including Evidence Strength and Citation). Group findings under `### Critical`, `### High`, and `### Medium` headings, and end with `**Total: X critical, Y high, Z medium**`.
+Emit findings under a top-level `## Bugs Detected` section heading (consumers grep for this heading to locate this agent's findings). Use the finding format defined in `skills/review/SKILL.md` "Output Format" section (13 fields including Evidence Strength and Citation). Under `## Bugs Detected`, group findings into `### Critical`, `### High`, and `### Medium` subsections, and end with `**Total: X critical, Y high, Z medium**`.
 
 If no bugs found: `No bugs detected.`
 

@@ -199,9 +199,30 @@ Phase number: {N}
 Review mode: code review. Check implemented code against spec requirements and acceptance criteria. Verify every acceptance criterion in TASKS.md has corresponding implementation. Check for missing features, incorrect behavior, and over-scope additions. If phase > 1, also check cross-phase integration (imports, data contracts, workflow connections, shared state). If a project-level CLAUDE.md exists at the project root, read it for project-specific overrides. Report findings in your standard code review mode output format.
 ```
 
+**Conditional Global Agent: Architecture Auditor** (`bee:architecture-auditor`) -- model set in 4.2 by implementation_mode (standard Model Selection (Reasoning) tier; no per-agent model table) -- spawned ONCE globally, AND ONLY WHEN the net-new-subsystem trigger fires for this phase.
+
+GATE DETECTION: read this phase's TASKS.md and apply the SAME net-new-subsystem decision pattern-reviewer.md owns (`net-new subsystem: yes/no` -- does any "Create" task introduce a NEW top-level namespace/folder that does not already exist in the repo?). If the phase yields `net-new subsystem: yes`, spawn this agent ONCE globally; otherwise do NOT spawn it. This gate is reachable only here, where the phase's TASKS.md is present.
+
+SCOPING DECISION: architecture-auditor's native contract (audit.md) expects a whole-codebase, no-file-list packet. To constrain its misplaced-file scan to the net-new subsystem when invoked from the per-phase review, pass the phase's created/modified artifacts as `Files in scope:` -- mirroring the `Files in scope:` packet audit.md passes to integration-checker. This keeps the whole-codebase auditor focused on the phase's net-new artifacts rather than re-auditing the entire repo.
+
+```
+You are performing a STRUCTURAL ARCHITECTURE audit scoped to the net-new subsystem this phase introduces.
+
+Spec: {spec.md path}
+TASKS.md: {TASKS.md path}
+Phase directory: {phase_directory}
+Phase number: {N}
+
+{false-positives list from Step 3.9}
+
+Files in scope: {created/modified artifacts of this phase that stand up the new top-level namespace(s)}
+
+Audit the structural placement and layering of the in-scope artifacts: verify each new file sits in the correct taxonomy home, that the new subsystem's internal layering is sound, and that it integrates with existing subsystems without misplacement or layering violations. Report only HIGH confidence findings in your standard code review mode output format.
+```
+
 #### 4.2: Spawn agents
 
-The total number of agents is `(3 x N) + 1` where N is the number of stacks. For a single-stack project this is exactly 4.
+The total number of agents is `(3 x N) + 1` where N is the number of stacks. For a single-stack project this is exactly 4. When the net-new-subsystem trigger fires for this phase, add the conditional global architecture-auditor: the roster becomes `(3 x N) + 1 + 1` (5 for single-stack). When the trigger does NOT fire, the roster, spawn set, and cost are byte-for-byte unchanged -- a phase whose TASKS.md introduces NO new top-level namespace spawns the EXACT same agent set, same expected_count, as before: no architecture-auditor spawn, no roster change, no extra cost.
 
 See `skills/command-primitives/SKILL.md` Model Selection (Reasoning).
 Inputs: `config.implementation_mode`. Apply the rule to every agent below.
@@ -214,7 +235,7 @@ Wait for all agents to complete before proceeding.
 
 #### 4.2.5: Aggregate-validate 4-agent review outputs
 
-After all review agents in Step 4.2 complete, collect `agent_outputs` per agent: `{agent: "bug-detector" | "pattern-reviewer" | "stack-reviewer" | "plan-compliance-reviewer", transcript_path: <path>, exit_code: 0}`. The `agent` field MUST be the un-prefixed canonical slug matching a `VALIDATOR_ROSTER` entry from `validators-lib.js` (strip any stack prefix like `laravel-inertia-vue-` before building agent_outputs — `runPerAgentValidator` resolves the validator path by literal filename concat, NOT by hooks.json's non-anchored regex routing). Transcript paths come either from the Task tool result or from `.bee/events/<today>.jsonl` SubagentStop entries filtered by this wave's timestamp. Build the stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: <N>}` where `N` is `(3 × stack_count) + 1` (the actual spawned roster size), and invoke:
+After all review agents in Step 4.2 complete, collect `agent_outputs` per agent: `{agent: "bug-detector" | "pattern-reviewer" | "stack-reviewer" | "plan-compliance-reviewer" | "architecture-auditor", transcript_path: <path>, exit_code: 0}`. The `agent` field MUST be the un-prefixed canonical slug matching a `VALIDATOR_ROSTER` entry from `validators-lib.js` (strip any stack prefix like `laravel-inertia-vue-` before building agent_outputs — `runPerAgentValidator` resolves the validator path by literal filename concat, NOT by hooks.json's non-anchored regex routing). Transcript paths come either from the Task tool result or from `.bee/events/<today>.jsonl` SubagentStop entries filtered by this wave's timestamp. Build the stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: <N>}` where `N` is `(3 × stack_count) + 1` (the actual spawned roster size), or `(3 × stack_count) + 1 + 1` when the net-new-subsystem trigger fired and the conditional architecture-auditor was spawned. `architecture-auditor` is included in `agent_outputs` ONLY when it was actually spawned; when the trigger did not fire the count is exactly as before. Invoke:
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/review-4-agent.js
@@ -570,6 +591,8 @@ AskUserQuestion(
 
 - The command auto-detects the phase to review (last EXECUTED or REVIEWED phase), or accepts an explicit `--phase N` argument to target a specific phase. Re-reviewing an already-reviewed phase is allowed -- the previous REVIEW.md is archived as REVIEW-{N}.md where N is the previous iteration number, and the iteration counter increments.
 - In multi-stack projects, bug-detector, pattern-reviewer, and stack-reviewer are spawned once per stack (3 per-stack agents) while plan-compliance-reviewer is spawned ONCE globally (stack-agnostic). Total: `(3 x N) + 1` agents where N = number of stacks. For single-stack projects this is exactly 4 agents, identical to the original behavior. Model tier depends on `implementation_mode`: quality/premium mode omits model (inherits parent for deeper analysis); economy mode passes `model: "sonnet"` and spawns agents sequentially per stack to reduce token usage.
+- architecture-auditor (Step 4.1d conditional global packet) is spawned ONCE globally ONLY WHEN this phase's TASKS.md trips the net-new-subsystem trigger (`net-new subsystem: yes`, owned by pattern-reviewer.md); on that gate the roster becomes `(3 x N) + 1 + 1` and expected_count (Step 4.2.5) is incremented by exactly 1. On ordinary phases the trigger is `no`, the agent is not spawned, and the roster/cost are byte-for-byte unchanged. The gated auditor uses the standard Model Selection (Reasoning) tier (no new per-agent model-tier table). It is reused, NOT re-registered: the SubagentStop matcher `^architecture-auditor$` (hooks.json), the per-agent validator `validators/architecture-auditor.js`, and its `VALIDATOR_ROSTER` membership already exist from `/bee:audit`.
+- architecture-auditor is wired ONLY into review.md + review-implementation.md (post-implementation/code-review), NOT plan-review.md. It performs a STRUCTURAL CODE audit that cannot run before code exists, so plan-time has no code to audit. Plan-time coverage of the placement/taxonomy requirements is delivered instead by the reviewer-native net-new-subsystem detector + per-artifact placement check in pattern-reviewer.md, which plan-review.md already spawns.
 - The command (not the agents) writes REVIEW.md. Agents report findings in their own output formats; the command normalizes, deduplicates, and writes the unified REVIEW.md.
 - Step 3.9 extracts false positives BEFORE spawning agents. Each agent receives the formatted false-positives list in its context packet so it can self-filter. The command does NOT need to post-filter.
 - The plan-compliance-reviewer operates in "code review mode" (not plan review mode). The context packet explicitly states this.

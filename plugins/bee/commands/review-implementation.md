@@ -291,11 +291,33 @@ Trace complete user flows from entry point to completion. For each flow:
 Report bugs that span multiple files or phases -- the kind that single-file reviewers miss. Report only HIGH confidence findings in your standard output format.
 ```
 
+**Conditional Global Agent: Architecture Auditor** (`bee:architecture-auditor`) -- model set in 4.2 by implementation_mode (standard Model Selection (Reasoning) tier; no per-agent model table) -- spawned ONCE globally, full spec mode only, AND ONLY WHEN the net-new-subsystem trigger fires for the executed phase(s).
+
+GATE DETECTION: read each executed phase's TASKS.md and apply the SAME net-new-subsystem decision pattern-reviewer.md owns (`net-new subsystem: yes/no` -- does any "Create" task introduce a NEW top-level namespace/folder that does not already exist in the repo?). If ANY executed phase yields `net-new subsystem: yes`, spawn this agent ONCE globally; otherwise do NOT spawn it. This gate is full-spec-only: it is reachable ONLY here, where a TASKS.md is present. Ad-hoc mode carries NO TASKS.md, so the trigger is always `no` there and this agent is NEVER spawned in ad-hoc mode -- the ad-hoc `3 x N` derivation below is therefore unchanged.
+
+SCOPING DECISION: architecture-auditor's native contract (audit.md) expects a whole-codebase, no-file-list packet. To constrain its misplaced-file scan to the net-new subsystem when invoked from the per-phase review, pass the phase's created/modified artifacts as `Files in scope:` -- mirroring the `Files in scope:` packet audit.md passes to integration-checker. This keeps the whole-codebase auditor focused on the phase's net-new artifacts rather than re-auditing the entire repo.
+
+```
+You are performing a STRUCTURAL ARCHITECTURE audit scoped to the net-new subsystem this project's executed phases introduced.
+
+Spec: {spec.md path}
+Executed phases:
+- Phase {N}: {phase_directory_path}
+- Phase {M}: {phase_directory_path}
+...
+
+{false-positives list from Step 3.5}
+
+Files in scope: {created/modified artifacts of the executed phases that stand up the new top-level namespace(s)}
+
+Audit the structural placement and layering of the in-scope artifacts: verify each new file sits in the correct taxonomy home, that the new subsystem's internal layering is sound, and that it integrates with existing subsystems without misplacement or layering violations. Report only HIGH confidence findings in your standard output format.
+```
+
 #### 4.2: Spawn agents
 
-In full spec mode, the total number of agents is `(3 x N) + 2` where N is the number of stacks (5 for single-stack: 3 per-stack agents + 1 global plan-compliance-reviewer + 1 global audit-bug-detector).
+In full spec mode, the total number of agents is `(3 x N) + 2` where N is the number of stacks (5 for single-stack: 3 per-stack agents + 1 global plan-compliance-reviewer + 1 global audit-bug-detector). When the net-new-subsystem trigger fires for the executed phase(s), add the conditional global architecture-auditor: the roster becomes `(3 x N) + 2 + 1` (6 for single-stack). A phase whose TASKS.md introduces NO new top-level namespace spawns the EXACT same agent set, same expected_count, as before -- no architecture-auditor spawn, no roster change, no extra cost.
 
-In ad-hoc mode, the total number of agents is `3 x N` where N is the number of stacks (3 for single-stack: bug-detector, pattern-reviewer, stack-reviewer -- no plan-compliance-reviewer).
+In ad-hoc mode, the total number of agents is `3 x N` where N is the number of stacks (3 for single-stack: bug-detector, pattern-reviewer, stack-reviewer -- no plan-compliance-reviewer). Ad-hoc mode carries no TASKS.md so the net-new-subsystem gate cannot fire and architecture-auditor is never spawned: the ad-hoc `3 x N` count is byte-for-byte unchanged.
 
 See `skills/command-primitives/SKILL.md` Model Selection (Reasoning).
 Inputs: `config.implementation_mode`. Apply the rule to every agent below.
@@ -308,7 +330,7 @@ Wait for all agents to complete before proceeding.
 
 #### 4.2.5: Aggregate-validate review-implementation agent outputs
 
-After all agents in Step 4.2 complete, collect `agent_outputs` per agent: `{agent: "bug-detector" | "pattern-reviewer" | "stack-reviewer" | "plan-compliance-reviewer" | "audit-bug-detector", transcript_path: <path>, exit_code: 0}`. The `agent` field MUST be the un-prefixed canonical slug matching a `VALIDATOR_ROSTER` entry from `validators-lib.js` (strip any stack prefix like `laravel-inertia-vue-` before building agent_outputs — `runPerAgentValidator` resolves the validator path by literal filename concat, NOT by hooks.json's non-anchored regex routing). Transcript paths come either from the Task tool result or from `.bee/events/<today>.jsonl` SubagentStop entries filtered by this wave's timestamp. Build the stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: <N>}` where `N` is `(3 × stack_count) + 2` in full-spec mode (adds plan-compliance-reviewer + audit-bug-detector) or `3 × stack_count` in ad-hoc mode (per-stack agents only). Invoke:
+After all agents in Step 4.2 complete, collect `agent_outputs` per agent: `{agent: "bug-detector" | "pattern-reviewer" | "stack-reviewer" | "plan-compliance-reviewer" | "audit-bug-detector" | "architecture-auditor", transcript_path: <path>, exit_code: 0}`. The `agent` field MUST be the un-prefixed canonical slug matching a `VALIDATOR_ROSTER` entry from `validators-lib.js` (strip any stack prefix like `laravel-inertia-vue-` before building agent_outputs — `runPerAgentValidator` resolves the validator path by literal filename concat, NOT by hooks.json's non-anchored regex routing). Transcript paths come either from the Task tool result or from `.bee/events/<today>.jsonl` SubagentStop entries filtered by this wave's timestamp. Build the stdin payload `{cwd: $ROOT, agent_outputs: [...], expected_count: <N>}` where `N` is `(3 × stack_count) + 2` in full-spec mode (adds plan-compliance-reviewer + audit-bug-detector), or `(3 × stack_count) + 2 + 1` in full-spec mode when the net-new-subsystem trigger fired (adds the conditional architecture-auditor), or `3 × stack_count` in ad-hoc mode (per-stack agents only; the gate cannot fire without a TASKS.md so this count never changes). `architecture-auditor` is included in `agent_outputs` ONLY when it was actually spawned. Invoke:
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/validators/batch/review-implementation-4-agent.js
@@ -713,6 +735,8 @@ Skip this step entirely if in ad-hoc mode. LEARNINGS.md is only meaningful in th
 - Full spec mode spawns 5 agent types: bug-detector, pattern-reviewer, plan-compliance-reviewer, stack-reviewer, audit-bug-detector. The plan-compliance-reviewer and audit-bug-detector are global agents (spawned once, not per-stack). Total agents: `(3 x N) + 2` where N = number of stacks.
 - Ad-hoc mode spawns 3 agent types: bug-detector, pattern-reviewer, stack-reviewer. No plan-compliance-reviewer because there is no spec or plan context. Total agents: `3 x N` where N = number of stacks.
 - Multi-stack logic follows the same pattern as review.md: per-stack agents (bug-detector, pattern-reviewer, stack-reviewer) with stack-specific fallback routing, plus one global plan-compliance-reviewer (full spec mode only).
+- architecture-auditor (Step 4.1d conditional global packet) is spawned ONCE globally, full spec mode only, ONLY WHEN an executed phase's TASKS.md trips the net-new-subsystem trigger (`net-new subsystem: yes`, owned by pattern-reviewer.md); on that gate the full-spec roster becomes `(3 x N) + 2 + 1` and expected_count (Step 4.2.5) is incremented by exactly 1. Ad-hoc mode carries no TASKS.md so the gate cannot fire and the ad-hoc `3 x N` count is unchanged. On ordinary full-spec phases (no new top-level namespace) the trigger is `no`, the agent is not spawned, and the roster/cost are byte-for-byte unchanged. The gated auditor uses the standard Model Selection (Reasoning) tier (no new per-agent model-tier table). It is reused, NOT re-registered: the SubagentStop matcher `^architecture-auditor$` (hooks.json), the per-agent validator `validators/architecture-auditor.js`, and its `VALIDATOR_ROSTER` membership already exist from `/bee:audit`.
+- architecture-auditor is wired ONLY into review.md + review-implementation.md (post-implementation/code-review), NOT plan-review.md. It performs a STRUCTURAL CODE audit that cannot run before code exists. Plan-time coverage of the placement/taxonomy requirements is delivered instead by the reviewer-native net-new-subsystem detector + per-artifact placement check in pattern-reviewer.md, which plan-review.md already spawns.
 - The Build & Test Gate is identical for both modes -- a single step applied before agent spawning.
 - The validate-fix pipeline (Step 6) is identical for both modes: finding-validator batched (up to 10 at a time), MEDIUM confidence escalation to source specialist, file-based parallel fixers (parallel across files, sequential within the same file).
 - Output paths differ by mode: full spec writes to `{spec-path}/REVIEW-IMPLEMENTATION.md`, ad-hoc writes to `.bee/reviews/YYYY-MM-DD-{N}.md`.

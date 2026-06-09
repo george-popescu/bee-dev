@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Bee Statusline for Claude Code — Honeycomb Design
-// Shows: 🐝 4.0 ┊ ⬢⬢⬢⬡⬡ P3/5 EXEC ┊ █████░░░░░ 48% ┊ Δ7
+// Shows: Opus 4.8 🐝 4.5 ┊ ⬢⬢⬡⬡ P3/4 EXEC ┊ █████░░░░░ 48% ┊ Δ7
+//        model name+version, then plugin version after the bee; one hexagon per phase.
 
 const fs = require('fs');
 const path = require('path');
@@ -23,13 +24,21 @@ const STATUS_SHORT = {
 // Phases considered "complete" for progress calculation
 const DONE_STATUSES = new Set(['REVIEWED', 'TESTED', 'COMMITTED', 'DONE']);
 
-// Short model name: "Claude Opus 4.6" → "Opus"
+// Short model label with version: "Claude Opus 4.8 (1M context)" → "Opus 4.8".
+// Keeping the model version next to the plugin version disambiguates the two when
+// their numbers are close (e.g. Opus 4.8 vs bee 4.5).
 function shortModel(name) {
   if (!name) return '';
   const lower = name.toLowerCase();
-  if (lower.includes('opus')) return 'Opus';
-  if (lower.includes('sonnet')) return 'Sonnet';
-  if (lower.includes('haiku')) return 'Haiku';
+  // model version like 4.8 / 4.6 (first major.minor in the display name)
+  const ver = name.match(/(\d+\.\d+)/);
+  let tier = null;
+  if (lower.includes('opus')) tier = 'Opus';
+  else if (lower.includes('sonnet')) tier = 'Sonnet';
+  else if (lower.includes('fable')) tier = 'Fable';
+  else if (lower.includes('haiku')) tier = 'Haiku';
+  if (tier) return ver ? `${tier} ${ver[1]}` : tier;
+  // Unknown model: fall back to the last word (don't risk duplicating a version)
   const parts = name.split(/\s+/);
   return parts.length > 1 ? parts.slice(-1)[0] : name;
 }
@@ -49,14 +58,13 @@ function gitDirtyCount(dir) {
   }
 }
 
-// Build honeycomb phase progress (⬢⬢⬢⬡⬡ style, 5 segments)
+// Build honeycomb phase progress (⬢⬢⬢⬡⬡ style, one hexagon per phase)
 function honeycombBar(completed, total) {
   if (total === 0) return '';
-  const segments = 5;
-  const filled = Math.round((completed / total) * segments);
+  const filled = Math.max(0, Math.min(completed, total)); // one hex == one phase
   const done = '\u2B22'; // ⬢ filled hexagon
   const pending = '\u2B21'; // ⬡ empty hexagon
-  const bar = done.repeat(filled) + pending.repeat(segments - filled);
+  const bar = done.repeat(filled) + pending.repeat(total - filled);
 
   // Color: green if all done, cyan if in progress
   if (completed === total) {

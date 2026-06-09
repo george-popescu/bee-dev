@@ -1142,6 +1142,9 @@ console.log('\n=== v4.5.0 Surface Contracts — pipeline orchestration bundle ==
   assert(!phasePlannerMd.includes('mcp__context7__query-docs'), 'phase-planner.md does NOT hardcode mcp__context7__query-docs (now inherit-all; resolves Context7 via config.mcp.context7)');
   // skills frontmatter — match "context7" inside skills: list
   assert(/skills:\s*\n(?:\s*-\s*\w+\n)*\s*-\s*context7/.test(phasePlannerMd), 'phase-planner.md skills frontmatter includes context7');
+  // Placement stamp (REQ-07): class-creating tasks get a taxonomy-relative placement criterion promoted into acceptance: (not just research:).
+  // The phrase ties "placement taxonomy" to "acceptance" in the stamp region — proving the binding promotion is instructed, not the non-binding research-only form.
+  assert(/placement taxonomy[\s\S]{0,400}acceptance|acceptance[\s\S]{0,400}placement taxonomy/.test(phasePlannerMd), 'phase-planner.md stamps placement into acceptance criteria relative to the project placement taxonomy (REQ-07 binding stamp)');
 
   const planPhaseMd = readFile(path.join(COMMANDS_DIR, 'plan-phase.md'));
   assert(!/^###\s+Step 4:\s*Plan How.*[Rr]esearcher/m.test(planPhaseMd), 'plan-phase.md does NOT contain Step 4 Plan How (researcher pass removed)');

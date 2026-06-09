@@ -87,6 +87,7 @@ console.log('\nTest Group 3: Honeycomb progress');
   assert(scriptContent.includes('\u2B22'), 'Uses ⬢ (filled hexagon) for completed phases');
   assert(scriptContent.includes('\u2B21'), 'Uses ⬡ (empty hexagon) for pending phases');
   assert(scriptContent.includes('honeycombBar'), 'Has honeycombBar function');
+  assert(!scriptContent.includes('segments = 5'), 'Honeycomb is one-hex-per-phase (no hardcoded 5-segment bar)');
 }
 
 // ============================================================
@@ -129,6 +130,13 @@ console.log('\nTest Group 6: Model names');
 
   const haikuPlain = stripAnsi(runStatusline({ ...baseInput, model: { display_name: 'Claude Haiku 4.5' } }));
   assert(haikuPlain.includes('Haiku'), 'Claude Haiku 4.5 → Haiku');
+
+  // Model VERSION is shown next to the tier (disambiguates from the plugin version)
+  assert(opusPlain.includes('Opus 4.6'), 'Claude Opus 4.6 → "Opus 4.6" (model version shown)');
+  assert(sonnetPlain.includes('Sonnet 4.6'), 'Claude Sonnet 4.6 → "Sonnet 4.6" (model version shown)');
+  assert(haikuPlain.includes('Haiku 4.5'), 'Claude Haiku 4.5 → "Haiku 4.5" (model version shown)');
+  const suffixed = stripAnsi(runStatusline({ ...baseInput, model: { display_name: 'Claude Opus 4.8 (1M context)' } }));
+  assert(suffixed.includes('Opus 4.8'), 'Opus 4.8 (1M context) → "Opus 4.8" (version parsed, suffix ignored)');
 }
 
 // ============================================================
@@ -169,6 +177,41 @@ console.log('\nTest Group 8: Design alignment');
   assert(scriptContent.includes('\u{1F41D}'), 'Script includes bee emoji in comment/code');
   assert(!scriptContent.includes('\u25B0'), 'Old ▰ progress char removed');
   assert(!scriptContent.includes('\u25B1'), 'Old ▱ progress char removed');
+}
+
+// ============================================================
+// Test Group 9: Honeycomb count == number of phases (not a fixed 5)
+// ============================================================
+console.log('\nTest Group 9: Honeycomb per-phase count');
+{
+  const os = require('os');
+  const FILLED = '⬢'; // ⬢
+  const EMPTY = '⬡';  // ⬡
+  const countHex = s => [...s].filter(c => c === FILLED || c === EMPTY).length;
+  const countFilled = s => [...s].filter(c => c === FILLED).length;
+
+  function renderWithPhases(statuses) {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bee-sl-'));
+    fs.mkdirSync(path.join(tmp, '.bee'), { recursive: true });
+    const body = statuses.map((s, i) => `| ${i + 1} | p${i + 1} | ${s} |`).join('\n');
+    const state = `# State\n## Current Spec\n- Path: .bee/specs/x/\n- Status: IN_PROGRESS\n## Phases\n| # | Name | Status |\n|---|---|---|\n${body}\n## Quick Tasks\n`;
+    fs.writeFileSync(path.join(tmp, '.bee', 'STATE.md'), state);
+    try {
+      return stripAnsi(runStatusline({ ...baseInput, workspace: { current_dir: tmp } }));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  }
+
+  const five = renderWithPhases(['REVIEWED', 'REVIEWED', 'EXECUTING', 'PLANNED', 'PLANNED']);
+  assert(countHex(five) === 5, `5-phase spec renders 5 hexagons (got ${countHex(five)})`);
+  assert(countFilled(five) === 2, `5-phase spec with 2 done renders 2 filled hexagons (got ${countFilled(five)})`);
+
+  const three = renderWithPhases(['REVIEWED', 'PLANNED', 'PLANNED']);
+  assert(countHex(three) === 3, `3-phase spec renders 3 hexagons, not a fixed 5 (got ${countHex(three)})`);
+
+  const allDone = renderWithPhases(['REVIEWED', 'REVIEWED']);
+  assert(countHex(allDone) === 2 && countFilled(allDone) === 2, '2-phase all-done renders 2 filled hexagons');
 }
 
 // ============================================================
