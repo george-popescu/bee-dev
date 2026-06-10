@@ -338,7 +338,11 @@ assert(
   plannerMd.includes('criticality: high|normal') && plannerMd.includes('Criticality stamp'),
   'phase-planner stamps criticality: high|normal per task (mechanical routing field, plan-review-verified)'
 );
-const execMd = fs.readFileSync(path.join(__dirname, '..', '..', 'commands', 'execute-phase.md'), 'utf8');
+let execMd = fs.readFileSync(path.join(__dirname, '..', '..', 'commands', 'execute-phase.md'), 'utf8');
+// v4.7: criticality routing lives in the wave-execution core execute-phase routes through.
+if (execMd.includes('skills/wave-execution/SKILL.md')) {
+  execMd += fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'wave-execution', 'SKILL.md'), 'utf8');
+}
 const shipMd = fs.readFileSync(path.join(__dirname, '..', '..', 'commands', 'ship.md'), 'utf8');
 assert(
   execMd.includes('criticality: high') && execMd.includes('$CRITICAL_MODEL'),

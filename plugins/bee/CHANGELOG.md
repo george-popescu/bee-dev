@@ -4,6 +4,21 @@ All notable changes to the Bee plugin are documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
+## v4.7.0 — Shared Engines: One Review Pipeline, One Wave Executor
+
+### Shared review-pipeline engine
+- **New `review-pipeline` skill** — the four-step code-review engine (agent roster and context packets, spawn ordering, finding parse → four-rule dedup → report, validation with second-opinion escalation, file-parallel fixing, re-review loop) now lives in ONE place. `/bee:review`, `/bee:review-implementation`, `/bee:quick`, and `/bee:ship` declare explicit parameter manifests (scope, output paths, batch sizes, modes) and route through it — no more per-command copies.
+- **Drift repaired by unification** — divergences the copies had silently accumulated are gone: the four-rule deduplication (root-cause signature, requirement-anchor, and cross-agent consensus merging, with a Consolidation Log) now reaches every consumer instead of only one; the dual-mode false-positive extraction (stylistic-declined entries suppress only stylistic candidates) now reaches the quick review gate and ship; the Evidence-Strength DROPPED gate now reaches review-implementation and ship.
+- **Plan-review consolidation routes through the same dedup rules** — plan-phase and plan-all reference the engine's deduplication section instead of carrying copies.
+
+### Shared wave-execution core
+- **New `wave-execution` skill** — context-packet assembly, path-overlap stack resolution, criticality-routed model resolution, parallel implementer spawning with live progress tracking, and the success-path TASKS.md choreography are now single-sourced for `/bee:execute-phase` and `/bee:ship`.
+- **Failure policies intentionally stay per-command** — execute-phase keeps its rich interactive handling (failure classification, exponential backoff, model escalation, cascading-failure detection); ship keeps its autonomous single-retry with optimistic continuation. These are design differences, not duplication.
+
+### Why it matters
+- The five orchestrator commands shrank by ~1,250 lines combined; a fix or improvement to the review or execution engine now lands in one file and reaches every command at once — the "this upgrade only reached 1 of 4 copies" bug class is structurally gone.
+- Fewer duplicate findings survive consolidation, so fewer validator agents are spawned per review — faster reviews at equal or better quality.
+
 ## v4.6.0 — Bee Precision: Self-Gating Meta-Tests, LSP Navigation & Critical-Model Modes
 
 ### Self-gating meta-test suite

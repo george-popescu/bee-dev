@@ -11,7 +11,7 @@
     {
       "name": "bee",
       "description": "Spec-driven development workflow with review gates, the Bee Hive local dashboard, and a live agent activity feed powered by Claude Code hooks — take features from idea to commit and watch tool calls stream in real time",
-      "version": "4.6.0",
+      "version": "4.7.0",
       "author": {
         "name": "Beecoded"
       },

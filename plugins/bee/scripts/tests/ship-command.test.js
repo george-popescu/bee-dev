@@ -49,6 +49,14 @@ function contentFromHeadingToEnd(heading, fullContent) {
 let content;
 try {
   content = fs.readFileSync(CMD_PATH, 'utf8');
+  // v4.7: ship routes its review pipeline through the shared engine — the
+  // contract is pinned on the execution path (command + engine).
+  if (content.includes('skills/review-pipeline/SKILL.md')) {
+    content += fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'review-pipeline', 'SKILL.md'),
+      'utf8'
+    );
+  }
 } catch (e) {
   console.log('FAIL: ship.md does not exist at expected path');
   console.log(`  Expected: ${CMD_PATH}`);
@@ -219,15 +227,22 @@ assert(
   'References finding-validator agents'
 );
 // Finding validation should be in the review pipeline
-const step3b8Content = contentFromHeading('**3b.8:', content);
+// v4.7: 3b.8 routes to the engine's Validate Findings — pin on the path.
+const step3b8Content = contentFromHeading('**3b.8:', content) +
+  (contentFromHeading('**3b.8:', content).includes('Validate Findings')
+    ? contentFromHeading('## Validate Findings', content)
+    : '');
 assert(
   step3b8Content.includes('finding-validator'),
   'Step 3b.8 (Validate Findings) uses finding-validator agents'
 );
 // Batch validation
 assert(
-  (step3b8Content.includes('batch') || step3b8Content.includes('Batch')) && step3b8Content.includes('up to 10'),
-  'Finding validators are batched (up to 10 at a time)'
+  (step3b8Content.includes('batch') || step3b8Content.includes('Batch')) &&
+    (step3b8Content.includes('up to 10') ||
+      (step3b8Content.includes('$VALIDATION_BATCH_SIZE') &&
+        /\$VALIDATION_BATCH_SIZE`?:?\s*`?\s*10/.test(content))),
+  'Finding validators are batched (inline "up to 10" or engine batch-size parameter declared as 10 in the manifest)'
 );
 
 // ============================================================
@@ -238,7 +253,11 @@ assert(
   content.includes('fixer'),
   'References fixer agents'
 );
-const step3b9Content = contentFromHeading('**3b.9:', content);
+// v4.7: 3b.9 routes to the engine's Fix Confirmed Issues — pin on the path.
+const step3b9Content = contentFromHeading('**3b.9:', content) +
+  (contentFromHeading('**3b.9:', content).includes('Fix Confirmed Issues')
+    ? contentFromHeading('## Fix Confirmed Issues', content)
+    : '');
 assert(
   step3b9Content.includes('fixer') || step3b9Content.includes('Fixer'),
   'Step 3b.9 (Fix Confirmed Issues) uses fixer agents'

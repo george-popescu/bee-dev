@@ -258,31 +258,46 @@ console.log('\nTest Group 3: scanSeeds');
 // ============================================================
 // Test Group 4: scanDiscussions uses heading-based metadata (NOT frontmatter)
 // ============================================================
-console.log('\nTest Group 4: scanDiscussions (real .bee/discussions)');
+console.log('\nTest Group 4: scanDiscussions (fixture .bee/discussions)');
+// Re-aimed from the live .bee/ tree to a synthetic fixture (grain rule: suites
+// must not depend on gitignored user workspace state).
 {
-  const realDiscussions = scanners.scanDiscussions(REAL_BEE_DIR);
-  assert(Array.isArray(realDiscussions), 'scanDiscussions returns an array');
-  assert(
-    realDiscussions.length >= 2,
-    'scanDiscussions finds both real discussion files'
-  );
+  const tmp = makeTempBeeDir();
+  try {
+    writeFile(
+      path.join(tmp, 'discussions', '2026-03-19-bee-ship-plan-all.md'),
+      '# Discussion: Bee Ship and Plan-All Orchestration\n\n## Date\n\n2026-03-19\n\n## Topic\n\nAutonomous pipeline ordering.\n'
+    );
+    writeFile(
+      path.join(tmp, 'discussions', '2026-04-02-second-topic.md'),
+      '# Discussion: Second Topic\n\n## Date\n\n2026-04-02\n\n## Topic\n\nAnother conversation.\n'
+    );
+    const fixtureDiscussions = scanners.scanDiscussions(tmp);
+    assert(Array.isArray(fixtureDiscussions), 'scanDiscussions returns an array');
+    assert(
+      fixtureDiscussions.length >= 2,
+      'scanDiscussions finds both fixture discussion files'
+    );
 
-  const shipPlan = realDiscussions.find(d =>
-    d.filePath && d.filePath.includes('2026-03-19-bee-ship-plan-all')
-  );
-  assert(!!shipPlan, 'scanDiscussions finds the bee-ship-plan-all discussion');
-  assert(
-    shipPlan && typeof shipPlan.title === 'string' && shipPlan.title.includes('Bee Ship'),
-    'scanDiscussions extracts title from "# Discussion:" heading'
-  );
-  assert(
-    shipPlan && shipPlan.date === '2026-03-19',
-    'scanDiscussions extracts date from "## Date" section'
-  );
-  assert(
-    shipPlan && typeof shipPlan.filePath === 'string',
-    'scanDiscussions returns filePath for each item'
-  );
+    const shipPlan = fixtureDiscussions.find(d =>
+      d.filePath && d.filePath.includes('2026-03-19-bee-ship-plan-all')
+    );
+    assert(!!shipPlan, 'scanDiscussions finds the bee-ship-plan-all discussion');
+    assert(
+      shipPlan && typeof shipPlan.title === 'string' && shipPlan.title.includes('Bee Ship'),
+      'scanDiscussions extracts title from "# Discussion:" heading'
+    );
+    assert(
+      shipPlan && shipPlan.date === '2026-03-19',
+      'scanDiscussions extracts date from "## Date" section'
+    );
+    assert(
+      shipPlan && typeof shipPlan.filePath === 'string',
+      'scanDiscussions returns filePath for each item'
+    );
+  } finally {
+    rmrf(tmp);
+  }
 }
 
 // Also verify a temp directory with malformed file does not throw

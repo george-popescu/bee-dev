@@ -163,17 +163,18 @@ const AFL_AUTONOMOUS = ['ship.md', 'plan-all.md', 'quick-phase.md'];
 // cleanup consolidates references, lower the corresponding number here.
 const MIN_REFERENCES = {
   'ship.md': 7,                   // VG, BTG-A, CC, SLR (via BTG), MSI, PSAR, AFL
-  'review.md': 5,                 // VG, BTG-I, CC, MSI, PSAR
+  'review.md': 3,                 // VG, BTG-I, CC (MSI + PSAR consolidated into the review-pipeline engine in v4.7)
   'plan-all.md': 3,               // VG, MSI, AFL
   'plan-phase.md': 3,             // VG, MSI, CC
   'quick.md': 6,                  // VG, BTG-I, CC, MSI (reasoning), MSI (scanning), Conversation Context Capture
   'complete-spec.md': 1,          // VG
   'archive-spec.md': 1,           // VG
-  'review-implementation.md': 5,  // VG, BTG-I, CC, MSI, PSAR
+  'review-implementation.md': 3,  // VG, BTG-I, CC (MSI + PSAR consolidated into the review-pipeline engine in v4.7)
   'audit.md': 1,                  // CC
   'eod.md': 1,                    // CC
   'execute-phase.md': 1,          // CC
   'quick-phase.md': 7,            // VG, BTG-A, CC, MSI (reasoning), MSI (scanning), AFL, Conversation Context Capture
+  '../skills/review-pipeline/SKILL.md': 2, // MSI (Spawn), PSAR (Stack Roster) — consolidated here from review.md in v4.7
   'new-spec.md': 1,               // Conversation Context Capture (first skill reference)
   'discuss.md': 1,                // Conversation Context Capture (first skill reference)
 };
@@ -570,8 +571,16 @@ const GENUINE_FP_PRODUCER_COMMANDS = [
   'quick.md',
 ];
 
+const REVIEW_ENGINE_CONTENT = readFile(
+  path.join(COMMANDS_DIR, '..', 'skills', 'review-pipeline', 'SKILL.md')
+) || '';
+
 for (const cmd of GENUINE_FP_PRODUCER_COMMANDS) {
-  const cmdContent = readFile(path.join(COMMANDS_DIR, cmd));
+  let cmdContent = readFile(path.join(COMMANDS_DIR, cmd));
+  // v4.7: engine-routed commands carry the FP producer template in the engine.
+  if (cmdContent !== null && cmdContent.includes('skills/review-pipeline/SKILL.md')) {
+    cmdContent = cmdContent + REVIEW_ENGINE_CONTENT;
+  }
   // Canonical schema (review.md:354-362 source of truth): genuine FP producer
   // block has the sequence Finding -> Reason -> File -> Phase -> Date.
   const hasFileFieldInGenuineSchema =
@@ -690,9 +699,14 @@ console.log('\n=== v4.4.0 Surface Contracts — ship.md Step 3b.8 MEDIUM escalat
 
 // F-BUG-006: ship.md Step 3b.8 MEDIUM escalation block contains "Batch up to 10 validators"
 const step3b8Region = shipMd.split('**3b.8')[1] ? shipMd.split('**3b.8')[1].split('**3b.9')[0] : '';
+// v4.7: the escalation mechanics live in the engine (parameterized batch size);
+// ship's 3b.8 routes there and its manifest declares batch size 10.
 assert(
-  /Batch up to 10 validators at a time/.test(step3b8Region),
-  'ship.md Step 3b.8 MEDIUM escalation contains "Batch up to 10 validators at a time"'
+  /Batch up to 10 validators at a time/.test(step3b8Region) ||
+    (/Validate Findings/.test(step3b8Region) &&
+      /Batch up to `\$VALIDATION_BATCH_SIZE`/.test(REVIEW_ENGINE_CONTENT) &&
+      /\$VALIDATION_BATCH_SIZE`?:?\s*`?\s*10/.test(shipMd)),
+  'ship.md Step 3b.8 MEDIUM escalation batches validators (inline or via engine batch-size 10 manifest)'
 );
 
 console.log('\n=== v4.4.0 Surface Contracts — exact-token regex for --full-final-review + --skip-discuss (F-004) ===');
@@ -941,16 +955,7 @@ for (const agentFile of ['implementer.md', 'quick-implementer.md']) {
   );
 }
 
-console.log('\n=== Thinking Principles — Plan file backfill (Quick 019 bee:quick ceremony) ===');
-
-// Review fix PAT-003: bee:quick TDD convention requires a plan file at
-// .bee/quick/{NNN}-{slug}.md. Quick 019 plan file backfilled retroactively.
-const quick019PlanPath = path.join(__dirname, '..', '..', '..', '..', '.bee', 'quick', '019-thinking-principles-skill.md');
-const quick019Plan = readFile(quick019PlanPath);
-assert(
-  quick019Plan !== null && quick019Plan.length > 0,
-  '.bee/quick/019-thinking-principles-skill.md plan file exists (backfilled per review PAT-003; bee:quick ceremony compliance)'
-);
+/* removed: pinned gitignored .bee/ workspace state (grain rule: meta-tests pin repo contracts, not user workspace files) */
 
 console.log('\n=== Batch validator owned-literal anti-duplication (v4.5 T2.8) ===');
 
@@ -984,12 +989,33 @@ for (const [cmdFile, literals] of Object.entries(REVIEW_BATCH_LITERALS)) {
     assert(false, `${cmdFile} readable for batch-literal assertions`);
     continue;
   }
+  const engineRouted = content.includes('skills/review-pipeline/SKILL.md');
   for (const literal of literals) {
-    const count = countMatches(content, literal);
-    assert(
-      count === 1,
-      `${cmdFile} references "${literal}" exactly once — the aggregate-validate insertion point invoking this batch script (silent removal would defeat REQ-09 blocking signal)`
-    );
+    if (engineRouted) {
+      // v4.7 engine-routed commands: the command's manifest declares the bare
+      // script FILENAME exactly once; the engine owns the parameterized
+      // validators/batch/ invocation site. Both halves are load-bearing.
+      const bare = literal.replace('validators/batch/', '');
+      const count = countMatches(content, bare);
+      assert(
+        count === 1,
+        `${cmdFile} manifest declares "${bare}" exactly once — the $BATCH_VALIDATORS slot the engine invokes (silent removal would defeat REQ-09 blocking signal)`
+      );
+    } else {
+      const count = countMatches(content, literal);
+      assert(
+        count === 1,
+        `${cmdFile} references "${literal}" exactly once — the aggregate-validate insertion point invoking this batch script (silent removal would defeat REQ-09 blocking signal)`
+      );
+    }
+  }
+  if (engineRouted) {
+    for (const slot of ['agents', 'findings', 'escalation']) {
+      assert(
+        REVIEW_ENGINE_CONTENT.includes('validators/batch/{$BATCH_VALIDATORS.' + slot + '}'),
+        `review-pipeline engine has the parameterized validators/batch/ invocation site for the "${slot}" slot`
+      );
+    }
   }
   // Negative assertion: review.md and review-implementation.md are
   // interactive commands NOT in the autonomous-flag list per REQ-11. The
@@ -1157,10 +1183,21 @@ console.log('\n=== v4.5.0 Surface Contracts — pipeline orchestration bundle ==
   assert(/\*\*3f\.5:\s*Mid-pipeline cross-plan/.test(planAllMd), 'plan-all.md Step 3f.5 mid-pipeline cross-plan');
 
   // Sub-opt B: Dedup rules across 4 surfaces
+  // v4.7: review.md routes dedup through the shared engine — its surface is
+  // the engine's "Deduplicate and Merge (Rules 0-3)" section.
+  // Engine-routed surfaces (review.md, plan-phase.md, plan-all.md since v4.7)
+  // carry the rule text in the shared engine; their pin is the engine content
+  // plus the command's reference to the Deduplicate section.
+  const dedupEngineRouted = (cmd) => {
+    const c = readFile(path.join(COMMANDS_DIR, cmd));
+    return c && c.includes('Deduplicate and Merge (Rules 0')
+      ? c + REVIEW_ENGINE_CONTENT
+      : c;
+  };
   const dedupSurfaces = [
-    { file: 'review.md', content: readFile(path.join(COMMANDS_DIR, 'review.md')) },
-    { file: 'plan-phase.md', content: readFile(path.join(COMMANDS_DIR, 'plan-phase.md')) },
-    { file: 'plan-all.md', content: planAllMd },
+    { file: 'review.md (via review-pipeline engine)', content: REVIEW_ENGINE_CONTENT },
+    { file: 'plan-phase.md', content: dedupEngineRouted('plan-phase.md') },
+    { file: 'plan-all.md', content: dedupEngineRouted('plan-all.md') },
     { file: 'swarm-consolidator.md', content: readFile(path.join(AGENTS_DIR, 'swarm-consolidator.md')) },
   ];
   // The 3 new dedup rule phrases (canonical):

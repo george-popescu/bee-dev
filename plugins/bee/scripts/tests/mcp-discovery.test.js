@@ -296,6 +296,23 @@ assert(
   initMd.includes('Discovery NEVER hard-fails.') && /never hard-fail/i.test(refreshMd),
   'both files carry the never-hard-fail rule for LSP discovery'
 );
+// (d2) v4.7: update.md is the THIRD discovery site (upgrade-path backfill —
+// without it, pre-4.6 installs never get config.lsp and agents silently grep).
+// Same do-not-diverge contract: documentSymbol probe, mutate-only-key RMW,
+// never-hard-fail.
+const updateMd = read(COMMANDS_DIR, 'update.md');
+assert(
+  updateMd.includes('documentSymbol') && updateMd.includes('LSP'),
+  'update.md re-runs the same LSP documentSymbol probe on plugin update (do-not-diverge)'
+);
+assert(
+  updateMd.includes('ONLY the `lsp` key') && updateMd.includes('ONLY the `mcp` key'),
+  'update.md states the mutate-only-key RMW discipline for both lsp and mcp sections'
+);
+assert(
+  /never hard-fail/i.test(updateMd),
+  'update.md carries the never-hard-fail rule for capability re-discovery'
+);
 // (e) absent-section backward compat: older installs behave exactly as before
 assert(
   initMd.includes('When the section is ABSENT (older installs)'),

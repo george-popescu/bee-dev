@@ -45,6 +45,14 @@ function contentFromHeadingToEnd(heading, fullContent) {
 let content;
 try {
   content = fs.readFileSync(CMD_PATH, 'utf8');
+  // v4.7: the command routes its review pipeline through the shared engine —
+  // the contract is pinned on the execution path (command + engine).
+  if (content.includes('skills/review-pipeline/SKILL.md')) {
+    content += fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'review-pipeline', 'SKILL.md'),
+      'utf8'
+    );
+  }
 } catch (e) {
   console.log('FAIL: review-implementation.md does not exist at expected path');
   console.log(`  Expected: ${CMD_PATH}`);
@@ -261,14 +269,16 @@ assert(
   content.toLowerCase().includes('medium') && content.toLowerCase().includes('escalat'),
   'MEDIUM confidence escalation exists'
 );
-const fixerSection = contentFromHeading('#### 6.2', content) || contentFromHeading('### 6.2', content);
+const fixerSection = contentFromHeading('## Fix Confirmed Issues', content) || contentFromHeading('#### 6.2', content) || contentFromHeading('### 6.2', content);
 assert(
   fixerSection.toLowerCase().includes('sequential'),
   'Fixers run sequentially (fixer section retains sequential constraint)'
 );
 assert(
-  content.toLowerCase().includes('batch') && content.includes('up to 10'),
-  'Validators are batched'
+  content.toLowerCase().includes('batch') &&
+    (content.includes('up to 10') ||
+      (content.includes('$VALIDATION_BATCH_SIZE') && /\$VALIDATION_BATCH_SIZE`?:?\s*`?\s*10/.test(content))),
+  'Validators are batched (inline "up to 10" or engine batch-size parameter declared as 10 in the manifest)'
 );
 
 // ============================================================

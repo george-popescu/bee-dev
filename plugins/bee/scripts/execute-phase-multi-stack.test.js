@@ -31,6 +31,13 @@ function assert(condition, testName) {
 let content;
 try {
   content = fs.readFileSync(EXECUTE_PHASE_PATH, 'utf8');
+  // v4.7: wave-execution core lives in the shared skill — pin on the path.
+  if (content.includes('skills/wave-execution/SKILL.md')) {
+    content += fs.readFileSync(
+      path.join(__dirname, '..', 'skills', 'wave-execution', 'SKILL.md'),
+      'utf8'
+    );
+  }
 } catch (err) {
   console.error(`Cannot read execute-phase.md: ${err.message}`);
   process.exit(1);
@@ -44,7 +51,10 @@ if (!step5aMatch) {
   console.error('Could not find Step 5a section in execute-phase.md');
   process.exit(1);
 }
-const step5a = step5aMatch[1];
+// 5a routes to the wave-execution skill (appended to `content` above) —
+// include the engine so the contract is pinned on the execution path.
+const waveEngineIdx = content.indexOf('# Wave Execution (Shared Core)');
+const step5a = step5aMatch[1] + (waveEngineIdx > -1 ? content.substring(waveEngineIdx) : '');
 
 console.log('Testing execute-phase.md Step 5a multi-stack instructions...\n');
 
