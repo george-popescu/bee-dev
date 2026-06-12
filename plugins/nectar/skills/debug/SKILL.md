@@ -53,10 +53,12 @@ Contents: symptom, the reproduction, the hypothesis table with verdicts and evid
 
 Resume by reading the file, never by re-deriving. Dead hypotheses stay dead; the frontier is where work restarts. Delete the file after the full suite is green and the commit is suggested; if the user declines the commit, the file stays.
 
-## Arriving from build or review
+## Arriving from build, review, or audit
 
 Build hands off when a wave task fails and the cause is not obvious or a first fix attempt already failed. Review hands off when a finding survives two fix rounds or a fix regresses something else. In both cases:
 
 - Treat every prior fix attempt as a dead hypothesis. Record each in the evidence chain — what was changed, what was expected, what actually happened — and do not retry it, even reworded.
 - The failing test or confirmed finding is the reproduction; start at Hypothesize, ranking fresh causes that explain why the prior attempts failed.
 - When the root cause is fixed and the regression test passes, hand back: build re-verifies the task and resumes its wave; review resumes its fix loop — the applied fix resets it, and the terminal pass stays full-scope, full-lens-set.
+
+Audit hands off findings that need investigation rather than fixing. Arriving from audit, the finding's evidence is the starting symptom and there is usually no reproduction yet — begin at Reproduce; the validated finding counts as evidence, not as a diagnosis.
