@@ -55,3 +55,5 @@ When a task fails — tests will not pass, a "done when" criterion cannot be met
 ## Commits
 
 After each completed task, suggest a commit: name the files changed and provide a ready-made commit message the user can approve as-is. Never commit without the user's standing or explicit approval. One commit per task keeps the history aligned with the plan's checkboxes — a reverted commit maps to exactly one box to untick.
+
+When the plan's final wave is done and every box is ticked, hand off to the review skill — implementation is not complete until a review pass comes back clean.
