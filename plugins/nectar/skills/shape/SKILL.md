@@ -87,7 +87,8 @@ After writing, present the design and ask explicitly: "Does this design look rig
 
 ## Hand-off
 
-- **Trivial or quick:** proceed directly with the work. If it involves code, apply the build skill's test-first discipline; no plan file, no design file.
+- **Trivial:** just do it — no artifacts, no test ceremony.
+- **Quick:** proceed directly with the work. If it involves code, apply the build skill's test-first discipline; no plan file, no design file.
 - **Feature or project:** after design approval, continue with the plan skill to produce `docs/work/<topic>/plan.md`.
 
 Never commit anything yourself. When the work produces a design.md, suggest a commit message and let the user decide.
