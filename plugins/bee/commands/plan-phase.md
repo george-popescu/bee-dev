@@ -26,6 +26,21 @@ You are running `/bee:plan-phase` -- the three-step planning command for BeeDev.
 See `skills/command-primitives/SKILL.md` Validation Guards.
 Apply: NOT_INITIALIZED, NO_SPEC, Phase Number Argument, Already Planned.
 
+### Step: Resolve target spec
+
+Determine which spec this command acts on:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
+```
+
+Interpret the JSON:
+- `{"mode":"create"}` → no active spec. Tell the user: "No active spec. Run `/bee:new-spec` first." Stop.
+- `{"mode":"auto","slug":"X"}` → silently target spec `X` (single-spec behavior, unchanged).
+- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to work on, listing candidates (last-touched first) with `Custom` last. Use the chosen slug.
+
+Once the slug is chosen, run `… specs-cli.js touch --bee .bee --slug <slug>` to mark it most-recently-touched, and read/write that spec's state at `.bee/specs/<slug>/STATE.md` for the rest of this command.
+
 ### Step 2: Create Phase Directory
 
 1. Read phases.md to get the phase name for the requested phase number

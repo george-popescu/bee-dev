@@ -21,6 +21,21 @@ If the dynamic context above contains "NOT_INITIALIZED" (meaning `.bee/STATE.md`
 
 Do NOT proceed with any further steps.
 
+### Step: Resolve target spec
+
+Determine which spec this command acts on:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
+```
+
+Interpret the JSON:
+- `{"mode":"create"}` → no active spec. Tell the user: "No active spec. Run `/bee:new-spec` first." Stop.
+- `{"mode":"auto","slug":"X"}` → silently target spec `X` (single-spec behavior, unchanged).
+- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to work on, listing candidates (last-touched first) with `Custom` last. Use the chosen slug.
+
+Once the slug is chosen, run `… specs-cli.js touch --bee .bee --slug <slug>` to mark it most-recently-touched, and read/write that spec's state at `.bee/specs/<slug>/STATE.md` for the rest of this command.
+
 ### Step 2: Get Topic
 
 Check `$ARGUMENTS` for a topic description.

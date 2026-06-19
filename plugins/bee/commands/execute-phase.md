@@ -41,6 +41,21 @@ Check these guards in order. Stop immediately if any fails:
    "Phase {N} is already executed (status: {status}). Re-executing will re-run all incomplete tasks. Continue?"
    Wait for explicit confirmation before proceeding. If the user declines, stop.
 
+### Step: Resolve target spec
+
+Determine which spec this command acts on:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
+```
+
+Interpret the JSON:
+- `{"mode":"create"}` → no active spec. Tell the user: "No active spec. Run `/bee:new-spec` first." Stop.
+- `{"mode":"auto","slug":"X"}` → silently target spec `X` (single-spec behavior, unchanged).
+- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to work on, listing candidates (last-touched first) with `Custom` last. Use the chosen slug.
+
+Once the slug is chosen, run `… specs-cli.js touch --bee .bee --slug <slug>` to mark it most-recently-touched, and read/write that spec's state at `.bee/specs/<slug>/STATE.md` for the rest of this command.
+
 ### Step 1b: Parse Arguments
 
 Check `$ARGUMENTS` for the `--no-aggregate-validate` flag:
