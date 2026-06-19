@@ -30,7 +30,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 Parse the JSON result and act on the `mode` field:
 
 - `mode:create` — no active spec exists. Suggest `/bee:new-spec` to the user (existing zero-spec behavior; skip to Step 4 with this suggestion). Do NOT proceed to Steps 2–3.
-- `mode:auto` — exactly one active spec. Silently target it (single-spec behavior, no extra noise). Proceed to Step 2.
+- `mode:auto` — exactly one active spec. Check the Current Spec Path in `.bee/STATE.md` (already read in preamble). If it does NOT already point to `.bee/specs/<slug>/`, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` and re-read `.bee/STATE.md` from disk (the global was stale — e.g., reset to NO_SPEC by a prior complete). If it already matches, proceed without touching (single-spec byte-for-byte: no extra noise). Proceed to Step 2.
 - `mode:pick` — multiple active specs. Present a picker:
   ```
   AskUserQuestion(

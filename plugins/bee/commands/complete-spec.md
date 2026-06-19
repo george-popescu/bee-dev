@@ -20,7 +20,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 ```
 
 - `{"mode":"create"}` → no active spec to complete. Tell the user: "No active spec to complete. Run `/bee:new-spec` first." Stop.
-- `{"mode":"auto","slug":"X"}` → target spec `X`.
+- `{"mode":"auto","slug":"X"}` → target spec `X`. Check the Current Spec Path in `.bee/STATE.md`; if it does NOT already point to `.bee/specs/X/`, the touch below will re-sync it (stale global — e.g., prior complete reset to NO_SPEC).
 - `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to complete (candidates last-touched first, surface each candidate's `title` and `stage`, `Custom` last; if the JSON has `more`, add "+{more} more — run `/bee:spec list`").
 
 Once the slug is chosen, run:

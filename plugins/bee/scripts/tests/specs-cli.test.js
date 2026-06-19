@@ -117,7 +117,8 @@ run(['register', '--bee', rr, '--slug', 'dup', '--title', 'Dup', '--stage', 'pla
 assert(fs.readFileSync(gpath, 'utf8').includes('| 1 | Keep | PENDING |'),
   're-registering the live spec slug preserves the global phases table');
 
-// register preserves global Quick Tasks + Decisions Log on first-spec creation
+// register preserves global Quick Tasks on first-spec creation;
+// Decisions Log is per-spec (new spec starts with empty Decisions Log — not the global NO_SPEC decisions)
 {
   const richBee = tmpBee(); fs.mkdirSync(richBee, { recursive: true });
   fs.writeFileSync(path.join(richBee, 'STATE.md'),
@@ -125,7 +126,8 @@ assert(fs.readFileSync(gpath, 'utf8').includes('| 1 | Keep | PENDING |'),
   run(['register', '--bee', richBee, '--slug', '2026-06-19-first', '--title', 'First', '--stage', 'shaping']);
   const rg = fs.readFileSync(path.join(richBee, 'STATE.md'), 'utf8');
   assert(rg.includes('Bump deps'), 'register preserves global Quick Tasks on first-spec creation');
-  assert(rg.includes('Use Vitest'), 'register preserves global Decisions Log on first-spec creation');
+  // Decisions Log is per-spec: the new spec's Decisions Log starts empty (not inherited from global NO_SPEC state)
+  assert(!rg.includes('Use Vitest'), 'register does NOT carry NO_SPEC Decisions Log into new spec (per-spec design)');
 }
 
 // F25: re-registering an advanced spec must not regress its stage

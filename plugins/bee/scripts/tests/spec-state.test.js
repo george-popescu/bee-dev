@@ -57,20 +57,31 @@ assert(parseStateMd(p).currentSpec.status === 'IN_PROGRESS', 'initSpecState does
   assert(parsed2.phases.length === 0, 'canonical template: table header row NOT mis-read as a phase (phases.length === 0)');
 }
 
-// restoreToGlobal preserves project-global sections from the live global
+// restoreToGlobal: Quick Tasks is project-global (preserved from live global);
+// Decisions Log is per-spec (comes from the TARGET spec's snapshot, not the live global).
 {
   const beeR = tmpBee(); fs.mkdirSync(beeR, { recursive: true });
-  // existing rich global (has quick tasks + decisions, plus an OLD current spec)
+  // Live global has spec A's decisions + project-wide quick tasks
   fs.writeFileSync(S.globalStatePath(beeR),
-    '# State\n\n## Current Spec\n- Name: Old\n- Path: .bee/specs/old/\n- Status: IN_PROGRESS\n\n## Phases\n| 1 | OldPhase | DONE |\n\n## Quick Tasks\n| 1 | Hotfix login | 2026-05 | abc |\n\n## Decisions Log\n**[Adopted pnpm]**: yes\n\n## Last Action\n- Command: /bee:quick\n- Timestamp: t\n- Result: r\n');
-  // a per-spec snapshot for a NEW spec (skeleton, no quick tasks/decisions)
-  S.initSpecState(beeR, 'newspec', { name: 'New Spec', status: 'SPEC_CREATED' });
-  assert(S.restoreToGlobal(beeR, 'newspec') === true, 'restoreToGlobal succeeds');
+    '# State\n\n## Current Spec\n- Name: Spec A\n- Path: .bee/specs/spec-a/\n- Status: IN_PROGRESS\n\n## Phases\n| 1 | OldPhase | DONE |\n\n## Quick Tasks\n| 1 | Hotfix login | 2026-05 | abc |\n\n## Decisions Log\n**[A-decision]**: adopted pnpm\n\n## Last Action\n- Command: /bee:quick\n- Timestamp: t\n- Result: r\n');
+  // Per-spec snapshot for spec B (has its own decisions, NOT A's decisions)
+  const specBState = S.renderSpecState({ name: 'Spec B', slug: 'spec-b', status: 'SPEC_CREATED' })
+    .replace('## Decisions Log\n', '## Decisions Log\n**[B-decision]**: use Postgres\n');
+  fs.mkdirSync(path.join(beeR, 'specs', 'spec-b'), { recursive: true });
+  fs.writeFileSync(S.specStatePath(beeR, 'spec-b'), specBState);
+
+  assert(S.restoreToGlobal(beeR, 'spec-b') === true, 'restoreToGlobal succeeds');
   const g = fs.readFileSync(S.globalStatePath(beeR), 'utf8');
+
+  // Quick Tasks: project-global — preserved from the live global
   assert(g.includes('Hotfix login'), 'restoreToGlobal preserves the global Quick Tasks section');
-  assert(g.includes('Adopted pnpm'), 'restoreToGlobal preserves the global Decisions Log section');
+  // Decisions Log: per-spec — must contain spec B's decisions
+  assert(g.includes('B-decision'), 'restoreToGlobal loads Decisions Log from the TARGET spec snapshot (per-spec)');
+  // Leak closed: spec A's decisions must NOT bleed into spec B's global view
+  assert(!g.includes('A-decision'), 'restoreToGlobal does NOT preserve spec A Decisions in spec B global (leak closed)');
+
   const parsed = parseStateMd(S.globalStatePath(beeR));
-  assert(parsed.currentSpec.name === 'New Spec', 'restoreToGlobal applies the per-spec Current Spec');
+  assert(parsed.currentSpec.name === 'Spec B', 'restoreToGlobal applies the per-spec Current Spec');
   assert(parsed.quickTasks.length === 1, 'parser still sees the preserved quick task');
 }
 

@@ -11,7 +11,7 @@ Read these files using the Read tool:
 - `.bee/user.md` — if not found: NO_USER_PREFS (skip silently)
 - `.bee/COMPACT-CONTEXT.md` — if not found: try `.bee/SESSION-CONTEXT.md` — if neither found: NO_SESSION_CONTEXT
 - `.bee/CONTEXT.md` — if not found: NO_CONTEXT
-- `.bee/pause-handoff.md` — if not found: NO_PAUSE_HANDOFF
+- `.bee/pause-handoff.md` — if not found: NO_PAUSE_HANDOFF (legacy global path; the actual handoff is read per-spec after the resolver runs — see Step 0)
 
 ## Instructions
 
@@ -34,12 +34,12 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 Parse the JSON result and act on the `mode` field:
 
 - `mode:create` — no active spec exists. Brief the project generally (stack, last action from STATE.md) and suggest `/bee:new-spec` to start a new spec. Do NOT proceed to the pause detection or briefing below.
-- `mode:auto` — exactly one active spec; resume that spec as normal (proceed to Step 0 below).
-- `mode:pick` — multiple active specs and this chat is not bound to one. Present a picker:
+- `mode:auto` — exactly one active spec. Check the Current Spec Path in `.bee/STATE.md` (already read in preamble). If it does NOT already point to `.bee/specs/<slug>/`, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` and re-read `.bee/STATE.md` from disk (the global was stale — e.g., reset to NO_SPEC by a prior complete). If it already matches, proceed without touching. Proceed to Step 0 below.
+- `mode:pick` — multiple active specs and this chat is not bound to one. Before presenting the picker, check for a per-spec pause handoff for each candidate: use Bash to test whether `.bee/specs/<slug>/pause-handoff.md` exists for each candidate. If it does, annotate that candidate as `"{title} ({stage}) — paused here"` so the user can identify which spec they paused mid-session; otherwise use the normal `"{title} ({stage})"` format. Present a picker:
   ```
   AskUserQuestion(
     question: "Multiple active specs found. Which would you like to resume?",
-    options: [...candidates as "{title} ({stage})" (slug as selection value, most-recently-touched first), "Custom"]
+    options: [...candidates as "{title} ({stage})" or "{title} ({stage}) — paused here" (slug as selection value, most-recently-touched first), "Custom"]
   )
   ```
   If the JSON includes a `more` field, append `+{more} more — run \`/bee:spec list\` to see all` before "Custom". If a candidate lacks a `title`, fall back to its slug.
@@ -51,9 +51,11 @@ Parse the JSON result and act on the `mode` field:
 
 ### Step 0: Pause Detection
 
-If `NO_PAUSE_HANDOFF` does NOT appear in the injected context (meaning `.bee/pause-handoff.md` was found):
+**Per-spec handoff resolution:** After the resolver/touch has established the resolved slug, the authoritative handoff path is `.bee/specs/<resolved-slug>/pause-handoff.md`. Read this per-spec path now (not the global `.bee/pause-handoff.md` from the preamble). If the per-spec file exists, use it as the handoff content for all checks below. If the per-spec file is absent but a legacy `.bee/pause-handoff.md` exists (migration tolerance — old single-file format), use that as fallback. If neither exists, treat as NO_PAUSE_HANDOFF.
 
-**Corruption check:** If the handoff file is empty or does not contain a `## Current Position` section, treat it as corrupt: display "Found a pause handoff but it appears incomplete. Deleting it." then delete the file (`rm .bee/pause-handoff.md`) and skip to the Context Restoration Briefing below.
+If `NO_PAUSE_HANDOFF` does NOT apply (a per-spec handoff or legacy fallback was found):
+
+**Corruption check:** If the handoff file is empty or does not contain a `## Current Position` section, treat it as corrupt: display "Found a pause handoff but it appears incomplete. Deleting it." then delete the file using Bash (`rm` on the per-spec path `.bee/specs/<slug>/pause-handoff.md`, or the legacy path if that was used) and skip to the Context Restoration Briefing below.
 
 **Staleness check:** Compare the spec name from the handoff's "## Current Position" section against STATE.md's current spec name. If they differ, display a warning: "This handoff is from a different spec ({handoff spec}). Current spec is {current spec}. The handoff context may be outdated." and add "Delete stale handoff" as an extra option in the menu below.
 
@@ -95,8 +97,8 @@ AskUserQuestion(
 
 Handle choices:
 
-- **Continue (delete handoff)**: First, extract the "Next Action" suggestion from the handoff content already loaded in context above. Then delete the handoff file using Bash: `rm .bee/pause-handoff.md`. Proceed to the "Context Restoration Briefing" section below. In the briefing's "What To Do Next" section (section 5), add a "Pause recommendation" banner showing the extracted next command so the user sees it in context.
-- **Show full briefing**: Leave `.bee/pause-handoff.md` on disk for reference. Proceed to the "Context Restoration Briefing" section below.
+- **Continue (delete handoff)**: First, extract the "Next Action" suggestion from the handoff content already loaded in context above. Then delete the handoff file using Bash: `rm .bee/specs/<slug>/pause-handoff.md` (or the legacy path `.bee/pause-handoff.md` if that was used as fallback). Proceed to the "Context Restoration Briefing" section below. In the briefing's "What To Do Next" section (section 5), add a "Pause recommendation" banner showing the extracted next command so the user sees it in context.
+- **Show full briefing**: Leave the handoff file on disk for reference (at `.bee/specs/<slug>/pause-handoff.md` or legacy path). Proceed to the "Context Restoration Briefing" section below.
 - **Custom**: Wait for free-text input from the user and act on it.
 
 Both "Continue" and "Show full briefing" fall through to the full 7-section Context Restoration Briefing below.

@@ -69,7 +69,7 @@ function snapshotToPerSpec(beeDir, slug) {
   return true;
 }
 
-const PROJECT_GLOBAL_SECTIONS = ['Quick Tasks', 'Decisions Log'];
+const PROJECT_GLOBAL_SECTIONS = ['Quick Tasks'];
 
 // The "## heading" block: from its line up to just before the next "## " or end-of-string.
 function getSectionBlock(content, heading) {

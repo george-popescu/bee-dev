@@ -287,6 +287,80 @@ console.log('\nTest Group 7: Picker prose consistency across resolver front-door
 }
 
 // ============================================================
+// FIX 2: mode:auto branch conditionally touches when global is stale
+// Each resolver-bearing command must handle the stale-global case in its mode:auto
+// branch by checking Current Spec Path and conditionally running touch.
+// ============================================================
+console.log('\nTest Group 8: mode:auto conditional touch (FIX 2 — stale global re-sync)');
+{
+  const AUTO_TOUCH_CMDS = [
+    'next.md',
+    'resume.md',
+    'ship.md',
+    'plan-phase.md',
+    'execute-phase.md',
+    'complete-spec.md',
+    'archive-spec.md',
+    'discuss.md',
+  ];
+  for (const cmd of AUTO_TOUCH_CMDS) {
+    const content = readCmd(cmd);
+    // The auto branch must mention a conditional check on Current Spec Path
+    assert(
+      content.includes('Current Spec Path') && content.includes('touch'),
+      `${cmd}: mode:auto branch references "Current Spec Path" + touch (stale global re-sync)`
+    );
+    // Must NOT touch unconditionally in the auto branch (the branch description
+    // must mention "does NOT already" or "if it does not already" or "stale" or equivalent)
+    assert(
+      content.includes('does NOT already') || content.includes('does not already') ||
+      content.includes('stale') || content.includes('not already point'),
+      `${cmd}: mode:auto touch is conditional (only when global is stale / does not already match)`
+    );
+  }
+}
+
+// ============================================================
+// FIX 3: per-spec pause handoff path
+// pause.md must write to .bee/specs/<slug>/pause-handoff.md (not bare global).
+// resume.md must read from .bee/specs/<slug>/pause-handoff.md after resolver.
+// ============================================================
+console.log('\nTest Group 9: per-spec pause handoff (FIX 3)');
+{
+  const pauseContent = readCmd('pause.md');
+
+  // pause.md must describe writing to the per-spec path
+  assert(
+    pauseContent.includes('.bee/specs/') && pauseContent.includes('pause-handoff.md'),
+    'pause.md references a .bee/specs/ per-spec path for pause-handoff.md'
+  );
+  // pause.md must NOT list the bare global .bee/pause-handoff.md as the PRIMARY write path
+  // (it may mention it as fallback for NO_SPEC, but the primary must be per-spec)
+  assert(
+    pauseContent.includes('.bee/specs/<slug>/pause-handoff.md') ||
+    pauseContent.includes('.bee/specs/'),
+    'pause.md primary handoff path is under .bee/specs/<slug>/ (per-spec)'
+  );
+
+  const resumeContent = readCmd('resume.md');
+  // resume.md must read from the per-spec path after the resolver runs
+  assert(
+    resumeContent.includes('.bee/specs/') && resumeContent.includes('pause-handoff.md'),
+    'resume.md reads pause-handoff.md from the per-spec .bee/specs/<slug>/ path'
+  );
+  // resume.md must mention legacy fallback tolerance
+  assert(
+    resumeContent.includes('legacy') || resumeContent.includes('fallback'),
+    'resume.md mentions legacy/fallback for old single-file .bee/pause-handoff.md'
+  );
+  // resume.md picker must annotate paused candidates
+  assert(
+    resumeContent.includes('paused here') || resumeContent.includes('pause-handoff.md') && resumeContent.includes('annotate'),
+    'resume.md mode:pick picker annotates candidates that have a per-spec pause handoff'
+  );
+}
+
+// ============================================================
 // Results
 // ============================================================
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
