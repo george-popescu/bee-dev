@@ -12,7 +12,7 @@ Read these files using the Read tool:
 
 ## Spec Context (load before proceeding)
 
-Use Glob to find `.bee/specs/*/spec.md`, `.bee/specs/*/requirements.md`, `.bee/specs/*/phases.md`, and `.bee/specs/*/ROADMAP.md`, then Read each:
+After **Step 0 (Resolve target spec)** has set the Current Spec, load artifacts for THAT spec ONLY — never a wildcard across all specs. Read `{Current Spec Path}/spec.md`, `{Current Spec Path}/requirements.md`, `{Current Spec Path}/phases.md`, and `{Current Spec Path}/ROADMAP.md` (the Current Spec Path comes from STATE.md after Step 0's touch). Do NOT glob `.bee/specs/*/` — with multiple active specs that would mix artifacts from different specs into the work plan and the final compliance review.
 - If no spec.md found: NO_SPEC
 - If no requirements.md found: NO_REQUIREMENTS
 - If no phases.md found: NO_PHASES
@@ -20,6 +20,24 @@ Use Glob to find `.bee/specs/*/spec.md`, `.bee/specs/*/requirements.md`, `.bee/s
 ## Instructions
 
 You are running `/bee:ship` -- the autonomous orchestrator that executes all plan-reviewed phases, reviews each phase's implementation, logs every decision, runs a final implementation review, and presents results at completion. This command is fully autonomous during its pipeline (no AskUserQuestion during execution/review). Follow these steps in order.
+
+### Step 0: Resolve target spec
+
+Before any phase work, bind this ship run to a single spec:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
+```
+
+- `{"mode":"create"}` → no active spec. Tell the user "No active spec to ship. Run `/bee:new-spec` first." Stop.
+- `{"mode":"auto","slug":"X"}` → target spec `X`.
+- `{"mode":"pick","candidates":[…]}` → ship is unattended once it starts, so you MUST choose the spec NOW via AskUserQuestion (candidates last-touched first, `Custom` last). This entry-point menu is the ONE allowed interaction; the pipeline after Step 1 stays fully autonomous.
+
+Then sync global STATE.md to the chosen spec and record it as the Current Spec Path for the rest of this command:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>
+```
 
 ### Step 1: Validation Guards
 
@@ -713,6 +731,14 @@ Wait for all agents to complete.
 ### Step 5: Completion Summary
 
 **Auto-mode marker cleanup (always, regardless of outcome):** delete `.bee/.autonomous-run-active`, `.bee/.autonomous-team-spawned`, and `.bee/.autonomous-team-claimed` if any exists. These markers are per-run, not persisted across runs. If the command exits early on error before reaching this step, the next `/bee:health` Check 14 will surface and recommend manual cleanup.
+
+**Advance spec stage to `reviewing`:**
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug <slug> --stage reviewing
+```
+
+If `set-stage` prints `unknown spec` (legacy spec not in registry), that is fine — continue. The spec is built and reviewed; run `/bee:complete-spec` to finish the ceremony (which terminalizes it in the registry).
 
 Read the final state from disk. Build and display the completion summary.
 

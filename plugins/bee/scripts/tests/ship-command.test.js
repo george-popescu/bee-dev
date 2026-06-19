@@ -447,6 +447,76 @@ assert(
 );
 
 // ============================================================
+// Test 16: Multispec — resolver entry step (Step 0)
+// ============================================================
+console.log('\nTest 16: Multispec resolver entry step');
+const step0Content = contentFromHeading('### Step 0:', content);
+assert(
+  step0Content.includes('specs-cli.js resolve'),
+  'Step 0 runs specs-cli.js resolve'
+);
+assert(
+  step0Content.includes('mode') && step0Content.includes('pick'),
+  'Step 0 handles mode:pick'
+);
+assert(
+  step0Content.includes('AskUserQuestion'),
+  'Step 0 uses AskUserQuestion for mode:pick (entry-point menu)'
+);
+assert(
+  step0Content.includes('specs-cli.js touch'),
+  'Step 0 runs specs-cli.js touch to sync STATE.md'
+);
+assert(
+  step0Content.includes('mode') && step0Content.includes('create'),
+  'Step 0 handles mode:create (no active spec)'
+);
+assert(
+  step0Content.includes('mode') && step0Content.includes('auto'),
+  'Step 0 handles mode:auto (single spec)'
+);
+
+// ============================================================
+// Test 17: Multispec — no cross-spec glob in Spec Context
+// ============================================================
+console.log('\nTest 17: Multispec — scoped spec context (no cross-spec glob)');
+const specContextSection2 = contentFromHeading('## Spec Context', content);
+assert(
+  !specContextSection2.includes('.bee/specs/*/spec.md'),
+  'Spec Context does NOT use wildcard glob .bee/specs/*/spec.md'
+);
+assert(
+  !specContextSection2.includes('.bee/specs/*/requirements.md'),
+  'Spec Context does NOT use wildcard glob .bee/specs/*/requirements.md'
+);
+assert(
+  specContextSection2.includes('Current Spec Path') || specContextSection2.includes('Current Spec'),
+  'Spec Context loads from Current Spec Path (scoped to resolved spec)'
+);
+assert(
+  specContextSection2.toLowerCase().includes('do not glob') || specContextSection2.includes('NOT glob') || specContextSection2.includes('never a wildcard'),
+  'Spec Context explicitly forbids cross-spec globbing'
+);
+
+// ============================================================
+// Test 18: Multispec — set-stage advancing to reviewing on completion
+// ============================================================
+console.log('\nTest 18: Multispec — set-stage reviewing on completion');
+const step5ContentMultispec = contentFromHeading('### Step 5:', content);
+assert(
+  step5ContentMultispec.includes('specs-cli.js set-stage'),
+  'Step 5 runs specs-cli.js set-stage'
+);
+assert(
+  step5ContentMultispec.includes('--stage reviewing'),
+  'Step 5 advances stage to reviewing'
+);
+assert(
+  step5ContentMultispec.includes('complete-spec') || step5ContentMultispec.includes('complete_spec'),
+  'Step 5 mentions /bee:complete-spec for ceremony completion'
+);
+
+// ============================================================
 // Results
 // ============================================================
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
