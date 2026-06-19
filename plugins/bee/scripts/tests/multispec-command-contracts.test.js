@@ -67,34 +67,55 @@ console.log('Test Group 1: resume.md — resolver step');
 // ============================================================
 // next.md
 // ============================================================
-console.log('\nTest Group 2: next.md — active-spec list');
+console.log('\nTest Group 2: next.md — resolver front-door');
 {
   const content = readCmd('next.md');
 
+  // next.md must now route through the resolver (not just a passive list call)
   assert(
-    content.includes('specs-cli.js list --bee .bee --active'),
-    'next.md calls specs-cli.js list --bee .bee --active'
+    content.includes('specs-cli.js resolve --bee .bee'),
+    'next.md calls specs-cli.js resolve --bee .bee (resolver front-door)'
   );
-  // Must surface queue info when >1 spec active
+  // Must handle mode:create → suggest /bee:new-spec
   assert(
-    content.includes('specs are active') || content.includes('active spec'),
-    'next.md mentions active spec count for multi-spec visibility'
+    content.includes('mode:create'),
+    'next.md handles mode:create (no active spec → suggest new-spec)'
   );
+  // Must handle mode:auto → single-spec, no noise
   assert(
-    content.includes('/bee:spec use'),
-    'next.md mentions /bee:spec use <slug> to switch specs'
+    content.includes('mode:auto'),
+    'next.md handles mode:auto (single active spec, no picker)'
   );
-  // The list call must appear in Step 1 (Gather State), before Step 4 (Present Suggestion)
-  const listIdx = content.indexOf('specs-cli.js list --bee .bee --active');
-  const step4Idx = content.indexOf('### Step 4: Present Suggestion');
+  // Must handle mode:pick → AskUserQuestion picker with candidates
   assert(
-    listIdx > -1 && step4Idx > -1 && listIdx < step4Idx,
-    'specs-cli list call appears in Step 1 before Step 4'
+    content.includes('mode:pick'),
+    'next.md handles mode:pick (multiple active specs → picker)'
   );
-  // Single-spec silence: the note must be conditional on >1 active spec
+  // mode:pick must produce an AskUserQuestion picker (not just a note)
   assert(
-    content.includes('only one') || content.includes('one (or zero)') || content.includes('≤ 1') || content.includes('no extra noise') || content.includes('omit this note'),
-    'next.md explicitly suppresses the multi-spec note when ≤1 active spec'
+    content.includes('AskUserQuestion') && content.includes('mode:pick'),
+    'next.md mode:pick branch uses AskUserQuestion picker'
+  );
+  // After pick, must call touch --slug to sync STATE.md
+  assert(
+    content.includes('specs-cli.js touch --bee .bee --slug'),
+    'next.md calls specs-cli.js touch after pick to sync global STATE.md'
+  );
+  // Must instruct re-reading STATE.md after touch
+  assert(
+    content.includes('re-read') || content.includes('Re-read'),
+    'next.md instructs re-reading .bee/STATE.md after touch'
+  );
+  // The old bare "Others:" visibility note must NOT be the sole multi-spec mechanism
+  assert(
+    !(/Others:\s*\{other-slugs\}/.test(content)),
+    'next.md does not rely solely on bare "Others: {other-slugs}" note (replaced by picker)'
+  );
+  // Single-spec silence: when one (or zero) active specs, no extra noise
+  assert(
+    content.includes('no extra noise') || content.includes('no picker') || content.includes('no additional note') ||
+    content.includes('only one') || content.includes('one (or zero)'),
+    'next.md suppresses picker/noise when ≤1 active spec'
   );
 }
 
@@ -151,6 +172,70 @@ console.log('\nTest Group 4: pause.md — spec slug in handoff');
     handoffSection.includes('Spec Slug') || content.includes('spec_slug:'),
     'Spec slug appears in the handoff file body or frontmatter'
   );
+}
+
+// ============================================================
+// FIX 2: re-read STATE.md after resolver/touch
+// ============================================================
+console.log('\nTest Group 5: re-read STATE.md after touch (FIX 2)');
+{
+  for (const cmd of ['resume.md', 'plan-phase.md', 'execute-phase.md', 'ship.md', 'complete-spec.md', 'archive-spec.md']) {
+    const content = readCmd(cmd);
+    assert(
+      content.includes('Re-read `.bee/STATE.md`') || content.includes('re-read `.bee/STATE.md`'),
+      `${cmd} contains a "re-read .bee/STATE.md" instruction after the resolver/touch`
+    );
+    // The re-read instruction must appear AFTER the touch call
+    const touchIdx = content.indexOf('specs-cli.js touch --bee .bee --slug');
+    const rereadIdx = content.search(/[Rr]e-read `\.bee\/STATE\.md`/);
+    assert(
+      touchIdx > -1 && rereadIdx > -1 && rereadIdx > touchIdx,
+      `${cmd} re-read instruction appears AFTER the touch call`
+    );
+  }
+}
+
+// ============================================================
+// FIX 3: lifecycle commands sync registry stage with guard
+// ============================================================
+console.log('\nTest Group 6: lifecycle set-stage calls with regression guard (FIX 3)');
+{
+  const stageTests = [
+    { cmd: 'discuss.md', stage: 'discussing' },
+    { cmd: 'plan-phase.md', stage: 'planning' },
+    { cmd: 'execute-phase.md', stage: 'executing' },
+  ];
+  for (const { cmd, stage } of stageTests) {
+    const content = readCmd(cmd);
+    // Must contain a set-stage call for the correct stage
+    assert(
+      content.includes(`specs-cli.js set-stage`) && content.includes(`--stage ${stage}`),
+      `${cmd} calls specs-cli.js set-stage --stage ${stage}`
+    );
+    // Must contain a guard that reads current stage before calling set-stage
+    assert(
+      content.includes('specs-cli.js list --bee .bee --active --json') ||
+      content.includes('list --bee .bee --active --json'),
+      `${cmd} reads current registry stage (list --active --json) before calling set-stage`
+    );
+    // Must mention skipping or guarding to avoid regression
+    assert(
+      content.includes('skip the set-stage') || content.includes('skip') && content.includes('set-stage'),
+      `${cmd} contains guard to skip set-stage if stage already at or beyond target`
+    );
+    // Must tolerate "unknown spec" (legacy repos)
+    assert(
+      content.includes('unknown spec') || content.includes('tolerate'),
+      `${cmd} tolerates "unknown spec" output from set-stage (legacy repos)`
+    );
+    // The set-stage call must appear AFTER the touch call (so it targets the resolved spec)
+    const touchIdx = content.indexOf('specs-cli.js touch --bee .bee --slug');
+    const setStageIdx = content.indexOf(`specs-cli.js set-stage`);
+    assert(
+      touchIdx > -1 && setStageIdx > -1 && setStageIdx > touchIdx,
+      `${cmd} set-stage call appears AFTER the touch call`
+    );
+  }
 }
 
 // ============================================================

@@ -34,7 +34,19 @@ Interpret the JSON:
 - `{"mode":"auto","slug":"X"}` → silently target spec `X` (single-spec behavior, unchanged).
 - `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to work on, listing candidates (last-touched first) with `Custom` last. Use the chosen slug.
 
-Once the slug is chosen, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` — this syncs `.bee/STATE.md` to the chosen spec. Then proceed using `.bee/STATE.md` as this command normally does.
+Once the slug is chosen, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` — this syncs `.bee/STATE.md` to the chosen spec. Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's. Then proceed using `.bee/STATE.md` as this command normally does.
+
+**Advance spec stage to `discussing` (if not already at a later stage):**
+
+Check the current registry stage by running:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active --json
+```
+Find the entry matching `<slug>`. The `STAGES` order is: `shaping`, `discussing`, `planning`, `executing`, `reviewing`, `shipped`, `archived`. If the spec's current stage index is already >= the index of `discussing` (i.e., it is `discussing`, `planning`, `executing`, `reviewing`, `shipped`, or `archived`), skip the set-stage call. Otherwise:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug <slug> --stage discussing
+```
+If this prints `set-stage: unknown spec ...` (legacy spec not in registry), tolerate it and continue.
 
 ### Step 2: Get Topic
 

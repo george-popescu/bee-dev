@@ -46,7 +46,7 @@ Parse the JSON result and act on the `mode` field:
   ```bash
   node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <chosen-slug>
   ```
-  Then proceed to Step 0 below, briefing the chosen spec. Do NOT assume the last-touched spec when `mode:pick` — always ask.
+  Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's. Then proceed to Step 0 below, briefing the chosen spec. Do NOT assume the last-touched spec when `mode:pick` — always ask.
 
 ### Step 0: Pause Detection
 

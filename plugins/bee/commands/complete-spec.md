@@ -29,7 +29,7 @@ Once the slug is chosen, run:
 node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>
 ```
 
-so that global STATE.md reflects the chosen spec for the rest of this command. Use this resolved slug as `{spec-folder-name}` wherever that placeholder appears in the steps below.
+so that global STATE.md reflects the chosen spec for the rest of this command. Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's. Use this resolved slug as `{spec-folder-name}` wherever that placeholder appears in the steps below.
 
 ### Step 1: Validation Guards
 

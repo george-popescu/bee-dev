@@ -39,6 +39,8 @@ Then sync global STATE.md to the chosen spec and record it as the Current Spec P
 node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>
 ```
 
+Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's.
+
 ### Step 1: Validation Guards
 
 See `skills/command-primitives/SKILL.md` Validation Guards.
