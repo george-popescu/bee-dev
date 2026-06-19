@@ -179,14 +179,21 @@ process.stdin.on('end', () => {
     // (a "focused" spec) by matching the Current Spec Path slug against the registry.
     //
     // Outcomes:
+    //   • .bee/worktree-spec marker present: append ⊞wt, skip queue logic (stale copied registry)
     //   • No specs.json (legacy/idle): no-op — beeSegment unchanged (byte-identical to single-spec path)
     //   • active.length === 0: no-op
     //   • active.length >= 1, focused spec present: append " +N queued" when N > 0
     //   • active.length >= 1, NO focused spec (NO_SPEC global): replace beeSegment with
     //     "{N} spec(s) queued — none focused"
     try {
+      // If running inside a promoted worktree, the marker takes priority — annotate and skip queue logic
+      const wtMarkerPath = path.join(dir, '.bee', 'worktree-spec');
+      const inWorktree = fs.existsSync(wtMarkerPath);
+      if (inWorktree) {
+        beeSegment = beeSegment + ` \x1b[2m⊞wt\x1b[0m`;
+      }
       const specsJsonPath = path.join(dir, '.bee', 'specs.json');
-      if (fs.existsSync(specsJsonPath)) {
+      if (!inWorktree && fs.existsSync(specsJsonPath)) {
         const raw = fs.readFileSync(specsJsonPath, 'utf8');
         const parsed = JSON.parse(raw);
         if (parsed && Array.isArray(parsed.specs)) {
@@ -213,12 +220,19 @@ process.stdin.on('end', () => {
             } catch (_) {}
 
             if (focusedSlug) {
+              // Worktree indicator: if the focused spec's location is not in-place, annotate
+              const focusedSpec = active.find(s => s.slug === focusedSlug);
+              const isWorktree = focusedSpec && focusedSpec.location && focusedSpec.location !== 'in-place';
+              if (isWorktree) {
+                beeSegment = beeSegment + ` \x1b[2m⊞wt\x1b[0m`;
+              }
+
               // Focused spec: append "+N queued" when there are other active specs
               const queued = active.length - 1;
               if (queued > 0) {
                 beeSegment = beeSegment + ` \x1b[2m+${queued} queued\x1b[0m`;
               }
-              // queued === 0: single-spec path — no-op, beeSegment unchanged
+              // queued === 0 and not worktree: single-spec path — no-op, beeSegment unchanged
             } else {
               // No focused spec but active specs exist — surface the queue and name the most-recently-touched spec
               const top = active[0]; // already sorted most-recently-touched first

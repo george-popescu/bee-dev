@@ -21,6 +21,14 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active
 
 Parse the tab-separated output (slug, stage, location, title). Store the count of active specs and their details for use throughout this command. When more than one active spec is found, list all active specs with their stages as a header before the per-spec status below.
 
+If any active spec has a `location` value that is not `in-place`, add one line after the spec list:
+
+```
+{N} spec(s) in worktrees: {slug1}, {slug2} — merge with `/bee:workspace complete spec-<slug>`
+```
+
+(Omit this line when all active specs are `in-place`.)
+
 ### Not Initialized
 
 If the state above contains `NOT_INITIALIZED`, respond:

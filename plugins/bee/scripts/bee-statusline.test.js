@@ -331,6 +331,68 @@ console.log('\nTest Group 10: Multi-spec queue indicator');
 }
 
 // ============================================================
+// Test Group 11: Worktree indicator
+// ============================================================
+console.log('\nTest Group 11: Worktree indicator');
+{
+  const os = require('os');
+
+  function renderWithWorktreeSetup({ marker, specsJson, stateContent }) {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bee-sl-wt-'));
+    const beeDir = path.join(tmp, '.bee');
+    fs.mkdirSync(beeDir, { recursive: true });
+    if (stateContent) fs.writeFileSync(path.join(beeDir, 'STATE.md'), stateContent);
+    if (specsJson !== null && specsJson !== undefined) {
+      fs.writeFileSync(path.join(beeDir, 'specs.json'), JSON.stringify(specsJson, null, 2));
+    }
+    if (marker) fs.writeFileSync(path.join(beeDir, 'worktree-spec'), marker);
+    try {
+      return stripAnsi(runStatusline({ ...baseInput, workspace: { current_dir: tmp } }));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  }
+
+  const wtState = `# State\n## Current Spec\n- Path: .bee/specs/feat-a/\n- Status: IN_PROGRESS\n## Phases\n| # | Name | Status |\n|---|---|---|\n| 1 | Setup | EXECUTING |\n## Quick Tasks\n`;
+
+  const wtRegistry = {
+    specs: [
+      { slug: 'feat-a', title: 'Feature A', stage: 'executing', location: '/some/path/proj-bee-workspaces/spec-feat-a', created: '2026-01-01T00:00:00Z', last_touched: '2026-01-02T00:00:00Z' },
+    ],
+  };
+
+  const inPlaceRegistry = {
+    specs: [
+      { slug: 'feat-a', title: 'Feature A', stage: 'executing', location: 'in-place', created: '2026-01-01T00:00:00Z', last_touched: '2026-01-02T00:00:00Z' },
+    ],
+  };
+
+  // 11.1: worktree-spec marker present → shows ⊞wt indicator
+  const markerOut = renderWithWorktreeSetup({ marker: 'feat-a', stateContent: wtState });
+  assert(markerOut.includes('⊞wt'), 'worktree-spec marker present: shows ⊞wt indicator');
+
+  // 11.2: worktree-spec marker present → queue logic skipped (no "queued" in output)
+  const markerWithRegistry = renderWithWorktreeSetup({ marker: 'feat-a', specsJson: wtRegistry, stateContent: wtState });
+  assert(markerWithRegistry.includes('⊞wt'), 'worktree marker + registry: ⊞wt shown');
+  assert(!markerWithRegistry.includes('queued'), 'worktree marker: queue logic skipped (no "queued")');
+
+  // 11.3: registry location is a worktree path (not in-place) → shows ⊞wt indicator
+  const registryWtOut = renderWithWorktreeSetup({ specsJson: wtRegistry, stateContent: wtState });
+  assert(registryWtOut.includes('⊞wt'), 'Registry location is worktree path: shows ⊞wt indicator');
+
+  // 11.4: registry location is in-place → no ⊞wt indicator (byte-identical to pre-Task-6 output)
+  const inPlaceOut = renderWithWorktreeSetup({ specsJson: inPlaceRegistry, stateContent: wtState });
+  assert(!inPlaceOut.includes('⊞wt'), 'Registry location in-place: no ⊞wt indicator (stable output)');
+
+  // 11.5: no marker, no specs.json → no ⊞wt indicator (legacy unchanged)
+  const noWtOut = renderWithWorktreeSetup({ stateContent: wtState });
+  assert(!noWtOut.includes('⊞wt'), 'No marker, no specs.json: no ⊞wt indicator');
+
+  // 11.6: worktree case with marker does not show "none focused" or "queued"
+  assert(!markerOut.includes('queued') && !markerOut.includes('none focused'), 'Worktree marker: no spurious queue text');
+}
+
+// ============================================================
 // Results
 // ============================================================
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);

@@ -23,13 +23,15 @@ Parse `$ARGUMENTS` for the first word. If empty, default to `list`. Recognized s
 
 ### Subcommand: list
 
-Run and display the table verbatim:
+Run:
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active
 ```
 
 If output is `No specs.`, tell the user: "No active specs. Run `/bee:new-spec` to create one." Then stop.
+
+The output is tab-separated with four columns: `slug`, `stage`, `location`, `title`. Display it as a formatted table. The `location` column is `in-place` for specs running in the main worktree, or a filesystem path (e.g. `/path/to/proj-bee-workspaces/spec-<slug>`) for specs that have been promoted to their own worktree with `/bee:spec promote`. Highlight any worktree-promoted specs so they are easy to spot — they can be worked on by opening a separate chat in that path, and merged back with `/bee:workspace complete spec-<slug>`.
 
 ### Subcommand: use <slug>
 
