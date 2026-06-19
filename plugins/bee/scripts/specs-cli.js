@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const reg = require('./specs-registry');
 const { resolveTarget } = require('./spec-resolver');
-const { initSpecState, mirrorToGlobal, specStatePath, snapshotToPerSpec, globalStatePath, restoreToGlobal } = require('./spec-state');
+const { initSpecState, mirrorToGlobal, specStatePath, snapshotToPerSpec, globalStatePath, restoreToGlobal, initSpecMemory } = require('./spec-state');
 const { parseStateMd } = require('./hive-state-parser');
 
 function nowIso() { return new Date().toISOString(); }
@@ -79,6 +79,10 @@ function main(argv) {
       // so we can distinguish "re-register live spec" from "Overwrite reset".
       const perSpecExistedBefore = fs.existsSync(specStatePath(beeDir, f.slug));
       initSpecState(beeDir, f.slug, { name: f.title || f.slug, status: 'SPEC_CREATED' });
+      // Per-spec memory file (idempotent): created alongside STATE.md so it exists from
+      // registration. If an Overwrite cleared the spec folder, this re-seeds the template;
+      // a normal re-register preserves any curated content.
+      initSpecMemory(beeDir, f.slug, { name: f.title || f.slug });
       const freshlyCreated = !perSpecExistedBefore;
       if (!freshlyCreated && currentGlobalSlug(beeDir) === f.slug) {
         // Re-registering the spec already reflected in global (not an Overwrite reset):

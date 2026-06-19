@@ -66,6 +66,29 @@ function initSpecState(beeDir, slug, { name, status }) {
   return p;
 }
 
+function specMemoryPath(beeDir, slug) { return path.join(beeDir, 'specs', slug, 'memory.md'); }
+
+function renderSpecMemory({ name }) {
+  return [
+    `# Spec Memory — ${name}`, '',
+    '<!--',
+    'Per-spec memory. Manually curated, like .bee/user.md but scoped to THIS spec.',
+    'It is injected into every bee agent at SubagentStart while this is the single active',
+    'spec (suppressed when two or more specs are active). Put here what agents should ALWAYS',
+    'know while working on this spec: the chosen approach, hard constraints, invariants,',
+    'gotchas, "always do X / never do Y here". Keep it short — this is agent guidance, not a',
+    'decision log (decisions live in STATE.md). Edit via /bee:memory or directly.',
+    '-->', '',
+  ].join('\n');
+}
+
+function initSpecMemory(beeDir, slug, { name } = {}) {
+  const p = specMemoryPath(beeDir, slug);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  if (!fs.existsSync(p)) fs.writeFileSync(p, renderSpecMemory({ name: name || slug }));
+  return p;
+}
+
 function mirrorToGlobal(beeDir, slug) {
   const src = specStatePath(beeDir, slug);
   if (!fs.existsSync(src)) return false;
@@ -116,4 +139,4 @@ function restoreToGlobal(beeDir, slug) {
   return true;
 }
 
-module.exports = { specStatePath, globalStatePath, renderSpecState, initSpecState, mirrorToGlobal, snapshotToPerSpec, restoreToGlobal, PROJECT_GLOBAL_SECTIONS, getSectionBlock, upsertSectionBlock };
+module.exports = { specStatePath, globalStatePath, renderSpecState, initSpecState, mirrorToGlobal, snapshotToPerSpec, restoreToGlobal, PROJECT_GLOBAL_SECTIONS, getSectionBlock, upsertSectionBlock, specMemoryPath, renderSpecMemory, initSpecMemory };
