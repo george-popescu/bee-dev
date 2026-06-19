@@ -274,6 +274,30 @@ assert(fs.readFileSync(gpath, 'utf8').includes('| 1 | Keep | PENDING |'),
     assert(!/^- Status:\s*NO_SPEC/m.test(globalAfter), 'FIX1: global STATE.md Status field is no longer NO_SPEC after touch B');
   }
 
+  // FIX 1 (batch13): register --force-stage bypasses no-regress guard for Overwrite flow
+  {
+    const ov = tmpBee(); fs.mkdirSync(ov, { recursive: true });
+    run(['register', '--bee', ov, '--slug', 'overwrite-spec', '--title', 'Overwrite', '--stage', 'planning']);
+    run(['set-stage', '--bee', ov, '--slug', 'overwrite-spec', '--stage', 'executing']);
+    // Write phases into per-spec STATE.md to simulate a spec with progress
+    const specStateMd = path.join(ov, 'specs', 'overwrite-spec', 'STATE.md');
+    fs.writeFileSync(specStateMd, fs.readFileSync(specStateMd, 'utf8')
+      .replace('## Phases\n| # | Name | Status |', '## Phases\n| # | Name | Status |\n| 1 | Old Phase | EXECUTING |'));
+    // Overwrite: delete STATE.md, then re-register with --force-stage
+    fs.unlinkSync(specStateMd);
+    assert(!fs.existsSync(specStateMd), 'Overwrite: per-spec STATE.md deleted before re-register');
+    run(['register', '--bee', ov, '--slug', 'overwrite-spec', '--title', 'Overwrite', '--stage', 'shaping', '--force-stage']);
+    // Stage must have regressed to shaping (no-regress bypassed)
+    const ovList = JSON.parse(run(['list', '--bee', ov, '--json']).stdout);
+    const ovSpec = ovList.find(s => s.slug === 'overwrite-spec');
+    assert(ovSpec && ovSpec.stage === 'shaping', 'FIX1(batch13): --force-stage allows stage regression to shaping for Overwrite');
+    // Per-spec STATE.md must be recreated fresh (initSpecState re-ran because file was deleted)
+    assert(fs.existsSync(specStateMd), 'FIX1(batch13): per-spec STATE.md recreated after Overwrite delete+register');
+    const fresh = fs.readFileSync(specStateMd, 'utf8');
+    assert(!fresh.includes('Old Phase'), 'FIX1(batch13): recreated STATE.md has no old phases (fresh start)');
+    assert(fresh.includes('## Phases'), 'FIX1(batch13): recreated STATE.md has Phases section');
+  }
+
   console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
   process.exit(failed > 0 ? 1 : 0);
 })();

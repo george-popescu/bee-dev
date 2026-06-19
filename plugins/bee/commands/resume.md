@@ -40,7 +40,7 @@ Parse the JSON result and act on the `mode` field:
   ```
   AskUserQuestion(
     question: "Multiple active specs found. Which would you like to resume?",
-    options: [...candidates as "{title} ({stage})" or "{title} ({stage}) — paused here" (slug as selection value, most-recently-touched first), "Custom"]
+    options: [...candidates as "{title} ({stage})" or "{title} ({stage}) — paused here" (slug as selection value, most-recently-touched first; if two candidates share the same title AND stage, append " [{slug}]" to each of those labels), "Custom"]
   )
   ```
   If the JSON includes a `more` field, append `+{more} more — run \`/bee:spec list\` to see all` before "Custom". If a candidate lacks a `title`, fall back to its slug.

@@ -65,7 +65,8 @@ function main(argv) {
       const r = reg.readRegistry(beeDir);
       const existing = reg.getSpec(r, f.slug);
       let stage = f.stage || 'shaping';
-      if (existing && reg.STAGES.indexOf(stage) < reg.STAGES.indexOf(existing.stage)) stage = existing.stage;
+      // --force-stage bypasses the no-regress guard (used only by Overwrite in new-spec)
+      if (!f['force-stage'] && existing && reg.STAGES.indexOf(stage) < reg.STAGES.indexOf(existing.stage)) stage = existing.stage;
       reg.upsertSpec(r, { slug: f.slug, title: f.title, stage, location: 'in-place' }, nowIso());
       reg.writeRegistry(beeDir, r);
     });

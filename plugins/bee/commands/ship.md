@@ -31,7 +31,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 
 - `{"mode":"create"}` → no active spec. Tell the user "No active spec to ship. Run `/bee:new-spec` first." Stop.
 - `{"mode":"auto","slug":"X"}` → target spec `X`. Check the Current Spec Path in `.bee/STATE.md`; if it does NOT already point to `.bee/specs/X/`, the touch below will re-sync it (stale global case — e.g., prior complete reset to NO_SPEC).
-- `{"mode":"pick","candidates":[…]}` → ship is unattended once it starts, so you MUST choose the spec NOW via AskUserQuestion. Present each candidate as `{title} ({stage})` (slug as selection value), most-recently-touched first, `Custom` last. If the JSON includes a `more` field, append `+{more} more — run \`/bee:spec list\` to see all`. If a candidate lacks a `title`, fall back to its slug. This entry-point menu is the ONE allowed interaction; the pipeline after Step 1 stays fully autonomous.
+- `{"mode":"pick","candidates":[…]}` → ship is unattended once it starts, so you MUST choose the spec NOW via AskUserQuestion. Present each candidate as `{title} ({stage})` (slug as selection value), most-recently-touched first, `Custom` last. If two or more candidates share the same title AND stage, append ` [{slug}]` to each of those labels so they are distinguishable. If the JSON includes a `more` field, append `+{more} more — run \`/bee:spec list\` to see all`. If a candidate lacks a `title`, fall back to its slug. This entry-point menu is the ONE allowed interaction; the pipeline after Step 1 stays fully autonomous.
 
 Then sync global STATE.md to the chosen spec and record it as the Current Spec Path for the rest of this command:
 
@@ -734,13 +734,14 @@ Wait for all agents to complete.
 
 **Auto-mode marker cleanup (always, regardless of outcome):** delete `.bee/.autonomous-run-active`, `.bee/.autonomous-team-spawned`, and `.bee/.autonomous-team-claimed` if any exists. These markers are per-run, not persisted across runs. If the command exits early on error before reaching this step, the next `/bee:health` Check 14 will surface and recommend manual cleanup.
 
-**Advance spec stage to `reviewing`:**
+**Advance spec stage to `reviewing` and snapshot reviewed state:**
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug <slug> --stage reviewing
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>
 ```
 
-If `set-stage` prints `unknown spec` (legacy spec not in registry), that is fine — continue. The spec is built and reviewed; run `/bee:complete-spec` to finish the ceremony (which terminalizes it in the registry).
+If `set-stage` prints `unknown spec` (legacy spec not in registry), that is fine — continue. The `touch` call captures the live global STATE.md (which already reflects all per-phase REVIEWED updates from Step 3c) into the per-spec snapshot, so the reviewed state is durably persisted. If `set-stage` printed `unknown spec`, skip the `touch` as well (legacy path has no per-spec snapshot). The spec is built and reviewed; run `/bee:complete-spec` to finish the ceremony (which terminalizes it in the registry).
 
 Read the final state from disk. Build and display the completion summary.
 

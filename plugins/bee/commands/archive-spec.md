@@ -21,7 +21,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 
 - `{"mode":"create"}` → no active spec to archive. Tell the user: "No active spec to archive. Run `/bee:new-spec` first." Stop.
 - `{"mode":"auto","slug":"X"}` → target spec `X`. Check the Current Spec Path in `.bee/STATE.md`; if it does NOT already point to `.bee/specs/X/`, the touch below will re-sync it (stale global — e.g., prior complete reset to NO_SPEC).
-- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to archive (candidates last-touched first, surface each candidate's `title` and `stage`, `Custom` last; if the JSON has `more`, add "+{more} more — run `/bee:spec list`").
+- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to archive. Present each candidate as `{title} ({stage})` (slug as selection value), last-touched first, `Custom` last. If two or more candidates share the same title AND stage, append ` [{slug}]` to each of those labels so they are distinguishable. If the JSON has `more`, add `+{more} more — run \`/bee:spec list\`` before Custom.
 
 Once the slug is chosen, run:
 

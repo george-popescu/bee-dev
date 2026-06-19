@@ -42,6 +42,12 @@ assert(parseStateMd(p).currentSpec.status === 'IN_PROGRESS', 'initSpecState does
   assert(rendered.includes('## Quick Tasks'), 'renderSpecState emits ## Quick Tasks section');
   assert(rendered.includes('| # | Description | Date | Commit |'), 'renderSpecState emits Quick Tasks table header');
   assert(rendered.includes('## Decisions Log'), 'renderSpecState emits ## Decisions Log section');
+  // FIX 3 (batch13): Decisions Log must include the structured-entry HTML comment
+  assert(rendered.includes('<!-- Structured decision entry format:'), 'FIX3(batch13): renderSpecState emits Decisions Log HTML comment block');
+  assert(rendered.includes('- **[WHAT]:** Brief description'), 'FIX3(batch13): Decisions Log comment includes [WHAT] format line');
+  assert(rendered.includes('- **Why:** Reasoning'), 'FIX3(batch13): Decisions Log comment includes Why format line');
+  assert(rendered.includes('- **Alternative rejected:**'), 'FIX3(batch13): Decisions Log comment includes Alternative rejected format line');
+  assert(rendered.includes('[Review finding auto-fixed]'), 'FIX3(batch13): Decisions Log comment includes canonical example entry');
   assert(rendered.includes('Valid Status values:'), 'renderSpecState emits Current Spec status legend');
   assert(rendered.includes('Valid Phase Status values:'), 'renderSpecState emits Phase Status legend');
 }

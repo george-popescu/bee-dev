@@ -58,31 +58,74 @@ if [ -f "$BEE_DIR/user.md" ]; then
   echo ""
 fi
 
-# Load session context if exists (prefer COMPACT-CONTEXT.md over SESSION-CONTEXT.md)
-# Cap at 100 lines to prevent unbounded context growth — the recent decisions
-# stay visible, the historical archive is reachable via Read tool when needed.
-if [ -f "$BEE_DIR/COMPACT-CONTEXT.md" ]; then
-  echo "## Previous Session Context"
-  LINES=$(wc -l < "$BEE_DIR/COMPACT-CONTEXT.md" | tr -d ' ')
-  if [ "$LINES" -gt 100 ]; then
-    head -n 100 "$BEE_DIR/COMPACT-CONTEXT.md"
-    echo ""
-    echo "(COMPACT-CONTEXT.md truncated at 100/$LINES lines -- read full file with Read tool if needed)"
-  else
-    cat "$BEE_DIR/COMPACT-CONTEXT.md"
+# Load session context if exists (prefer per-spec COMPACT-CONTEXT.md over SESSION-CONTEXT.md).
+# Multi-spec: resolve the focused spec from global STATE.md Current Spec Path, then read
+# THAT spec's per-spec context. Only inject if it belongs to the focused spec.
+# Backward compat: if no specs.json (legacy single-spec), fall back to global paths.
+# Cap at 100 lines to prevent unbounded context growth.
+CONTEXT_INJECTED=false
+if [ -f "$BEE_DIR/specs.json" ]; then
+  # Multi-spec mode: find focused spec slug from global STATE.md
+  FOCUSED_SLUG=""
+  if [ -f "$BEE_DIR/STATE.md" ]; then
+    FOCUSED_SLUG=$(grep -m1 '^- Path:' "$BEE_DIR/STATE.md" 2>/dev/null | sed 's|^- Path:.*\.bee/specs/||;s|/.*||' | tr -d ' ')
   fi
-  echo ""
-elif [ -f "$BEE_DIR/SESSION-CONTEXT.md" ]; then
-  echo "## Previous Session Context"
-  LINES=$(wc -l < "$BEE_DIR/SESSION-CONTEXT.md" | tr -d ' ')
-  if [ "$LINES" -gt 100 ]; then
-    head -n 100 "$BEE_DIR/SESSION-CONTEXT.md"
-    echo ""
-    echo "(SESSION-CONTEXT.md truncated at 100/$LINES lines -- read full file with Read tool if needed)"
-  else
-    cat "$BEE_DIR/SESSION-CONTEXT.md"
+  if [ -n "$FOCUSED_SLUG" ] && [ "$FOCUSED_SLUG" != "(none)" ]; then
+    SPEC_CONTEXT_DIR="$BEE_DIR/specs/$FOCUSED_SLUG"
+    if [ -f "$SPEC_CONTEXT_DIR/COMPACT-CONTEXT.md" ]; then
+      echo "## Previous Session Context"
+      LINES=$(wc -l < "$SPEC_CONTEXT_DIR/COMPACT-CONTEXT.md" | tr -d ' ')
+      if [ "$LINES" -gt 100 ]; then
+        head -n 100 "$SPEC_CONTEXT_DIR/COMPACT-CONTEXT.md"
+        echo ""
+        echo "(COMPACT-CONTEXT.md truncated at 100/$LINES lines -- read full file with Read tool if needed)"
+      else
+        cat "$SPEC_CONTEXT_DIR/COMPACT-CONTEXT.md"
+      fi
+      echo ""
+      CONTEXT_INJECTED=true
+    elif [ -f "$SPEC_CONTEXT_DIR/SESSION-CONTEXT.md" ]; then
+      echo "## Previous Session Context"
+      LINES=$(wc -l < "$SPEC_CONTEXT_DIR/SESSION-CONTEXT.md" | tr -d ' ')
+      if [ "$LINES" -gt 100 ]; then
+        head -n 100 "$SPEC_CONTEXT_DIR/SESSION-CONTEXT.md"
+        echo ""
+        echo "(SESSION-CONTEXT.md truncated at 100/$LINES lines -- read full file with Read tool if needed)"
+      else
+        cat "$SPEC_CONTEXT_DIR/SESSION-CONTEXT.md"
+      fi
+      echo ""
+      CONTEXT_INJECTED=true
+    fi
+    # If per-spec context absent, inject nothing (do not fall back to stale global)
   fi
-  echo ""
+else
+  # Legacy (no specs.json): use global paths as before
+  if [ -f "$BEE_DIR/COMPACT-CONTEXT.md" ]; then
+    echo "## Previous Session Context"
+    LINES=$(wc -l < "$BEE_DIR/COMPACT-CONTEXT.md" | tr -d ' ')
+    if [ "$LINES" -gt 100 ]; then
+      head -n 100 "$BEE_DIR/COMPACT-CONTEXT.md"
+      echo ""
+      echo "(COMPACT-CONTEXT.md truncated at 100/$LINES lines -- read full file with Read tool if needed)"
+    else
+      cat "$BEE_DIR/COMPACT-CONTEXT.md"
+    fi
+    echo ""
+    CONTEXT_INJECTED=true
+  elif [ -f "$BEE_DIR/SESSION-CONTEXT.md" ]; then
+    echo "## Previous Session Context"
+    LINES=$(wc -l < "$BEE_DIR/SESSION-CONTEXT.md" | tr -d ' ')
+    if [ "$LINES" -gt 100 ]; then
+      head -n 100 "$BEE_DIR/SESSION-CONTEXT.md"
+      echo ""
+      echo "(SESSION-CONTEXT.md truncated at 100/$LINES lines -- read full file with Read tool if needed)"
+    else
+      cat "$BEE_DIR/SESSION-CONTEXT.md"
+    fi
+    echo ""
+    CONTEXT_INJECTED=true
+  fi
 fi
 
 # Detect active debug sessions (both old and new formats)

@@ -123,7 +123,10 @@ AskUserQuestion(
 
 - **Amend the existing spec**: Tell the user "Run `/bee:new-spec --amend` to amend the existing spec." Stop the command.
 - **Choose a different name**: Ask the user for a new feature name (return to Step 3). Re-derive the slug and re-check for collision with the new name before continuing.
-- **Overwrite**: Display "Warning: overwriting existing spec and resetting all phase progress." Proceed to directory creation below.
+- **Overwrite**: Display "Warning: overwriting existing spec and resetting all phase progress." Then reset the existing spec:
+   - Delete the per-spec STATE.md so `initSpecState` recreates it fresh (empty phases, SPEC_CREATED status): `rm -f .bee/specs/{YYYY-MM-DD}-{slug}/STATE.md`
+   - Re-register the spec, bypassing the no-regress guard so the stage resets to `shaping`: `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js register --bee .bee --slug "{YYYY-MM-DD}-{slug}" --title "{name}" --stage shaping --force-stage`
+   Proceed to directory creation below.
 
 Only if no collision was detected (or the user chose Overwrite), continue:
 
