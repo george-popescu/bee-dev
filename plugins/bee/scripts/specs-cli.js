@@ -65,7 +65,13 @@ function main(argv) {
     reg.upsertSpec(r, { slug: f.slug, title: f.title, stage: f.stage || 'shaping', location: 'in-place' }, nowIso());
     reg.writeRegistry(beeDir, r);
     initSpecState(beeDir, f.slug, { name: f.title || f.slug, status: 'SPEC_CREATED' });
-    mirrorToGlobal(beeDir, f.slug);
+    if (currentGlobalSlug(beeDir) === f.slug) {
+      // Re-registering the spec already reflected in global: capture the live
+      // global into its per-spec snapshot instead of clobbering it with a stale one.
+      snapshotToPerSpec(beeDir, f.slug);
+    } else {
+      mirrorToGlobal(beeDir, f.slug);
+    }
     process.stdout.write(`registered ${f.slug}\n`);
     return 0;
   }

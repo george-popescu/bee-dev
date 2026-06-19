@@ -108,5 +108,14 @@ assert(!fs.existsSync(path.join(legacyNoSlug, 'specs.json')), 'slug-less registe
     'switching back to a spec restores its saved state into global');
 }
 
+// re-register same slug preserves global phases table
+const rr = tmpBee(); fs.mkdirSync(rr, { recursive: true });
+run(['register', '--bee', rr, '--slug', 'dup', '--title', 'Dup', '--stage', 'planning']);
+const gpath = path.join(rr, 'STATE.md');
+fs.writeFileSync(gpath, fs.readFileSync(gpath, 'utf8').replace('## Phases', '## Phases\n| 1 | Keep | PENDING |'));
+run(['register', '--bee', rr, '--slug', 'dup', '--title', 'Dup', '--stage', 'planning']); // re-register SAME slug
+assert(fs.readFileSync(gpath, 'utf8').includes('| 1 | Keep | PENDING |'),
+  're-registering the live spec slug preserves the global phases table');
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

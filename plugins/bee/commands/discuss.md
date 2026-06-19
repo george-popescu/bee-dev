@@ -30,7 +30,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 ```
 
 Interpret the JSON:
-- `{"mode":"create"}` → no active spec. Tell the user: "No active spec. Run `/bee:new-spec` first." Stop.
+- `{"mode":"create"}` → no active spec yet. That's fine for discuss (it can lead to creating one) — proceed with no bound spec; do NOT stop.
 - `{"mode":"auto","slug":"X"}` → silently target spec `X` (single-spec behavior, unchanged).
 - `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to work on, listing candidates (last-touched first) with `Custom` last. Use the chosen slug.
 
