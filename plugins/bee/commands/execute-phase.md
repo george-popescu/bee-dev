@@ -68,6 +68,37 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug <slu
 ```
 If this prints `set-stage: unknown spec ...` (legacy spec not in registry), tolerate it and continue.
 
+### Step: Execute-time guard (concurrency offer)
+
+Before executing, check whether another spec is already executing in-place. This keeps "at most one in-place execution at a time" safe **without ever blocking** the user.
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js guard --bee .bee --slug {target-slug}
+```
+
+Parse the JSON `{ "conflict": bool, "other": slug|null }`.
+
+- **`conflict` is false** → proceed to wave execution normally. (This is the common case: single spec, or the only executing spec is this one, or this spec is already in a worktree.)
+- **`conflict` is true** → another spec (`{other}`) is executing in-place. Offer (never auto-decide):
+
+  ```
+  AskUserQuestion(
+    question: "Spec '{other}' is already executing in-place. How do you want to run '{target-slug}'?",
+    options: [
+      "Promote '{target-slug}' to a worktree (Recommended)",
+      "Keep '{target-slug}' queued (don't execute now)",
+      "Pause '{other}' first",
+      "Custom"
+    ]
+  )
+  ```
+
+  - **Promote (Recommended):** run `/bee:spec promote {target-slug}`, then tell the user to `cd` into the new worktree and re-run `/bee:execute-phase` there. Do NOT execute in-place now. Stop.
+  - **Keep queued:** stop before wave execution; the spec stays planned/queued. Tell the user it will wait. Stop.
+  - **Pause '{other}':** set `{other}`'s currently-EXECUTING phase back to `PLANNED` in its per-spec STATE.md (so it is no longer "executing"), then continue executing `{target-slug}` in-place.
+
+The guard never hard-stops — every branch leaves the user a way forward.
+
 ### Step 1b: Parse Arguments
 
 Check `$ARGUMENTS` for the `--no-aggregate-validate` flag:
