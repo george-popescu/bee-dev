@@ -321,6 +321,136 @@ console.log('\nTest Group 5: specs-registry.js — lock waiter timeout > stale t
 }
 
 // ============================================================
+// FIX 1 (batch16): complete-spec.md — loads survivor into global after completing
+// ============================================================
+console.log('\nTest Group 6: complete-spec.md — survivor-loading after completing (FIX 1 batch16)');
+{
+  const content = readCmd('complete-spec.md');
+
+  // Must call specs-cli.js list --active --json AFTER the second write (NO_SPEC)
+  const noSpecWriteIdx = content.indexOf('Set Current Spec Status to `NO_SPEC`');
+  const survivorCheckIdx = content.indexOf('Load survivor spec into global');
+  assert(
+    survivorCheckIdx > -1,
+    'complete-spec.md has "Load survivor spec into global" block (FIX 1 batch16)'
+  );
+  assert(
+    survivorCheckIdx > noSpecWriteIdx,
+    'complete-spec.md: survivor-loading block comes AFTER NO_SPEC write (FIX 1 batch16)'
+  );
+
+  // Must touch the most-recently-touched survivor
+  const survivorRegion = content.substring(survivorCheckIdx, survivorCheckIdx + 1000);
+  assert(
+    survivorRegion.includes('specs-cli.js touch') && survivorRegion.includes('most-recent-survivor-slug'),
+    'complete-spec.md: touches most-recently-touched survivor slug into global (FIX 1 batch16)'
+  );
+
+  // Must tell user "Switched to remaining spec: {slug}"
+  assert(
+    survivorRegion.includes('Switched to remaining spec'),
+    'complete-spec.md: tells user "Switched to remaining spec" after loading survivor (FIX 1 batch16)'
+  );
+
+  // Must leave NO_SPEC when zero survivors
+  assert(
+    survivorRegion.includes('NO other active specs remain') || survivorRegion.includes('leave global at NO_SPEC') || survivorRegion.includes('genuine idle'),
+    'complete-spec.md: leaves NO_SPEC when zero other active specs remain (FIX 1 batch16)'
+  );
+}
+
+// ============================================================
+// FIX 1 (batch16): archive-spec.md — loads survivor into global after archiving
+// ============================================================
+console.log('\nTest Group 7: archive-spec.md — survivor-loading after archiving (FIX 1 batch16)');
+{
+  const content = readCmd('archive-spec.md');
+
+  const noSpecWriteIdx = content.indexOf('Set Current Spec Status to `NO_SPEC`');
+  const survivorCheckIdx = content.indexOf('Load survivor spec into global');
+  assert(
+    survivorCheckIdx > -1,
+    'archive-spec.md has "Load survivor spec into global" block (FIX 1 batch16)'
+  );
+  assert(
+    survivorCheckIdx > noSpecWriteIdx,
+    'archive-spec.md: survivor-loading block comes AFTER NO_SPEC write (FIX 1 batch16)'
+  );
+
+  const survivorRegion = content.substring(survivorCheckIdx, survivorCheckIdx + 1000);
+  assert(
+    survivorRegion.includes('specs-cli.js touch') && survivorRegion.includes('most-recent-survivor-slug'),
+    'archive-spec.md: touches most-recently-touched survivor slug into global (FIX 1 batch16)'
+  );
+
+  assert(
+    survivorRegion.includes('Switched to remaining spec'),
+    'archive-spec.md: tells user "Switched to remaining spec" after loading survivor (FIX 1 batch16)'
+  );
+
+  assert(
+    survivorRegion.includes('NO other active specs remain') || survivorRegion.includes('leave global at NO_SPEC') || survivorRegion.includes('genuine idle'),
+    'archive-spec.md: leaves NO_SPEC when zero other active specs remain (FIX 1 batch16)'
+  );
+}
+
+// ============================================================
+// FIX 2 (batch16): touch exit-code honored — key commands abort on non-zero
+// ============================================================
+console.log('\nTest Group 8: touch exit-code honored — commands abort on non-zero (FIX 2 batch16)');
+{
+  const ABORT_NEEDLE = 'snapshot missing';
+  const commandsToCheck = [
+    'ship.md',
+    'plan-phase.md',
+    'execute-phase.md',
+    'complete-spec.md',
+    'archive-spec.md',
+    'next.md',
+    'resume.md',
+    'discuss.md',
+    'new-spec.md',
+  ];
+  for (const cmd of commandsToCheck) {
+    const content = readCmd(cmd);
+    assert(
+      content.includes(ABORT_NEEDLE) || content.includes('exit code') || content.includes('exits non-zero') || content.includes('non-zero'),
+      `${cmd}: aborts or checks exit code when touch fails (FIX 2 batch16)`
+    );
+  }
+}
+
+// ============================================================
+// FIX 5 (batch16): new-spec.md — amend SPEC_CREATED resets registry stage via --force
+// ============================================================
+console.log('\nTest Group 9: new-spec.md — amend SPEC_CREATED resets registry stage (FIX 5 batch16)');
+{
+  const content = readCmd('new-spec.md');
+
+  // Must call set-stage --force when Status is SPEC_CREATED
+  assert(
+    content.includes('set-stage') && content.includes('--force') && content.includes('shaping'),
+    'new-spec.md amend flow calls set-stage --force shaping when SPEC_CREATED (FIX 5 batch16)'
+  );
+
+  // The old "keep the registry stage as-is" must be gone
+  assert(
+    !content.includes('keep the registry stage as-is'),
+    'new-spec.md amend flow no longer says "keep the registry stage as-is" (FIX 5 batch16)'
+  );
+
+  // Must explain this resets to match the STATE.md — look for the set-stage --force shaping combo
+  assert(
+    content.includes('set-stage') && content.includes('--force') &&
+    (() => {
+      const setStageIdx = content.indexOf('set-stage --bee .bee --slug <slug> --stage shaping --force');
+      return setStageIdx > -1;
+    })(),
+    'new-spec.md: --force set-stage targets shaping to match reset STATE.md (FIX 5 batch16)'
+  );
+}
+
+// ============================================================
 // Results
 // ============================================================
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);

@@ -69,7 +69,10 @@ fi
 # Cap at 100 lines to prevent unbounded context growth.
 CONTEXT_INJECTED=false
 if [ -f "$BEE_DIR/specs.json" ]; then
-  # FIX 4: derive focused slug from specs.json, not the stale global STATE.md
+  # FIX 4 (batch16): derive focused slug from specs.json, not the stale global STATE.md.
+  # When 2+ specs are active, there is no reliable per-chat binding — suppress per-spec
+  # context injection entirely and emit only the multi-spec advisory below.
+  # Single-active-spec behavior unchanged (inject that spec's context).
   FOCUSED_SLUG=$(node -e "
     (function() {
       try {
@@ -80,19 +83,11 @@ if [ -f "$BEE_DIR/specs.json" ]; then
         if (active.length === 1) {
           // Exactly one active spec: focus it regardless of what global STATE.md says
           process.stdout.write(active[0].slug);
-        } else if (active.length > 1) {
-          // Multiple active: check if global STATE.md path resolves to one of them
-          // (from a prior touch/focus operation) to disambiguate
-          let resolved = '';
-          try {
-            const stateContent = require('fs').readFileSync('$BEE_DIR/STATE.md', 'utf8');
-            const m = stateContent.match(/^- Path:.*\.bee\/specs\/([^\/\s]+)/m);
-            if (m && m[1] && active.some(s => s.slug === m[1])) resolved = m[1];
-          } catch(_) {}
-          // Write resolved slug if found; otherwise suppress (empty = ambiguous)
-          process.stdout.write(resolved);
         }
-        // else: no active specs — write nothing (suppress context)
+        // Multiple active (length > 1): suppress — no reliable per-chat binding exists.
+        // Do NOT attempt to resolve from global STATE.md path (that is a cross-chat signal).
+        // The multi-spec advisory below handles the 2+ case.
+        // Zero active: write nothing (suppress context)
       } catch(e) { /* suppress context on any error */ }
     })();
   " 2>/dev/null)

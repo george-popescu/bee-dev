@@ -159,14 +159,14 @@ assert(fs.readFileSync(gpath, 'utf8').includes('| 1 | Keep | PENDING |'),
   assert(bogus.status !== 0, 'F15: genuinely unknown slug still exits non-zero');
 }
 
-// F22: resolve with 6 active specs caps candidates at 4, reports more:2
+// F22: resolve with 6 active specs caps candidates at 3, reports more:3 (batch16: cap changed from 4 to 3)
 {
   const f22 = tmpBee(); fs.mkdirSync(f22, { recursive: true });
   for (let i = 1; i <= 6; i++) run(['register', '--bee', f22, '--slug', `spec-${i}`, '--title', `Spec ${i}`, '--stage', 'planning']);
   const r22 = JSON.parse(run(['resolve', '--bee', f22]).stdout);
   assert(r22.mode === 'pick', 'F22: resolve is pick with 6 active');
-  assert(r22.candidates.length === 4, 'F22: candidates capped at 4');
-  assert(r22.more === 2, 'F22: more === 2 for the remaining specs');
+  assert(r22.candidates.length === 3, 'F22: candidates capped at 3 (batch16 FIX 3)');
+  assert(r22.more === 3, 'F22: more === 3 for the remaining specs (batch16 FIX 3)');
 }
 
 // Async section: set-stage, touch-terminal-guard, concurrency

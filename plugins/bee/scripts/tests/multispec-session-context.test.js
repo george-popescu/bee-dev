@@ -462,6 +462,93 @@ console.log('\nGroup 13: load-context.sh — FIX 4: single active spec preferred
 }
 
 // ============================================================
+// 14. load-context.sh — FIX 4 (batch16): 2+ active specs → suppress per-spec context
+// ============================================================
+console.log('\nGroup 14: load-context.sh — FIX 4 (batch16): 2+ active specs suppress per-spec context injection');
+{
+  const loadScript = path.join(SCRIPTS_DIR, 'load-context.sh');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bee-lc-multi-'));
+  const beeDir = path.join(tmpDir, '.bee');
+  const slugA = '2026-06-01-spec-alpha';
+  const slugB = '2026-06-10-spec-beta';
+  const specADir = path.join(beeDir, 'specs', slugA);
+  const specBDir = path.join(beeDir, 'specs', slugB);
+  fs.mkdirSync(specADir, { recursive: true });
+  fs.mkdirSync(specBDir, { recursive: true });
+
+  // Registry: BOTH slugs are active
+  fs.writeFileSync(path.join(beeDir, 'specs.json'), JSON.stringify({
+    specs: [
+      { slug: slugA, title: 'Alpha', stage: 'planning', location: 'in-place', created: '2026-06-01T00:00:00Z', last_touched: '2026-06-01T12:00:00Z' },
+      { slug: slugB, title: 'Beta', stage: 'executing', location: 'in-place', created: '2026-06-10T00:00:00Z', last_touched: '2026-06-10T12:00:00Z' },
+    ]
+  }, null, 2));
+
+  // Global STATE.md points at slugA (the "last-touched" cross-chat signal)
+  fs.writeFileSync(path.join(beeDir, 'STATE.md'), [
+    '# Bee Project State',
+    '## Current Spec',
+    `- Name: Alpha`,
+    `- Path: .bee/specs/${slugA}/`,
+    '- Status: IN_PROGRESS',
+    '## Phases',
+    '| # | Name | Status |',
+    '|---|------|--------|',
+    '## Last Action',
+    '- Command: /bee:plan-phase',
+    '- Timestamp: 2026-06-01T12:00:00Z',
+    '- Result: Phase 1 planned',
+  ].join('\n'), 'utf8');
+
+  // Both specs have per-spec session contexts
+  fs.writeFileSync(path.join(specADir, 'SESSION-CONTEXT.md'), '# Alpha session context\nDo not inject when multi-spec.\n', 'utf8');
+  fs.writeFileSync(path.join(specBDir, 'SESSION-CONTEXT.md'), '# Beta session context\nDo not inject when multi-spec.\n', 'utf8');
+
+  let result = '';
+  try {
+    result = execFileSync('bash', [loadScript], {
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, CLAUDE_PROJECT_DIR: tmpDir },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  } catch (err) {
+    result = err.stdout || '';
+  }
+
+  // FIX 4 (batch16): when 2+ active, NO per-spec "Previous Session Context" block must appear
+  assert(
+    !result.includes('Alpha session context') && !result.includes('Beta session context'),
+    'FIX4(batch16): 2+ active specs — no per-spec session context is injected (FIX 4)'
+  );
+  // The "Previous Session Context" heading must not appear (it means a per-spec block was injected)
+  assert(
+    !result.includes('Previous Session Context'),
+    'FIX4(batch16): 2+ active specs — "Previous Session Context" heading is NOT emitted (FIX 4)'
+  );
+  // The multi-spec advisory MUST still appear
+  assert(
+    result.includes('Multiple Active Specs') || result.includes('multiple active') || result.includes('not bound to one'),
+    'FIX4(batch16): 2+ active specs — multi-spec advisory is still emitted (not suppressed)'
+  );
+
+  // Source-level assertion: the batch16 FIX 4 comment must be present in the script
+  const sh = fs.readFileSync(loadScript, 'utf8');
+  assert(
+    sh.includes('FIX 4') && (sh.includes('batch16') || sh.includes('suppress per-spec')),
+    'load-context.sh source contains FIX 4 batch16 suppression comment'
+  );
+  // The old STATE.md path lookup must NOT be present in the active.length > 1 branch
+  // (It would mean the stale cross-chat signal is still being used)
+  assert(
+    !sh.includes("} else if (active.length > 1) {\n          // Multiple active: check if global STATE.md"),
+    'load-context.sh active.length > 1 branch does NOT look up stale global STATE.md path (FIX 4 batch16)'
+  );
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+}
+
+// ============================================================
 // Summary
 // ============================================================
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);

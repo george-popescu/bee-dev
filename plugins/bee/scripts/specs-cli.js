@@ -115,9 +115,9 @@ function main(argv) {
       }
     }
     let result = resolveTarget({ registry: r, worktreeSpec: f['worktree-spec'] || null, legacySpec });
-    if (result.mode === 'pick' && result.candidates.length > 4) {
+    if (result.mode === 'pick' && result.candidates.length > 3) {
       const total = result.candidates.length;
-      result = { ...result, candidates: result.candidates.slice(0, 4), more: total - 4 };
+      result = { ...result, candidates: result.candidates.slice(0, 3), more: total - 3 };
     }
     process.stdout.write(JSON.stringify(result) + '\n');
     return 0;

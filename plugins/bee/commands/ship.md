@@ -31,13 +31,15 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 
 - `{"mode":"create"}` → no active spec. Tell the user "No active spec to ship. Run `/bee:new-spec` first." Stop.
 - `{"mode":"auto","slug":"X"}` → target spec `X`. Check the Current Spec Path in `.bee/STATE.md`; if it does NOT already point to `.bee/specs/X/`, the touch below will re-sync it (stale global case — e.g., prior complete reset to NO_SPEC).
-- `{"mode":"pick","candidates":[…]}` → ship is unattended once it starts, so you MUST choose the spec NOW via AskUserQuestion. Present each candidate as `{title} ({stage})` (slug as selection value), most-recently-touched first, `Custom` last. If two or more candidates share the same title AND stage, append ` [{slug}]` to each of those labels so they are distinguishable. If the JSON includes a `more` field, append `+{more} more active spec(s) — run \`/bee:spec list\` to see all.` as the last option before "Custom". If a candidate lacks a `title`, fall back to its slug. This entry-point menu is the ONE allowed interaction; the pipeline after Step 1 stays fully autonomous.
+- `{"mode":"pick","candidates":[…]}` → ship is unattended once it starts, so you MUST choose the spec NOW via AskUserQuestion. Present each candidate as `{title} ({stage})` (slug as selection value), most-recently-touched first, `Custom` last. If two or more candidates share the same title AND stage, append ` [{slug}]` to each of those labels so they are distinguishable. If the JSON includes a `more` field, include "+{more} more active spec(s) — run `/bee:spec list` to see all." as informational text in the question body (NOT as a selectable option). If a candidate lacks a `title`, fall back to its slug. This entry-point menu is the ONE allowed interaction; the pipeline after Step 1 stays fully autonomous.
 
 Then sync global STATE.md to the chosen spec and record it as the Current Spec Path for the rest of this command:
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>
 ```
+
+Check the exit code of this touch command. If it exits non-zero (e.g., the resolved spec's per-spec STATE.md snapshot is missing), ABORT ship immediately with an explicit error: "Could not switch to spec <slug> (snapshot missing); aborting ship to avoid shipping the wrong spec. Run `/bee:spec list`." Do NOT proceed to execute/review/PR on the stale previously-focused spec.
 
 Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's.
 

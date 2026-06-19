@@ -35,19 +35,20 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 Parse the JSON result and act on the `mode` field:
 
 - `mode:create` — no active spec exists. Brief the project generally (stack, last action from STATE.md) and suggest `/bee:new-spec` to start a new spec. Do NOT proceed to the pause detection or briefing below.
-- `mode:auto` — exactly one active spec. Check the Current Spec Path in `.bee/STATE.md` (already read in preamble). If it does NOT already point to `.bee/specs/<slug>/`, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` and re-read `.bee/STATE.md` from disk (the global was stale — e.g., reset to NO_SPEC by a prior complete). If it already matches, proceed without touching. Proceed to Step 0 below.
+- `mode:auto` — exactly one active spec. Check the Current Spec Path in `.bee/STATE.md` (already read in preamble). If it does NOT already point to `.bee/specs/<slug>/`, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` and check its exit code — if non-zero (snapshot missing), ABORT with: "Could not switch to spec <slug> (snapshot missing); aborting. Run `/bee:spec list`." Then re-read `.bee/STATE.md` from disk (the global was stale — e.g., reset to NO_SPEC by a prior complete). If it already matches, proceed without touching. Proceed to Step 0 below.
 - `mode:pick` — multiple active specs and this chat is not bound to one. Before presenting the picker, check for a per-spec pause handoff for each candidate: use Bash to test whether `.bee/specs/<slug>/pause-handoff.md` exists for each candidate. If it does, annotate that candidate as `"{title} ({stage}) — paused here"` so the user can identify which spec they paused mid-session; otherwise use the normal `"{title} ({stage})"` format. Present a picker:
   ```
   AskUserQuestion(
-    question: "Multiple active specs found. Which would you like to resume?",
+    question: "Multiple active specs found. Which would you like to resume?\n+{more} more active spec(s) — run `/bee:spec list` to see all. (include in question body if more > 0, not as an option)",
     options: [...candidates as "{title} ({stage})" or "{title} ({stage}) — paused here" (slug as selection value, most-recently-touched first; if two candidates share the same title AND stage, append " [{slug}]" to each of those labels), "Custom"]
   )
   ```
-  If the JSON includes a `more` field, append `+{more} more active spec(s) — run \`/bee:spec list\` to see all.` before "Custom". If a candidate lacks a `title`, fall back to its slug.
+  If the JSON includes a `more` field, include "+{more} more active spec(s) — run `/bee:spec list` to see all." as informational text in the question body (NOT as a selectable option). If a candidate lacks a `title`, fall back to its slug.
   After the user picks, run:
   ```bash
   node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <chosen-slug>
   ```
+  Check the exit code. If non-zero (snapshot missing), ABORT with: "Could not switch to spec <chosen-slug> (snapshot missing); aborting. Run `/bee:spec list`."
   Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's. Then proceed to Step 0 below, briefing the chosen spec. Do NOT assume the last-touched spec when `mode:pick` — always ask.
 
 ### Step 0: Pause Detection

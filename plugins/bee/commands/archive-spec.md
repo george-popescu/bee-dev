@@ -21,13 +21,15 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 
 - `{"mode":"create"}` → no active spec to archive. Tell the user: "No active spec to archive. Run `/bee:new-spec` first." Stop.
 - `{"mode":"auto","slug":"X"}` → target spec `X`. Check the Current Spec Path in `.bee/STATE.md`; if it does NOT already point to `.bee/specs/X/`, the touch below will re-sync it (stale global — e.g., prior complete reset to NO_SPEC).
-- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to archive. Present each candidate as `{title} ({stage})` (slug as selection value), last-touched first, `Custom` last. If two or more candidates share the same title AND stage, append ` [{slug}]` to each of those labels so they are distinguishable. If the JSON has `more`, add `+{more} more active spec(s) — run \`/bee:spec list\` to see all.` as the last option before "Custom".
+- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to archive. Present each candidate as `{title} ({stage})` (slug as selection value), last-touched first, `Custom` last. If two or more candidates share the same title AND stage, append ` [{slug}]` to each of those labels so they are distinguishable. If the JSON has `more`, include "+{more} more active spec(s) — run `/bee:spec list` to see all." as informational text in the question body (NOT as a selectable option).
 
 Once the slug is chosen, run:
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>
 ```
+
+Check the exit code of this touch command. If it exits non-zero (snapshot missing or spec unknown), ABORT with an explicit error: "Could not switch to spec <slug> (snapshot missing); aborting to avoid acting on the wrong spec. Run `/bee:spec list`."
 
 so that global STATE.md reflects the chosen spec for the rest of this command. Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's. Use this resolved slug as `{spec-folder-name}` wherever that placeholder appears in the steps below.
 
@@ -116,6 +118,24 @@ Perform a double-write to STATE.md to record the transition through ARCHIVED sta
 5. Leave the Phases table as-is (preserving the record of what was done).
 6. Keep the Last Action from the first write unchanged.
 7. Write STATE.md to disk.
+
+**Load survivor spec into global (FIX 1 — prevents "no active spec" after multi-spec archive):**
+
+After writing NO_SPEC, check for remaining active specs:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active --json
+```
+
+Parse the JSON array. Filter out entries whose `slug` equals `{spec-folder-name}` (the just-archived spec). If one or more OTHER active specs remain, load the most-recently-touched survivor into global:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <most-recent-survivor-slug>
+```
+
+Then re-read `.bee/STATE.md` from disk. Tell the user: "Switched to remaining spec: {most-recent-survivor-slug}."
+
+If NO other active specs remain, leave global at NO_SPEC — the genuine idle case.
 
 ### Step 5.5: Archive Agent Memory
 

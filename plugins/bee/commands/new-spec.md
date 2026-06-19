@@ -587,9 +587,9 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 Interpret the JSON:
 - `{"mode":"create"}` → no active spec. Tell the user: "No active spec found. Run `/bee:new-spec` first to create one." Stop here.
 - `{"mode":"auto","slug":"X"}` → silently target spec `X`.
-- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to amend, listing candidates (last-touched first) with `Custom` last. Use the chosen slug.
+- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to amend, listing candidates (last-touched first) with `Custom` last. If the JSON includes a `more` field, include "+{more} more active spec(s) — run `/bee:spec list` to see all." as informational text in the question body (NOT as a selectable option). Use the chosen slug.
 
-Once the slug is resolved, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` to sync the global STATE.md to the chosen spec before proceeding.
+Once the slug is resolved, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` to sync the global STATE.md to the chosen spec before proceeding. Check the exit code — if non-zero (snapshot missing), ABORT with: "Could not switch to spec <slug> (snapshot missing); aborting amend. Run `/bee:spec list`."
 
 1. Read `.bee/STATE.md` and find the current spec path from the "Current Spec" section (now guaranteed to reflect the resolved slug).
 2. If no current spec path exists after touch, tell the user: "No active spec found. Run `/bee:new-spec` first to create one." Stop here.
@@ -654,9 +654,9 @@ After all steps complete successfully (in either the new or amend flow), re-read
 5. Populate the **Phases** table:
    - For **new spec flow**: one row per phase, all with Status `PENDING` and all other columns (Plan, Plan Review, Executed, Reviewed, Tested, Committed) empty.
    - For **amend flow**: for each phase, check `$PRE_AMEND_PHASE_STATUS`. If that phase has preserved Executed/Committed column values (from the preservation step in Step 10), write those values back rather than resetting to PENDING. Only new phases that did not previously exist start at PENDING.
-6. After writing the Phases table, sync the registry stage to match the Status written in step 3 (FIX 3). Do NOT regress the registry stage if it is already more advanced:
+6. After writing the Phases table, sync the registry stage to match the Status written in step 3 (FIX 3 + FIX 5 batch16):
    - If Status is `IN_PROGRESS` and the current registry stage is `shaping`, `discussing`, or `planning`, advance it to `executing` via: `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug <slug> --stage executing`
-   - If Status is `SPEC_CREATED`, keep the registry stage as-is (do not regress from `executing` or above).
+   - If Status is `SPEC_CREATED` (all phase progress discarded in an amend that reset everything), regress the registry stage back to `shaping` using `--force` to bypass the no-regress guard: `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug <slug> --stage shaping --force`. This ensures the registry matches the reset STATE.md rather than leaving the registry at `executing` or `planning` while the spec is effectively brand-new.
 7. Set **Last Action** to:
    - Command: `/bee:new-spec` (or `/bee:new-spec --amend` if amending)
    - Timestamp: current ISO 8601 timestamp

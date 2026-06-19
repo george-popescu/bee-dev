@@ -79,5 +79,47 @@ assert(
   `plan-phase.md contains exactly 1 specs-cli.js resolve occurrence (found ${planResolverCount}) — FIX 3 dedup`
 );
 
+// ============================================================
+// FIX 3 (batch16): specs-cli.js resolve caps candidates at 3 (not 4)
+// ============================================================
+const specsCli = fs.readFileSync(path.join(__dirname, '..', 'specs-cli.js'), 'utf8');
+
+// Must cap at 3 (changed from 4)
+assert(
+  specsCli.includes('candidates.length > 3') || specsCli.includes('.length > 3'),
+  'specs-cli.js resolve caps candidates at 3 (FIX 3 batch16)'
+);
+assert(
+  specsCli.includes('.slice(0, 3)'),
+  'specs-cli.js resolve slices candidates to first 3 (FIX 3 batch16)'
+);
+assert(
+  specsCli.includes('total - 3') || specsCli.includes('- 3'),
+  'specs-cli.js resolve computes more as total - 3 (FIX 3 batch16)'
+);
+// Must NOT cap at 4 anymore
+assert(
+  !specsCli.includes('candidates.length > 4') && !specsCli.includes('.slice(0, 4)') && !specsCli.includes('total - 4'),
+  'specs-cli.js resolve no longer uses cap of 4 (FIX 3 batch16)'
+);
+
+// FIX 3 (batch16): picker prose in key commands — more must be informational text, NOT a selectable option
+const commandsWithPicker = ['complete-spec.md', 'archive-spec.md', 'ship.md', 'plan-phase.md', 'execute-phase.md', 'next.md', 'resume.md', 'discuss.md'];
+for (const cmd of commandsWithPicker) {
+  const content = readCmd(cmd);
+  const badPattern = /last option before.*Custom|as the last option before/i;
+  assert(
+    !badPattern.test(content),
+    `${cmd}: "+{more}" is NOT rendered as a selectable option (FIX 3 batch16)`
+  );
+  // If `more` is mentioned, it must be described as informational text in the question body
+  if (content.includes('{more}')) {
+    assert(
+      content.includes('informational text') || content.includes('question body') || content.includes('NOT as a selectable option'),
+      `${cmd}: "+{more}" is described as informational text in the question body (FIX 3 batch16)`
+    );
+  }
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);
