@@ -47,5 +47,11 @@ fs.writeFileSync(path.join(bee, 'specs.json'), '{ not json');
 assert(R.readRegistry(bee).specs.length === 0, 'corrupt specs.json reads as empty');
 assert(fs.existsSync(path.join(bee, 'specs.json.bak')), 'corrupt specs.json is backed up');
 
+// structurally invalid (parses but specs not array) -> backup + empty
+const bee2 = tmpBee();
+fs.writeFileSync(path.join(bee2, 'specs.json'), '{"specs": null}');
+assert(R.readRegistry(bee2).specs.length === 0, 'structurally-invalid specs.json reads as empty');
+assert(fs.existsSync(path.join(bee2, 'specs.json.bak')), 'structurally-invalid specs.json is backed up');
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

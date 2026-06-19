@@ -17,9 +17,14 @@ function readRegistry(beeDir) {
   try { raw = fs.readFileSync(p, 'utf8'); } catch (e) { return emptyRegistry(); }
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.specs)) return emptyRegistry();
+    if (!parsed || !Array.isArray(parsed.specs)) {
+      // structurally invalid -> preserve original, return empty
+      try { fs.writeFileSync(p + '.bak', raw); } catch (_) {}
+      return emptyRegistry();
+    }
     return parsed;
   } catch (e) {
+    // parse error -> preserve original, return empty
     try { fs.writeFileSync(p + '.bak', raw); } catch (_) {}
     return emptyRegistry();
   }
