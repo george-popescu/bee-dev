@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- Per-spec memory: each spec can carry `.bee/specs/<slug>/memory.md` with guidance that is injected into agents while that spec is the active one. View and edit it with `/bee:memory`.
+
+### Changed
+- `/bee:memory` now manages both global preferences (`user.md`) and the active spec's memory.
+
+### Removed
+- Retired the unused project-global agent-memory archiving (`.bee/memory/` and `archive-memory.sh`). `user.md` remains the global persistent memory; per-spec memory now lives with each spec.
+
+---
+
 ## [4.5.2] - 2026-06-03 -- Bee Velocity — Conversation context capture + per-install MCP tool discovery
 
 Two context-fidelity fixes. First, bee commands no longer lose the conversation when they hand work to subagents. Second, bee's Context7 and Laravel Boost integrations now work regardless of how those MCP servers were installed.
