@@ -57,21 +57,6 @@ These guards run AFTER spec resolution so they evaluate the correct spec's state
 
 Use AskUserQuestion with options: ["Cancel (recommended)", "Proceed anyway (data loss risk)", "Custom"]. Only proceed on explicit "Proceed anyway" confirmation.
 
-### Step: Resolve target spec
-
-Determine which spec this command acts on:
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
-```
-
-Interpret the JSON:
-- `{"mode":"create"}` → no active spec. Tell the user: "No active spec. Run `/bee:new-spec` first." Stop.
-- `{"mode":"auto","slug":"X"}` → silently target spec `X` (single-spec behavior, unchanged).
-- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to work on, listing candidates (last-touched first) with `Custom` last. Use the chosen slug.
-
-Once the slug is chosen, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` — this syncs `.bee/STATE.md` to the chosen spec. Then proceed using `.bee/STATE.md` as this command normally does.
-
 ### Step 2: Create Phase Directory
 
 1. Read phases.md to get the phase name for the requested phase number

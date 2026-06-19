@@ -140,11 +140,11 @@ function main(argv) {
     });
     if (touchErr) { process.stderr.write(touchErr); return 1; }
     const g = currentGlobalSlug(beeDir);
-    if (g && g !== f.slug) {
-      snapshotToPerSpec(beeDir, g);     // save the outgoing spec's live state
-      restoreToGlobal(beeDir, f.slug);  // restore the incoming spec's state
+    if (g === f.slug) {
+      snapshotToPerSpec(beeDir, f.slug); // same spec in global: capture latest edits into the snapshot
     } else {
-      snapshotToPerSpec(beeDir, f.slug); // capture the live global into this spec's snapshot
+      if (g) snapshotToPerSpec(beeDir, g); // a DIFFERENT real spec is in global: save it before switching
+      restoreToGlobal(beeDir, f.slug);     // load target's snapshot into global (also the NO_SPEC case)
     }
     process.stdout.write(`touched ${f.slug}\n`);
     return 0;

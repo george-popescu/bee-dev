@@ -13,6 +13,24 @@ Read these files using the Read tool:
 
 You are running `/bee:complete-spec` -- the full spec lifecycle ceremony command for BeeDev. This command runs the complete ceremony: audit (traceability) -> changelog -> git tag -> archive -> spec history -> STATE.md reset. Follow these steps in order. This command never auto-commits -- the user decides when to commit via `/bee:commit`.
 
+### Step 0: Resolve target spec
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
+```
+
+- `{"mode":"create"}` → no active spec to complete. Tell the user: "No active spec to complete. Run `/bee:new-spec` first." Stop.
+- `{"mode":"auto","slug":"X"}` → target spec `X`.
+- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to complete (candidates last-touched first, surface each candidate's `title` and `stage`, `Custom` last; if the JSON has `more`, add "+{more} more — run `/bee:spec list`").
+
+Once the slug is chosen, run:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>
+```
+
+so that global STATE.md reflects the chosen spec for the rest of this command. Use this resolved slug as `{spec-folder-name}` wherever that placeholder appears in the steps below.
+
 ### Step 1: Validation Guards
 
 See `skills/command-primitives/SKILL.md` Validation Guards.

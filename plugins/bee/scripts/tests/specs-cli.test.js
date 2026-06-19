@@ -237,6 +237,41 @@ assert(fs.readFileSync(gpath, 'utf8').includes('| 1 | Keep | PENDING |'),
     assert(r.mode === 'auto' && r.slug === 'keep-spec', 'resolver auto-targets the remaining spec, not the shipped ghost');
   }
 
+  // FIX 1 regression: touch B after global is NO_SPEC must RESTORE B (not wipe it)
+  {
+    const fix1 = tmpBee(); fs.mkdirSync(fix1, { recursive: true });
+    // Register A and B
+    run(['register', '--bee', fix1, '--slug', 'spec-a', '--title', 'A', '--stage', 'planning']);
+    run(['register', '--bee', fix1, '--slug', 'spec-b', '--title', 'B', '--stage', 'planning']);
+    // Touch B so B's per-spec snapshot exists; write distinct phase content into B's snapshot
+    run(['touch', '--bee', fix1, '--slug', 'spec-b']);
+    const bSpecPath = path.join(fix1, 'specs', 'spec-b', 'STATE.md');
+    // Write distinct content into B's global (B is active) then capture it
+    const globalPath = path.join(fix1, 'STATE.md');
+    fs.writeFileSync(globalPath, fs.readFileSync(globalPath, 'utf8').replace('## Phases', '## Phases\n| 1 | BuildB | PENDING |'));
+    // Snapshot B's state (simulates what touch would do on same-spec case)
+    run(['touch', '--bee', fix1, '--slug', 'spec-b']);
+    // Verify B's per-spec snapshot now has the phase content
+    const bContentBefore = fs.readFileSync(bSpecPath, 'utf8');
+    assert(bContentBefore.includes('BuildB'), 'FIX1: B per-spec snapshot has B phase content before NO_SPEC');
+    // Now simulate complete-spec: set global to NO_SPEC
+    const nospecContent = fs.readFileSync(globalPath, 'utf8')
+      .replace(/- Status:.*/, '- Status: NO_SPEC')
+      .replace(/- Name:.*/, '- Name: (none)')
+      .replace(/- Path:.*/, '- Path: (none)');
+    fs.writeFileSync(globalPath, nospecContent);
+    // NOW touch B (the bug scenario: g===null, used to take else->snapshotToPerSpec(B) wiping B)
+    const touchResult = run(['touch', '--bee', fix1, '--slug', 'spec-b']);
+    assert(touchResult.status === 0, 'FIX1: touch B with NO_SPEC global exits 0');
+    // B's per-spec STATE.md must still have B's content (not wiped by NO_SPEC global)
+    const bContentAfter = fs.readFileSync(bSpecPath, 'utf8');
+    assert(bContentAfter.includes('BuildB'), 'FIX1: B per-spec STATE.md still has B content after touch from NO_SPEC (not wiped)');
+    // Global must now reflect B (restored), not NO_SPEC
+    const globalAfter = fs.readFileSync(globalPath, 'utf8');
+    assert(globalAfter.includes('spec-b'), 'FIX1: global STATE.md reflects B after touch from NO_SPEC (restored, not wiped)');
+    assert(!/^- Status:\s*NO_SPEC/m.test(globalAfter), 'FIX1: global STATE.md Status field is no longer NO_SPEC after touch B');
+  }
+
   console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
   process.exit(failed > 0 ? 1 : 0);
 })();

@@ -526,6 +526,54 @@ assert(
 fs.unlinkSync(fullPath);
 
 // ============================================================
+// Test Group 6: FIX 4 regression — empty single-line field must not
+// cross into the next line and capture it as the field value.
+// An empty "- Timestamp:" followed by "- Result: X" must yield
+// timestamp===null and result==='X' (not timestamp==='- Result: X').
+// ============================================================
+console.log('\nTest Group 6: Empty single-line field does not cross newline (FIX 4)');
+
+const emptyFieldPath = path.join(os.tmpdir(), `empty-field-state-${Date.now()}.md`);
+fs.writeFileSync(
+  emptyFieldPath,
+  '# Bee Project State\n\n' +
+  '## Current Spec\n' +
+  '- Name:\n' +
+  '- Path: .bee/specs/no-spec/\n' +
+  '- Status: NO_SPEC\n\n' +
+  '## Phases\n\n' +
+  '## Last Action\n' +
+  '- Command: /bee:complete-spec\n' +
+  '- Timestamp:\n' +
+  '- Result: spec completed\n'
+);
+
+const emptyFieldResult = parser.parseStateMd(emptyFieldPath);
+
+assert(
+  emptyFieldResult.lastAction.timestamp === null,
+  'FIX4: empty Timestamp field yields null (not the next line)'
+);
+assert(
+  emptyFieldResult.lastAction.result === 'spec completed',
+  'FIX4: Result field after empty Timestamp parses correctly as "spec completed"'
+);
+assert(
+  emptyFieldResult.lastAction.command === '/bee:complete-spec',
+  'FIX4: Command field still parses correctly when Timestamp is empty'
+);
+assert(
+  emptyFieldResult.currentSpec.name === null,
+  'FIX4: empty Name field yields null (not the next line)'
+);
+assert(
+  emptyFieldResult.currentSpec.status === 'NO_SPEC',
+  'FIX4: Status field after empty Name parses correctly'
+);
+
+fs.unlinkSync(emptyFieldPath);
+
+// ============================================================
 // Results
 // ============================================================
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
