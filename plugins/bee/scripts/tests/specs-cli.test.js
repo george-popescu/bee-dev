@@ -128,5 +128,64 @@ assert(fs.readFileSync(gpath, 'utf8').includes('| 1 | Keep | PENDING |'),
   assert(rg.includes('Use Vitest'), 'register preserves global Decisions Log on first-spec creation');
 }
 
-console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
-process.exit(failed > 0 ? 1 : 0);
+// Async section: set-stage, touch-terminal-guard, concurrency
+(async () => {
+  const { spawn } = require('child_process');
+
+  // set-stage: register -> set-stage shipped -> list --active returns [] -> resolve returns create
+  {
+    const ssb = tmpBee(); fs.mkdirSync(ssb, { recursive: true });
+    run(['register', '--bee', ssb, '--slug', 'tgt', '--title', 'TGT', '--stage', 'planning']);
+    const ss = run(['set-stage', '--bee', ssb, '--slug', 'tgt', '--stage', 'shipped']);
+    assert(ss.status === 0, 'set-stage exits 0');
+    assert(ss.stdout.includes('tgt -> shipped'), 'set-stage stdout confirms transition');
+    const active = JSON.parse(run(['list', '--bee', ssb, '--active', '--json']).stdout);
+    assert(active.length === 0, 'set-stage shipped: list --active returns empty');
+    const resolved = JSON.parse(run(['resolve', '--bee', ssb]).stdout);
+    assert(resolved.mode === 'create', 'set-stage shipped: resolve returns mode:create');
+  }
+
+  // set-stage: invalid stage exits non-zero
+  {
+    const isb = tmpBee(); fs.mkdirSync(isb, { recursive: true });
+    run(['register', '--bee', isb, '--slug', 'inv', '--title', 'Inv', '--stage', 'planning']);
+    const r = run(['set-stage', '--bee', isb, '--slug', 'inv', '--stage', 'nonexistent']);
+    assert(r.status !== 0, 'set-stage invalid stage exits non-zero');
+  }
+
+  // set-stage: unknown slug exits non-zero
+  {
+    const ub = tmpBee(); fs.mkdirSync(ub, { recursive: true });
+    const r = run(['set-stage', '--bee', ub, '--slug', 'ghost', '--stage', 'shipped']);
+    assert(r.status !== 0, 'set-stage unknown slug exits non-zero');
+  }
+
+  // touch refuses terminal: register -> set-stage shipped -> touch -> exit non-zero, no STATE.md created
+  {
+    const tb = tmpBee(); fs.mkdirSync(tb, { recursive: true });
+    run(['register', '--bee', tb, '--slug', 'done', '--title', 'Done', '--stage', 'planning']);
+    run(['set-stage', '--bee', tb, '--slug', 'done', '--stage', 'shipped']);
+    // remove per-spec STATE.md to verify touch does not recreate it
+    const stateMd = path.join(tb, 'specs', 'done', 'STATE.md');
+    if (fs.existsSync(stateMd)) fs.unlinkSync(stateMd);
+    const tr = run(['touch', '--bee', tb, '--slug', 'done']);
+    assert(tr.status !== 0, 'touch refuses terminal spec (exits non-zero)');
+    assert(!fs.existsSync(stateMd), 'touch refused terminal: STATE.md not recreated');
+  }
+
+  // Concurrency: two concurrent registers for different slugs -> both survive, valid JSON
+  {
+    const cbee = tmpBee(); fs.mkdirSync(cbee, { recursive: true });
+    const p1 = spawn('node', [CLI, 'register', '--bee', cbee, '--slug', 'con-a', '--title', 'A', '--stage', 'planning']);
+    const p2 = spawn('node', [CLI, 'register', '--bee', cbee, '--slug', 'con-b', '--title', 'B', '--stage', 'planning']);
+    const done = () => new Promise(res => { let n = 0; const f = () => { if (++n === 2) res(); }; p1.on('close', f); p2.on('close', f); });
+    await done();
+    const raw = fs.readFileSync(path.join(cbee, 'specs.json'), 'utf8');
+    let parsed; try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
+    assert(parsed !== null, 'concurrent registers leave valid JSON (atomic write)');
+    assert(parsed && parsed.specs.length === 2, 'concurrent registers both survive (lock + re-read)');
+  }
+
+  console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
+  process.exit(failed > 0 ? 1 : 0);
+})();

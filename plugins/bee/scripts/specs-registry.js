@@ -30,8 +30,28 @@ function readRegistry(beeDir) {
 }
 
 function writeRegistry(beeDir, reg) {
-  fs.writeFileSync(registryPath(beeDir), JSON.stringify(reg, null, 2) + '\n');
+  const p = registryPath(beeDir);
+  const tmp = p + '.tmp.' + process.pid;
+  fs.writeFileSync(tmp, JSON.stringify(reg, null, 2) + '\n');
+  fs.renameSync(tmp, p);
   return reg;
+}
+
+function withRegistryLock(beeDir, fn) {
+  const lock = registryPath(beeDir) + '.lock';
+  const deadline = Date.now() + 5000;
+  let fd = null;
+  for (;;) {
+    try { fd = fs.openSync(lock, 'wx'); break; }            // O_CREAT|O_EXCL
+    catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      // steal a stale lock (>10s old) to avoid permanent deadlock from a crashed writer
+      try { const st = fs.statSync(lock); if (Date.now() - st.mtimeMs > 10000) { fs.unlinkSync(lock); continue; } } catch (_) {}
+      if (Date.now() > deadline) throw new Error('specs.json lock timeout');
+      try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20); } catch (_) {} // 20ms sync sleep
+    }
+  }
+  try { return fn(); } finally { try { fs.closeSync(fd); } catch (_) {} try { fs.unlinkSync(lock); } catch (_) {} }
 }
 
 function getSpec(reg, slug) { return reg.specs.find(s => s.slug === slug) || null; }
@@ -63,5 +83,5 @@ function activeSpecs(reg) {
 
 module.exports = {
   STAGES, TERMINAL_STAGES, registryPath, emptyRegistry,
-  readRegistry, writeRegistry, getSpec, upsertSpec, touchSpec, setStage, activeSpecs,
+  readRegistry, writeRegistry, withRegistryLock, getSpec, upsertSpec, touchSpec, setStage, activeSpecs,
 };

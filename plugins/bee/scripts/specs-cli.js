@@ -61,9 +61,11 @@ function main(argv) {
     backfillLegacySpec(beeDir);
     const outgoing = currentGlobalSlug(beeDir);
     if (outgoing && outgoing !== f.slug) snapshotToPerSpec(beeDir, outgoing);
-    const r = reg.readRegistry(beeDir);
-    reg.upsertSpec(r, { slug: f.slug, title: f.title, stage: f.stage || 'shaping', location: 'in-place' }, nowIso());
-    reg.writeRegistry(beeDir, r);
+    reg.withRegistryLock(beeDir, () => {
+      const r = reg.readRegistry(beeDir);
+      reg.upsertSpec(r, { slug: f.slug, title: f.title, stage: f.stage || 'shaping', location: 'in-place' }, nowIso());
+      reg.writeRegistry(beeDir, r);
+    });
     initSpecState(beeDir, f.slug, { name: f.title || f.slug, status: 'SPEC_CREATED' });
     if (currentGlobalSlug(beeDir) === f.slug) {
       // Re-registering the spec already reflected in global: capture the live
@@ -85,10 +87,12 @@ function main(argv) {
   }
   if (sub === 'resolve') {
     const r = reg.readRegistry(beeDir);
-    // Backward compat: if no active specs are registered yet, fall back to a current
-    // spec recorded in the legacy global STATE.md so existing mid-spec repos keep working.
+    // Backward compat: if the registry has NO specs at all (truly legacy repo that has never
+    // used multi-spec), fall back to a spec recorded in the global STATE.md.
+    // Do NOT fall back when the registry has specs but they are all terminal — that means
+    // all work is complete and the user should start a new spec (mode:create).
     let legacySpec = null;
-    if (reg.activeSpecs(r).length === 0) {
+    if (r.specs.length === 0) {
       const st = parseStateMd(path.join(beeDir, 'STATE.md'));
       if (st.currentSpec && st.currentSpec.path && st.currentSpec.status && st.currentSpec.status !== 'NO_SPEC') {
         legacySpec = st.currentSpec.path;
@@ -98,10 +102,16 @@ function main(argv) {
     return 0;
   }
   if (sub === 'touch') {
-    const r = reg.readRegistry(beeDir);
-    if (!reg.getSpec(r, f.slug)) { process.stderr.write('touch: unknown spec ' + f.slug + '\n'); return 1; }
-    reg.touchSpec(r, f.slug, nowIso());
-    reg.writeRegistry(beeDir, r);
+    let touchErr = null;
+    reg.withRegistryLock(beeDir, () => {
+      const r = reg.readRegistry(beeDir);
+      const sp = reg.getSpec(r, f.slug);
+      if (!sp) { touchErr = 'touch: unknown spec ' + f.slug + '\n'; return; }
+      if (reg.TERMINAL_STAGES.includes(sp.stage)) { touchErr = 'touch: spec ' + f.slug + ' is ' + sp.stage + ' (completed/archived)\n'; return; }
+      reg.touchSpec(r, f.slug, nowIso());
+      reg.writeRegistry(beeDir, r);
+    });
+    if (touchErr) { process.stderr.write(touchErr); return 1; }
     const g = currentGlobalSlug(beeDir);
     if (g && g !== f.slug) {
       snapshotToPerSpec(beeDir, g);     // save the outgoing spec's live state
@@ -111,6 +121,17 @@ function main(argv) {
     }
     process.stdout.write(`touched ${f.slug}\n`);
     return 0;
+  }
+  if (sub === 'set-stage') {
+    return reg.withRegistryLock(beeDir, () => {
+      const r = reg.readRegistry(beeDir);
+      if (!reg.getSpec(r, f.slug)) { process.stderr.write('set-stage: unknown spec ' + f.slug + '\n'); return 1; }
+      if (!reg.STAGES.includes(f.stage)) { process.stderr.write('set-stage: invalid stage ' + f.stage + '\n'); return 1; }
+      reg.setStage(r, f.slug, f.stage);
+      reg.writeRegistry(beeDir, r);
+      process.stdout.write('set-stage ' + f.slug + ' -> ' + f.stage + '\n');
+      return 0;
+    });
   }
   process.stderr.write(`unknown subcommand: ${sub}\n`);
   return 1;

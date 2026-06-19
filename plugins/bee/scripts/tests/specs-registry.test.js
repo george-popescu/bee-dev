@@ -53,5 +53,25 @@ fs.writeFileSync(path.join(bee2, 'specs.json'), '{"specs": null}');
 assert(R.readRegistry(bee2).specs.length === 0, 'structurally-invalid specs.json reads as empty');
 assert(fs.existsSync(path.join(bee2, 'specs.json.bak')), 'structurally-invalid specs.json is backed up');
 
+// withRegistryLock: callback runs and lock file is gone after
+{
+  const lb = tmpBee();
+  let cbRan = false;
+  R.withRegistryLock(lb, () => { cbRan = true; });
+  assert(cbRan, 'withRegistryLock runs the callback');
+  assert(!fs.existsSync(path.join(lb, 'specs.json.lock')), 'withRegistryLock releases lock file after callback');
+}
+
+// writeRegistry: no leftover .tmp.* files
+{
+  const wb = tmpBee();
+  let rr = R.readRegistry(wb);
+  R.upsertSpec(rr, { slug: 'z', title: 'Z', stage: 'shaping' }, '2026-06-19T00:00:00Z');
+  R.writeRegistry(wb, rr);
+  const leftovers = fs.readdirSync(wb).filter(f => f.includes('.tmp.'));
+  assert(leftovers.length === 0, 'writeRegistry leaves no .tmp.* files (atomic rename)');
+  assert(R.readRegistry(wb).specs.length === 1, 'writeRegistry written file is readable');
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);
