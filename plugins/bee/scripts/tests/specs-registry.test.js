@@ -1,0 +1,51 @@
+#!/usr/bin/env node
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const R = require('../specs-registry');
+
+let passed = 0, failed = 0;
+function assert(cond, name) {
+  if (cond) { passed++; console.log(`  PASS: ${name}`); }
+  else { failed++; console.log(`  FAIL: ${name}`); }
+}
+function tmpBee() {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'bee-reg-'));
+  fs.mkdirSync(path.join(d, '.bee'), { recursive: true });
+  return path.join(d, '.bee');
+}
+
+// missing file -> empty registry
+const bee = tmpBee();
+assert(JSON.stringify(R.readRegistry(bee)) === '{"specs":[]}', 'missing specs.json reads as empty');
+
+// upsert inserts a new active spec
+let reg = R.readRegistry(bee);
+R.upsertSpec(reg, { slug: 'a', title: 'Spec A', stage: 'planning' }, '2026-06-19T10:00:00Z');
+assert(R.getSpec(reg, 'a').stage === 'planning', 'upsert inserts new spec');
+assert(R.getSpec(reg, 'a').location === 'in-place', 'new spec defaults to in-place');
+assert(R.getSpec(reg, 'a').created === '2026-06-19T10:00:00Z', 'new spec records created ts');
+
+// upsert on existing slug updates fields + last_touched, keeps created
+R.upsertSpec(reg, { slug: 'a', stage: 'executing' }, '2026-06-19T11:00:00Z');
+assert(R.getSpec(reg, 'a').stage === 'executing', 'upsert updates existing stage');
+assert(R.getSpec(reg, 'a').created === '2026-06-19T10:00:00Z', 'upsert preserves created');
+assert(R.getSpec(reg, 'a').last_touched === '2026-06-19T11:00:00Z', 'upsert refreshes last_touched');
+
+// activeSpecs excludes terminal stages, sorts last_touched desc
+R.upsertSpec(reg, { slug: 'b', title: 'Spec B', stage: 'shaping' }, '2026-06-19T12:00:00Z');
+R.upsertSpec(reg, { slug: 'c', title: 'Spec C', stage: 'shipped' }, '2026-06-19T09:00:00Z');
+const active = R.activeSpecs(reg);
+assert(active.map(s => s.slug).join(',') === 'b,a', 'activeSpecs excludes shipped, newest first');
+
+// write + read round-trips
+R.writeRegistry(bee, reg);
+assert(R.readRegistry(bee).specs.length === 3, 'writeRegistry round-trips');
+
+// corrupt JSON -> backup + empty
+fs.writeFileSync(path.join(bee, 'specs.json'), '{ not json');
+assert(R.readRegistry(bee).specs.length === 0, 'corrupt specs.json reads as empty');
+assert(fs.existsSync(path.join(bee, 'specs.json.bak')), 'corrupt specs.json is backed up');
+
+console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
+process.exit(failed > 0 ? 1 : 0);
