@@ -117,5 +117,16 @@ run(['register', '--bee', rr, '--slug', 'dup', '--title', 'Dup', '--stage', 'pla
 assert(fs.readFileSync(gpath, 'utf8').includes('| 1 | Keep | PENDING |'),
   're-registering the live spec slug preserves the global phases table');
 
+// register preserves global Quick Tasks + Decisions Log on first-spec creation
+{
+  const richBee = tmpBee(); fs.mkdirSync(richBee, { recursive: true });
+  fs.writeFileSync(path.join(richBee, 'STATE.md'),
+    '# State\n\n## Current Spec\n- Name: (none)\n- Path: (none)\n- Status: NO_SPEC\n\n## Phases\n\n## Quick Tasks\n| 1 | Bump deps | 2026-06 | def |\n\n## Decisions Log\n**[Use Vitest]**: ok\n\n## Last Action\n- Command: /bee:quick\n- Timestamp: t\n- Result: r\n');
+  run(['register', '--bee', richBee, '--slug', '2026-06-19-first', '--title', 'First', '--stage', 'shaping']);
+  const rg = fs.readFileSync(path.join(richBee, 'STATE.md'), 'utf8');
+  assert(rg.includes('Bump deps'), 'register preserves global Quick Tasks on first-spec creation');
+  assert(rg.includes('Use Vitest'), 'register preserves global Decisions Log on first-spec creation');
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

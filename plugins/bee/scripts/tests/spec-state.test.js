@@ -30,6 +30,30 @@ fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('SPEC_CREATED', 'IN_PROGR
 S.initSpecState(bee, 'my-feature', { name: 'My Feature', status: 'SPEC_CREATED' });
 assert(parseStateMd(p).currentSpec.status === 'IN_PROGRESS', 'initSpecState does not overwrite existing');
 
+// renderSpecState includes ## Quick Tasks and ## Decisions Log
+{
+  const rendered = S.renderSpecState({ name: 'Test Spec', slug: 'test-spec', status: 'SPEC_CREATED' });
+  assert(rendered.includes('## Quick Tasks'), 'renderSpecState emits ## Quick Tasks section');
+  assert(rendered.includes('## Decisions Log'), 'renderSpecState emits ## Decisions Log section');
+}
+
+// restoreToGlobal preserves project-global sections from the live global
+{
+  const beeR = tmpBee(); fs.mkdirSync(beeR, { recursive: true });
+  // existing rich global (has quick tasks + decisions, plus an OLD current spec)
+  fs.writeFileSync(S.globalStatePath(beeR),
+    '# State\n\n## Current Spec\n- Name: Old\n- Path: .bee/specs/old/\n- Status: IN_PROGRESS\n\n## Phases\n| 1 | OldPhase | DONE |\n\n## Quick Tasks\n| 1 | Hotfix login | 2026-05 | abc |\n\n## Decisions Log\n**[Adopted pnpm]**: yes\n\n## Last Action\n- Command: /bee:quick\n- Timestamp: t\n- Result: r\n');
+  // a per-spec snapshot for a NEW spec (skeleton, no quick tasks/decisions)
+  S.initSpecState(beeR, 'newspec', { name: 'New Spec', status: 'SPEC_CREATED' });
+  assert(S.restoreToGlobal(beeR, 'newspec') === true, 'restoreToGlobal succeeds');
+  const g = fs.readFileSync(S.globalStatePath(beeR), 'utf8');
+  assert(g.includes('Hotfix login'), 'restoreToGlobal preserves the global Quick Tasks section');
+  assert(g.includes('Adopted pnpm'), 'restoreToGlobal preserves the global Decisions Log section');
+  const parsed = parseStateMd(S.globalStatePath(beeR));
+  assert(parsed.currentSpec.name === 'New Spec', 'restoreToGlobal applies the per-spec Current Spec');
+  assert(parsed.quickTasks.length === 1, 'parser still sees the preserved quick task');
+}
+
 // mirror copies per-spec state to global .bee/STATE.md (same parse result)
 assert(S.mirrorToGlobal(bee, 'my-feature') === true, 'mirror reports success');
 const g = parseStateMd(S.globalStatePath(bee));

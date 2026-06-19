@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const reg = require('./specs-registry');
 const { resolveTarget } = require('./spec-resolver');
-const { initSpecState, mirrorToGlobal, specStatePath, snapshotToPerSpec, globalStatePath } = require('./spec-state');
+const { initSpecState, mirrorToGlobal, specStatePath, snapshotToPerSpec, globalStatePath, restoreToGlobal } = require('./spec-state');
 const { parseStateMd } = require('./hive-state-parser');
 
 function nowIso() { return new Date().toISOString(); }
@@ -70,7 +70,7 @@ function main(argv) {
       // global into its per-spec snapshot instead of clobbering it with a stale one.
       snapshotToPerSpec(beeDir, f.slug);
     } else {
-      mirrorToGlobal(beeDir, f.slug);
+      restoreToGlobal(beeDir, f.slug);
     }
     process.stdout.write(`registered ${f.slug}\n`);
     return 0;
@@ -99,12 +99,13 @@ function main(argv) {
   }
   if (sub === 'touch') {
     const r = reg.readRegistry(beeDir);
+    if (!reg.getSpec(r, f.slug)) { process.stderr.write('touch: unknown spec ' + f.slug + '\n'); return 1; }
     reg.touchSpec(r, f.slug, nowIso());
     reg.writeRegistry(beeDir, r);
     const g = currentGlobalSlug(beeDir);
     if (g && g !== f.slug) {
-      snapshotToPerSpec(beeDir, g);   // save the outgoing spec's live state
-      mirrorToGlobal(beeDir, f.slug); // restore the incoming spec's state
+      snapshotToPerSpec(beeDir, g);     // save the outgoing spec's live state
+      restoreToGlobal(beeDir, f.slug);  // restore the incoming spec's state
     } else {
       snapshotToPerSpec(beeDir, f.slug); // capture the live global into this spec's snapshot
     }

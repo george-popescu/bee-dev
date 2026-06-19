@@ -14,6 +14,8 @@ function renderSpecState({ name, slug, status }) {
     `- Path: .bee/specs/${slug}/`,
     `- Status: ${status}`, '',
     '## Phases', '',
+    '## Quick Tasks', '',
+    '## Decisions Log', '',
     '## Last Action',
     '- Command: /bee:new-spec',
     '- Timestamp:',
@@ -44,4 +46,38 @@ function snapshotToPerSpec(beeDir, slug) {
   return true;
 }
 
-module.exports = { specStatePath, globalStatePath, renderSpecState, initSpecState, mirrorToGlobal, snapshotToPerSpec };
+const PROJECT_GLOBAL_SECTIONS = ['Quick Tasks', 'Decisions Log'];
+
+// The "## heading" block: from its line up to just before the next "## " or end-of-string.
+function getSectionBlock(content, heading) {
+  const esc = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(?:^|\\n)(## ${esc}[ \\t]*\\n[\\s\\S]*?)(?=\\n## |\\s*$)`);
+  const m = content.match(re);
+  return m ? m[1] : null;
+}
+
+function upsertSectionBlock(content, heading, block) {
+  const esc = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(^|\\n)## ${esc}[ \\t]*\\n[\\s\\S]*?(?=\\n## |\\s*$)`);
+  if (re.test(content)) return content.replace(re, (m, p1) => `${p1}${block}`);
+  return `${content.replace(/\s*$/, '')}\n\n${block}\n`;
+}
+
+// Restore the spec's snapshot into global, but KEEP the live global's project-global sections.
+function restoreToGlobal(beeDir, slug) {
+  const src = specStatePath(beeDir, slug);
+  if (!fs.existsSync(src)) return false;
+  let merged = fs.readFileSync(src, 'utf8');
+  const g = globalStatePath(beeDir);
+  if (fs.existsSync(g)) {
+    const cur = fs.readFileSync(g, 'utf8');
+    for (const h of PROJECT_GLOBAL_SECTIONS) {
+      const block = getSectionBlock(cur, h);
+      if (block) merged = upsertSectionBlock(merged, h, block);
+    }
+  }
+  fs.writeFileSync(g, merged);
+  return true;
+}
+
+module.exports = { specStatePath, globalStatePath, renderSpecState, initSpecState, mirrorToGlobal, snapshotToPerSpec, restoreToGlobal, PROJECT_GLOBAL_SECTIONS, getSectionBlock, upsertSectionBlock };
