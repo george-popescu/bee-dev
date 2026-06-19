@@ -56,18 +56,6 @@ Interpret the JSON:
 
 For the **pick** branch (and the **auto** branch where the Current Spec Path did NOT already match): run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` — this syncs `.bee/STATE.md` to the chosen spec. Check the exit code of this touch command. If it exits non-zero (snapshot missing or spec unknown), ABORT with an explicit error: "Could not switch to spec <slug> (snapshot missing); aborting to avoid acting on the wrong spec. Run `/bee:spec list`." Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's. Then proceed using `.bee/STATE.md` as this command normally does. For the **auto** branch where the Current Spec Path already matched: proceed without touching (no noise).
 
-**Advance spec stage to `executing` (if not already at a later stage):**
-
-Check the current registry stage by running:
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active --json
-```
-Find the entry matching `<slug>`. The `STAGES` order is: `shaping`, `discussing`, `planning`, `executing`, `reviewing`, `shipped`, `archived`. If the spec's current stage index is already >= the index of `executing` (i.e., it is `executing`, `reviewing`, `shipped`, or `archived`), skip the set-stage call. Otherwise:
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug <slug> --stage executing
-```
-If this prints `set-stage: unknown spec ...` (legacy spec not in registry), tolerate it and continue.
-
 ### Step: Execute-time guard (concurrency offer)
 
 Before executing, check whether another spec is already executing in-place. This keeps "at most one in-place execution at a time" safe **without ever blocking** the user.
@@ -98,6 +86,18 @@ Parse the JSON `{ "conflict": bool, "other": slug|null }`.
   - **Pause '{other}':** set `{other}`'s currently-EXECUTING phase back to `PLANNED` in its per-spec STATE.md (so it is no longer "executing"), then continue executing `{target-slug}` in-place.
 
 The guard never hard-stops — every branch leaves the user a way forward.
+
+**Advance spec stage to `executing` (if not already at a later stage):**
+
+Check the current registry stage by running:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active --json
+```
+Find the entry matching `<slug>`. The `STAGES` order is: `shaping`, `discussing`, `planning`, `executing`, `reviewing`, `shipped`, `archived`. If the spec's current stage index is already >= the index of `executing` (i.e., it is `executing`, `reviewing`, `shipped`, or `archived`), skip the set-stage call. Otherwise:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug <slug> --stage executing
+```
+If this prints `set-stage: unknown spec ...` (legacy spec not in registry), tolerate it and continue.
 
 ### Step 1b: Parse Arguments
 
