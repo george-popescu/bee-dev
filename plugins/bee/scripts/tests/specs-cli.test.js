@@ -70,6 +70,8 @@ run(['register', '--bee', up, '--slug', '2026-06-19-beta', '--title', 'Beta', '-
 const act = JSON.parse(run(['list', '--bee', up, '--active', '--json']).stdout);
 assert(act.length === 2, 'registering new spec back-registers the legacy spec (2 active)');
 assert(fs.existsSync(path.join(up, 'specs', '2026-01-01-alpha', 'STATE.md')), 'legacy spec per-spec STATE.md is seeded');
+assert(fs.readFileSync(path.join(up, 'specs', '2026-01-01-alpha', 'STATE.md'), 'utf8').includes('Foo'),
+  'back-registered legacy spec preserves its phase content');
 
 // slug-less register with a legacy STATE.md present must NOT backfill before failing
 const legacyNoSlug = tmpBee();
@@ -78,6 +80,33 @@ fs.writeFileSync(path.join(legacyNoSlug, 'STATE.md'), '# S\n\n## Current Spec\n-
 const r3 = run(['register', '--bee', legacyNoSlug, '--title', 'X']);
 assert(r3.status !== 0, 'slug-less register exits non-zero even with a legacy spec present');
 assert(!fs.existsSync(path.join(legacyNoSlug, 'specs.json')), 'slug-less register does not back-register before failing');
+
+// Finding #1 regression: single-spec phases survive a touch
+{
+  const sp = tmpBee(); fs.mkdirSync(sp, { recursive: true });
+  run(['register', '--bee', sp, '--slug', 's1', '--title', 'S1', '--stage', 'planning']);
+  // simulate a command (new-spec Step 11) writing the phases table into the GLOBAL state:
+  const gPath = path.join(sp, 'STATE.md');
+  fs.writeFileSync(gPath, fs.readFileSync(gPath, 'utf8').replace('## Phases', '## Phases\n| 1 | Build | PENDING |'));
+  run(['touch', '--bee', sp, '--slug', 's1']);     // resolver auto path
+  assert(fs.readFileSync(gPath, 'utf8').includes('| 1 | Build | PENDING |'),
+    'touch on the same single spec does not clobber phases written to global');
+  assert(fs.readFileSync(path.join(sp, 'specs', 's1', 'STATE.md'), 'utf8').includes('| 1 | Build | PENDING |'),
+    'touch captures global into the per-spec snapshot');
+}
+
+// Switch restores the other spec's state
+{
+  const sw = tmpBee(); fs.mkdirSync(sw, { recursive: true });
+  run(['register', '--bee', sw, '--slug', 'a', '--title', 'A', '--stage', 'planning']);
+  const gp = path.join(sw, 'STATE.md');
+  fs.writeFileSync(gp, fs.readFileSync(gp, 'utf8').replace('## Phases', '## Phases\n| 1 | AephA | DONE |'));
+  run(['touch', '--bee', sw, '--slug', 'a']);       // capture A
+  run(['register', '--bee', sw, '--slug', 'b', '--title', 'B', '--stage', 'shaping']); // switch to B (saves A)
+  run(['touch', '--bee', sw, '--slug', 'a']);       // switch back to A -> restore
+  assert(fs.readFileSync(gp, 'utf8').includes('| 1 | AephA | DONE |'),
+    'switching back to a spec restores its saved state into global');
+}
 
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

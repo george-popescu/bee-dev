@@ -35,4 +35,13 @@ function mirrorToGlobal(beeDir, slug) {
   return true;
 }
 
-module.exports = { specStatePath, globalStatePath, renderSpecState, initSpecState, mirrorToGlobal };
+function snapshotToPerSpec(beeDir, slug) {
+  const g = globalStatePath(beeDir);
+  if (!fs.existsSync(g)) return false;
+  const dest = specStatePath(beeDir, slug);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.writeFileSync(dest, fs.readFileSync(g, 'utf8'));
+  return true;
+}
+
+module.exports = { specStatePath, globalStatePath, renderSpecState, initSpecState, mirrorToGlobal, snapshotToPerSpec };

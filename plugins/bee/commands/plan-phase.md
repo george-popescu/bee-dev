@@ -39,7 +39,7 @@ Interpret the JSON:
 - `{"mode":"auto","slug":"X"}` → silently target spec `X` (single-spec behavior, unchanged).
 - `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to work on, listing candidates (last-touched first) with `Custom` last. Use the chosen slug.
 
-Once the slug is chosen, run `… specs-cli.js touch --bee .bee --slug <slug>` to mark it most-recently-touched, and read/write that spec's state at `.bee/specs/<slug>/STATE.md` for the rest of this command.
+Once the slug is chosen, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` — this syncs `.bee/STATE.md` to the chosen spec. Then proceed using `.bee/STATE.md` as this command normally does.
 
 ### Step 2: Create Phase Directory
 

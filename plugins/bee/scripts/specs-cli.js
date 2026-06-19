@@ -5,10 +5,17 @@ const fs = require('fs');
 const path = require('path');
 const reg = require('./specs-registry');
 const { resolveTarget } = require('./spec-resolver');
-const { initSpecState, mirrorToGlobal, specStatePath } = require('./spec-state');
+const { initSpecState, mirrorToGlobal, specStatePath, snapshotToPerSpec, globalStatePath } = require('./spec-state');
 const { parseStateMd } = require('./hive-state-parser');
 
 function nowIso() { return new Date().toISOString(); }
+
+function currentGlobalSlug(beeDir) {
+  const g = globalStatePath(beeDir);
+  if (!fs.existsSync(g)) return null;
+  const cs = parseStateMd(g).currentSpec;
+  return (cs && cs.path && cs.status && cs.status !== 'NO_SPEC') ? cs.path : null;
+}
 
 function backfillLegacySpec(beeDir) {
   const r = reg.readRegistry(beeDir);
@@ -49,9 +56,11 @@ function main(argv) {
   const beeDir = f.bee || '.bee';
 
   if (sub === 'register') {
-    if (!f.slug) { process.stderr.write('register requires --slug\n'); return 1; }
+    if (typeof f.slug !== 'string' || !f.slug) { process.stderr.write('register requires --slug\n'); return 1; }
     fs.mkdirSync(beeDir, { recursive: true });
     backfillLegacySpec(beeDir);
+    const outgoing = currentGlobalSlug(beeDir);
+    if (outgoing && outgoing !== f.slug) snapshotToPerSpec(beeDir, outgoing);
     const r = reg.readRegistry(beeDir);
     reg.upsertSpec(r, { slug: f.slug, title: f.title, stage: f.stage || 'shaping', location: 'in-place' }, nowIso());
     reg.writeRegistry(beeDir, r);
@@ -86,7 +95,13 @@ function main(argv) {
     const r = reg.readRegistry(beeDir);
     reg.touchSpec(r, f.slug, nowIso());
     reg.writeRegistry(beeDir, r);
-    mirrorToGlobal(beeDir, f.slug);
+    const g = currentGlobalSlug(beeDir);
+    if (g && g !== f.slug) {
+      snapshotToPerSpec(beeDir, g);   // save the outgoing spec's live state
+      mirrorToGlobal(beeDir, f.slug); // restore the incoming spec's state
+    } else {
+      snapshotToPerSpec(beeDir, f.slug); // capture the live global into this spec's snapshot
+    }
     process.stdout.write(`touched ${f.slug}\n`);
     return 0;
   }

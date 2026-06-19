@@ -18,13 +18,13 @@ function readRegistry(beeDir) {
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.specs)) {
       // structurally invalid -> preserve original, return empty
-      try { fs.writeFileSync(p + '.bak', raw); } catch (_) {}
+      try { if (!fs.existsSync(p + '.bak')) fs.writeFileSync(p + '.bak', raw); } catch (_) {}
       return emptyRegistry();
     }
     return parsed;
   } catch (e) {
     // parse error -> preserve original, return empty
-    try { fs.writeFileSync(p + '.bak', raw); } catch (_) {}
+    try { if (!fs.existsSync(p + '.bak')) fs.writeFileSync(p + '.bak', raw); } catch (_) {}
     return emptyRegistry();
   }
 }
