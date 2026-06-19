@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // specs-cli.js -- CLI seam so markdown commands drive the multi-spec registry without
-// inlining JSON logic in prose. Subcommands: register, list, resolve, touch, set-stage, memory-context.
+// inlining JSON logic in prose. Subcommands: register, list, resolve, touch, set-stage, memory-context, set-location, guard.
 const fs = require('fs');
 const path = require('path');
 const reg = require('./specs-registry');
@@ -219,6 +219,31 @@ function main(argv) {
       process.stdout.write('set-stage ' + f.slug + ' -> ' + f.stage + '\n');
       return 0;
     });
+  }
+  if (sub === 'set-location') {
+    return reg.withRegistryLock(beeDir, () => {
+      const r = reg.readRegistry(beeDir);
+      if (!reg.getSpec(r, f.slug)) { process.stderr.write('set-location: unknown spec ' + f.slug + '\n'); return 1; }
+      if (!f.location) { process.stderr.write('set-location requires --location\n'); return 1; }
+      reg.setLocation(r, f.slug, f.location);
+      reg.writeRegistry(beeDir, r);
+      process.stdout.write('set-location ' + f.slug + ' -> ' + f.location + '\n');
+      return 0;
+    });
+  }
+  if (sub === 'guard') {
+    // Execute-time guard signal: is it unsafe for `target` to execute IN-PLACE right now?
+    // Conflict iff target is in-place AND a DIFFERENT active spec is executing in-place.
+    const r = reg.readRegistry(beeDir);
+    const target = reg.getSpec(r, f.slug);
+    const targetInPlace = !target || !target.location || target.location === 'in-place';
+    let other = null;
+    if (targetInPlace) {
+      other = reg.activeSpecs(r).find(s =>
+        s.slug !== f.slug && s.stage === 'executing' && (!s.location || s.location === 'in-place')) || null;
+    }
+    process.stdout.write(JSON.stringify({ conflict: !!other, other: other ? other.slug : null }) + '\n');
+    return 0;
   }
   process.stderr.write(`unknown subcommand: ${sub}\n`);
   return 1;

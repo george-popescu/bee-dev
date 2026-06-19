@@ -77,6 +77,7 @@ function upsertSpec(reg, { slug, title, stage, location }, ts) {
 
 function touchSpec(reg, slug, ts) { const s = getSpec(reg, slug); if (s) s.last_touched = ts; return reg; }
 function setStage(reg, slug, stage) { const s = getSpec(reg, slug); if (s) s.stage = stage; return reg; }
+function setLocation(registry, slug, location) { const s = getSpec(registry, slug); if (s) s.location = location; return registry; }
 
 function activeSpecs(reg) {
   return reg.specs
@@ -86,5 +87,5 @@ function activeSpecs(reg) {
 
 module.exports = {
   STAGES, TERMINAL_STAGES, registryPath, emptyRegistry,
-  readRegistry, writeRegistry, withRegistryLock, getSpec, upsertSpec, touchSpec, setStage, activeSpecs,
+  readRegistry, writeRegistry, withRegistryLock, getSpec, upsertSpec, touchSpec, setStage, setLocation, activeSpecs,
 };
