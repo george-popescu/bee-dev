@@ -31,16 +31,25 @@ if [ -n "$CURRENT_SPEC_PATH" ] && [ "$CURRENT_SPEC_PATH" != "(none)" ] && [ "$CU
   ACTIVE_SPEC_LINE="**Active spec:** $CURRENT_SPEC_PATH"
 fi
 
+# Determine the write path: per-spec if a valid slug and directory exist, else global.
+CURRENT_SPEC_PATH_TRIMMED="${CURRENT_SPEC_PATH%/}"
+SLUG=$(basename "$CURRENT_SPEC_PATH_TRIMMED" 2>/dev/null || true)
+if [ -n "$SLUG" ] && [ "$SLUG" != "(none)" ] && [ "$CURRENT_SPEC_STATUS" != "NO_SPEC" ] && [ -d "$BEE_DIR/specs/$SLUG" ]; then
+  SESSION_CONTEXT_PATH="$BEE_DIR/specs/$SLUG/SESSION-CONTEXT.md"
+else
+  SESSION_CONTEXT_PATH="$BEE_DIR/SESSION-CONTEXT.md"
+fi
+
 # Write compact session note (avoid duplicating STATE.md/config.json)
 if [ -n "$ACTIVE_SPEC_LINE" ]; then
-  cat > "$BEE_DIR/SESSION-CONTEXT.md" << EOF
+  cat > "$SESSION_CONTEXT_PATH" << EOF
 # Session Context (auto-generated)
 
 **Last compaction:** $TIMESTAMP
 $ACTIVE_SPEC_LINE
 EOF
 else
-  cat > "$BEE_DIR/SESSION-CONTEXT.md" << EOF
+  cat > "$SESSION_CONTEXT_PATH" << EOF
 # Session Context (auto-generated)
 
 **Last compaction:** $TIMESTAMP

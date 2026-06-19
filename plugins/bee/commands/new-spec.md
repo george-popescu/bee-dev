@@ -100,6 +100,33 @@ Create the spec directory:
 
 1. Get today's date: `date +%Y-%m-%d`
 2. Slugify the name (lowercase, hyphens, no spaces or special characters): `echo "{name}" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9-'`
+
+### Step 4.5: Collision Guard
+
+Before creating directories, check whether `{YYYY-MM-DD}-{slug}` already exists:
+
+1. **Directory check:** `test -d .bee/specs/{YYYY-MM-DD}-{slug}` — exit code 0 means a directory already exists.
+2. **Registry check:** Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --json` and look for any entry whose slug equals `{YYYY-MM-DD}-{slug}`.
+
+If either check detects a collision, STOP and present:
+
+```
+AskUserQuestion(
+  question: "A spec with slug '{YYYY-MM-DD}-{slug}' already exists. How would you like to proceed?",
+  options: [
+    "Amend the existing spec (re-run with --amend)",
+    "Choose a different name (restart naming)",
+    "Overwrite (discards the existing spec's committed progress)"
+  ]
+)
+```
+
+- **Amend the existing spec**: Tell the user "Run `/bee:new-spec --amend` to amend the existing spec." Stop the command.
+- **Choose a different name**: Ask the user for a new feature name (return to Step 3). Re-derive the slug and re-check for collision with the new name before continuing.
+- **Overwrite**: Display "Warning: overwriting existing spec and resetting all phase progress." Proceed to directory creation below.
+
+Only if no collision was detected (or the user chose Overwrite), continue:
+
 3. Create the directories:
    - `.bee/specs/{YYYY-MM-DD}-{slug}/`
    - `.bee/specs/{YYYY-MM-DD}-{slug}/visuals/`
@@ -568,7 +595,15 @@ Provide the spec-shaper agent with (omit model parameter -- amend mode needs ful
 Relay the amendment discussion between the agent and the user.
 
 **Spawn spec-writer in amend mode:**
-After the spec-shaper finishes updating `requirements.md`, read `config.implementation_mode` from config.json (defaults to `"premium"` if absent). In premium mode, omit the model parameter; in economy or quality mode, pass `model: "sonnet"`. Spawn the spec-writer agent with the resolved model. Provide the spec-writer agent with:
+After the spec-shaper finishes updating `requirements.md`, check whether the spec name or title changed during the amendment discussion. If it did, update the registry title by running:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js register --bee .bee --slug <slug> --title "<new name>"
+```
+
+(The register command upserts the title without regressing the stage. This ensures the multi-spec picker shows the updated name.)
+
+Then, read `config.implementation_mode` from config.json (defaults to `"premium"` if absent). In premium mode, omit the model parameter; in economy or quality mode, pass `model: "sonnet"`. Spawn the spec-writer agent with the resolved model. Provide the spec-writer agent with:
 - The spec folder path
 - Instruction: "This is an amended spec. Read the updated requirements.md. Rewrite only sections affected by the changes in spec.md and phases.md. Preserve unchanged content exactly."
 

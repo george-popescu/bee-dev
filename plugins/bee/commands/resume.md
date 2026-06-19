@@ -10,6 +10,7 @@ Read these files using the Read tool:
 - `.bee/config.json` — if not found: use `{}`
 - `.bee/user.md` — if not found: NO_USER_PREFS (skip silently)
 - `.bee/COMPACT-CONTEXT.md` — if not found: try `.bee/SESSION-CONTEXT.md` — if neither found: NO_SESSION_CONTEXT
+  (Note: these global paths are loaded here only for backward compat. The authoritative per-spec context is read AFTER the resolver runs — see Section 3.)
 - `.bee/CONTEXT.md` — if not found: NO_CONTEXT
 - `.bee/pause-handoff.md` — if not found: NO_PAUSE_HANDOFF (legacy global path; the actual handoff is read per-spec after the resolver runs — see Step 0)
 
@@ -51,7 +52,7 @@ Parse the JSON result and act on the `mode` field:
 
 ### Step 0: Pause Detection
 
-**Per-spec handoff resolution:** After the resolver/touch has established the resolved slug, the authoritative handoff path is `.bee/specs/<resolved-slug>/pause-handoff.md`. Read this per-spec path now (not the global `.bee/pause-handoff.md` from the preamble). If the per-spec file exists, use it as the handoff content for all checks below. If the per-spec file is absent but a legacy `.bee/pause-handoff.md` exists (migration tolerance — old single-file format), use that as fallback. If neither exists, treat as NO_PAUSE_HANDOFF.
+**Per-spec handoff resolution:** After the resolver/touch has established the resolved slug, the authoritative handoff path is `.bee/specs/<resolved-slug>/pause-handoff.md`. Read this per-spec path now (not the global `.bee/pause-handoff.md` from the preamble). If the per-spec file exists, use it as the handoff content for all checks below. If the per-spec file is absent but a legacy `.bee/pause-handoff.md` exists (migration tolerance — old single-file format), read its `## Current Position` section and compare the spec name there against the resolved spec's STATE.md Name (Current Spec Name field). Only adopt it as fallback if they match — the handoff belongs to this spec. If they do not match, treat as NO_PAUSE_HANDOFF and do not surface the mismatched handoff. If neither exists, treat as NO_PAUSE_HANDOFF.
 
 If `NO_PAUSE_HANDOFF` does NOT apply (a per-spec handoff or legacy fallback was found):
 
@@ -199,13 +200,18 @@ If there are multiple phases, show which ones are complete and which remain.
 
 **3. Session Context (if available)**
 
-If `NO_SESSION_CONTEXT` does NOT appear in the injected context (meaning `.bee/COMPACT-CONTEXT.md` or `.bee/SESSION-CONTEXT.md` was found), this contains a snapshot of the working state from the last session. Present:
+After the resolver has established the resolved slug, look up the per-spec session context:
+1. Try `.bee/specs/<resolved-slug>/COMPACT-CONTEXT.md` first (preferred — richer context).
+2. If not found, try `.bee/specs/<resolved-slug>/SESSION-CONTEXT.md`.
+3. If neither per-spec file exists, do NOT fall back to the global `.bee/COMPACT-CONTEXT.md` or `.bee/SESSION-CONTEXT.md` — these may describe a different spec. Instead, note: "No saved session context for this spec." and skip this section.
+
+**Spec-match guard:** Before presenting any session context (whether per-spec or the pre-loaded global), verify that the snapshot's spec path or name matches the resolved slug. If the snapshot's `Spec:` / `Path:` / `**Active spec:**` field does NOT contain the resolved slug, suppress the snapshot entirely with: "Session context snapshot is for a different spec — suppressed to avoid misleading context." Do NOT show mismatched context.
+
+If valid per-spec session context is found:
 - What was actively being worked on
 - Any pending decisions or choices the developer needs to make
 - Wave progress (if mid-execution): which tasks are complete, which remain
 - Any warnings or blockers noted in the session context
-
-If `NO_SESSION_CONTEXT` appears, note: "No session context saved from last time." and skip this section.
 
 **4. Phase Details (if mid-execution)**
 

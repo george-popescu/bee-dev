@@ -142,6 +142,7 @@ if [ -f "$BEE_DIR/specs.json" ]; then
   if [ "$ACTIVE_COUNT" -gt 1 ] 2>/dev/null; then
     echo "## Multiple Active Specs"
     echo "Multiple active specs ($ACTIVE_COUNT): $ACTIVE_SLUGS. This session is not bound to one — run a spec command (it will show a picker) or \`/bee:spec use <slug>\`."
+    echo "NOTE: The Current Spec shown above is the last-touched spec, not an auto-selection; a spec command will show a picker."
     echo ""
   fi
 fi
