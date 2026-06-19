@@ -336,6 +336,132 @@ console.log('\nGroup 11: load-context.sh single-spec output unchanged (backward 
 }
 
 // ============================================================
+// 12. load-context.sh — FIX 4 (batch14): terminal global → suppress context
+// ============================================================
+console.log('\nGroup 12: load-context.sh — FIX 4: terminal global suppresses per-spec context');
+{
+  const loadScript = path.join(SCRIPTS_DIR, 'load-context.sh');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bee-lc-term-'));
+  const beeDir = path.join(tmpDir, '.bee');
+  const slug = '2026-01-01-shipped-spec';
+  const specDir = path.join(beeDir, 'specs', slug);
+  fs.mkdirSync(specDir, { recursive: true });
+
+  // Set up registry with the spec as shipped (terminal)
+  fs.writeFileSync(path.join(beeDir, 'specs.json'), JSON.stringify({
+    specs: [{ slug, title: 'Shipped', stage: 'shipped', location: 'in-place', created: '2026-01-01T00:00:00Z', last_touched: '2026-01-01T00:00:00Z' }]
+  }, null, 2));
+
+  // Global STATE.md still points at the shipped spec (stale global case)
+  fs.writeFileSync(path.join(beeDir, 'STATE.md'), [
+    '# Bee Project State',
+    '## Current Spec',
+    `- Name: Shipped Spec`,
+    `- Path: .bee/specs/${slug}/`,
+    '- Status: COMPLETED',
+    '## Phases',
+    '| # | Name | Status |',
+    '|---|------|--------|',
+    '## Last Action',
+    '- Command: /bee:ship',
+    '- Timestamp: 2026-01-01T12:00:00Z',
+    '- Result: shipped',
+  ].join('\n'), 'utf8');
+
+  // Per-spec context file exists (stale from before shipping)
+  fs.writeFileSync(path.join(specDir, 'SESSION-CONTEXT.md'), '# Stale shipped context\nDo not inject this.\n', 'utf8');
+
+  try {
+    const result = execFileSync('bash', [loadScript], {
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, CLAUDE_PROJECT_DIR: tmpDir },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    assert(
+      !result.includes('Previous Session Context') || !result.includes('Stale shipped context'),
+      'FIX4(batch14): terminal global spec — stale per-spec context is NOT injected'
+    );
+  } catch (err) {
+    // execFileSync throws if exit code != 0; capture stdout from error
+    const out = err.stdout || '';
+    assert(
+      !out.includes('Stale shipped context'),
+      'FIX4(batch14): terminal global spec — stale per-spec context is NOT injected (error path)'
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+// ============================================================
+// 13. load-context.sh — FIX 4 (batch14): single active different from global → active preferred
+// ============================================================
+console.log('\nGroup 13: load-context.sh — FIX 4: single active spec preferred over stale global');
+{
+  const loadScript = path.join(SCRIPTS_DIR, 'load-context.sh');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bee-lc-single-'));
+  const beeDir = path.join(tmpDir, '.bee');
+  const activeSlug = '2026-06-01-real-spec';
+  const staleSlug = '2026-01-01-old-shipped-spec';
+  const activeSpecDir = path.join(beeDir, 'specs', activeSlug);
+  fs.mkdirSync(activeSpecDir, { recursive: true });
+  fs.mkdirSync(path.join(beeDir, 'specs', staleSlug), { recursive: true });
+
+  // Registry: activeSlug is active, staleSlug is shipped
+  fs.writeFileSync(path.join(beeDir, 'specs.json'), JSON.stringify({
+    specs: [
+      { slug: activeSlug, title: 'Real', stage: 'planning', location: 'in-place', created: '2026-06-01T00:00:00Z', last_touched: '2026-06-01T12:00:00Z' },
+      { slug: staleSlug, title: 'Old', stage: 'shipped', location: 'in-place', created: '2026-01-01T00:00:00Z', last_touched: '2026-01-01T00:00:00Z' },
+    ]
+  }, null, 2));
+
+  // Global STATE.md still points at the stale shipped spec
+  fs.writeFileSync(path.join(beeDir, 'STATE.md'), [
+    '# Bee Project State',
+    '## Current Spec',
+    `- Name: Old Shipped`,
+    `- Path: .bee/specs/${staleSlug}/`,
+    '- Status: COMPLETED',
+    '## Phases',
+    '| # | Name | Status |',
+    '|---|------|--------|',
+    '## Last Action',
+    '- Command: /bee:ship',
+    '- Timestamp: 2026-01-01T12:00:00Z',
+    '- Result: shipped',
+  ].join('\n'), 'utf8');
+
+  // Per-spec context for active spec
+  fs.writeFileSync(path.join(activeSpecDir, 'SESSION-CONTEXT.md'), '# Active spec context\nThis should be injected.\n', 'utf8');
+  // Per-spec context for stale spec (should NOT be injected)
+  fs.writeFileSync(path.join(beeDir, 'specs', staleSlug, 'SESSION-CONTEXT.md'), '# Stale shipped context\nDo not inject this.\n', 'utf8');
+
+  try {
+    const result = execFileSync('bash', [loadScript], {
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, CLAUDE_PROJECT_DIR: tmpDir },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    assert(
+      result.includes('Active spec context') || result.includes('Previous Session Context'),
+      'FIX4(batch14): single active spec — active spec context is injected (not stale global)'
+    );
+    assert(
+      !result.includes('Stale shipped context'),
+      'FIX4(batch14): single active spec — stale shipped spec context is NOT injected'
+    );
+  } catch (err) {
+    const out = err.stdout || '';
+    assert(false, `FIX4(batch14): load-context.sh threw unexpectedly: ${err.message}`);
+    assert(!out.includes('Stale shipped context'), 'FIX4(batch14): stale context not injected (error path)');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+// ============================================================
 // Summary
 // ============================================================
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);

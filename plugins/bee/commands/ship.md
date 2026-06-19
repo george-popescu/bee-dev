@@ -783,6 +783,22 @@ If `$FINAL_REVIEW_ENABLED` was true:
 - Display the final review finding count and fix summary.
 - If there are unresolved findings from the final review, list them.
 
+**5d. Other Active Specs (FIX 5 batch14)**
+
+After displaying the completion summary and before presenting the exit menu, check for other still-active specs:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active
+```
+
+Parse the output. If any specs are listed other than the just-shipped spec (its stage was advanced to `reviewing` in Step 5a and will be terminalised by `/bee:complete-spec`), display a single line:
+
+```
+Other active spec(s): {slug1}, {slug2} — `/bee:spec use <slug>` to continue.
+```
+
+If no other active specs exist, skip this line silently.
+
 **5d. Exit Menu**
 
 Present the completion menu using AskUserQuestion:

@@ -298,6 +298,62 @@ assert(fs.readFileSync(gpath, 'utf8').includes('| 1 | Keep | PENDING |'),
     assert(fresh.includes('## Phases'), 'FIX1(batch13): recreated STATE.md has Phases section');
   }
 
+  // FIX 2 (batch14): Overwrite truly resets — global STATE.md must reflect fresh spec
+  {
+    const ov2 = tmpBee(); fs.mkdirSync(ov2, { recursive: true });
+    run(['register', '--bee', ov2, '--slug', 'spec-to-overwrite', '--title', 'OW', '--stage', 'planning']);
+    run(['set-stage', '--bee', ov2, '--slug', 'spec-to-overwrite', '--stage', 'executing']);
+    // Simulate committed phase in global STATE.md (what new-spec Step 11 would write)
+    const gwPath = path.join(ov2, 'STATE.md');
+    fs.writeFileSync(gwPath, fs.readFileSync(gwPath, 'utf8')
+      .replace('## Phases\n| # | Name | Status | Plan | Plan Review | Executed | Reviewed | Tested | Committed |',
+               '## Phases\n| # | Name | Status | Plan | Plan Review | Executed | Reviewed | Tested | Committed |\n| 1 | Phase1 | COMMITTED | yes | yes | yes | yes | yes | abc1234 |'));
+    // Also write same committed content into per-spec STATE.md
+    const psPath2 = path.join(ov2, 'specs', 'spec-to-overwrite', 'STATE.md');
+    fs.writeFileSync(psPath2, fs.readFileSync(gwPath, 'utf8'));
+    // Overwrite: delete per-spec STATE.md, re-register with --force-stage
+    fs.unlinkSync(psPath2);
+    run(['register', '--bee', ov2, '--slug', 'spec-to-overwrite', '--title', 'OW', '--stage', 'shaping', '--force-stage']);
+    // Registry stage must be shaping
+    const ovList2 = JSON.parse(run(['list', '--bee', ov2, '--json']).stdout);
+    const ovSpec2 = ovList2.find(s => s.slug === 'spec-to-overwrite');
+    assert(ovSpec2 && ovSpec2.stage === 'shaping', 'FIX2(batch14): Overwrite resets registry stage to shaping');
+    // Per-spec STATE.md must be fresh (no committed phase data rows)
+    const freshPs = fs.readFileSync(psPath2, 'utf8');
+    assert(!freshPs.includes('Phase1') && !freshPs.includes('abc1234'), 'FIX2(batch14): per-spec STATE.md has no committed phases after Overwrite');
+    // Global STATE.md must also reflect the fresh spec (no committed phase)
+    const freshGlobal = fs.readFileSync(gwPath, 'utf8');
+    assert(!freshGlobal.includes('Phase1') || !freshGlobal.includes('COMMITTED'), 'FIX2(batch14): global STATE.md has no committed phases after Overwrite (restored from fresh per-spec)');
+    assert(freshGlobal.includes('spec-to-overwrite'), 'FIX2(batch14): global STATE.md still references the spec slug');
+  }
+
+  // FIX 1 (batch14): concurrency regression — two parallel touch/register on different slugs
+  // global STATE.md must remain valid JSON-parseable and reflect exactly one spec coherently.
+  {
+    const { spawn } = require('child_process');
+    const cr2 = tmpBee(); fs.mkdirSync(cr2, { recursive: true });
+    // Pre-register two specs
+    run(['register', '--bee', cr2, '--slug', 'cr-a', '--title', 'CRA', '--stage', 'planning']);
+    run(['register', '--bee', cr2, '--slug', 'cr-b', '--title', 'CRB', '--stage', 'planning']);
+    // Concurrent: touch cr-a and register cr-b simultaneously (10 rounds)
+    const rounds = [];
+    for (let i = 0; i < 10; i++) {
+      const pa = spawn('node', [CLI, 'touch', '--bee', cr2, '--slug', 'cr-a']);
+      const pb = spawn('node', [CLI, 'register', '--bee', cr2, '--slug', 'cr-b', '--title', 'CRB', '--stage', 'planning']);
+      rounds.push(new Promise(res => { let n = 0; const f = () => { if (++n === 2) res(); }; pa.on('close', f); pb.on('close', f); }));
+    }
+    await Promise.all(rounds);
+    // Global STATE.md must be a well-formed file
+    const gContent = fs.readFileSync(path.join(cr2, 'STATE.md'), 'utf8');
+    assert(gContent.includes('## Current Spec'), 'FIX1-concurrency(batch14): global STATE.md has Current Spec section after concurrent touch/register');
+    assert(gContent.includes('- Path:'), 'FIX1-concurrency(batch14): global STATE.md has Path line after concurrent touch/register');
+    // Registry must still be valid JSON with both specs
+    const rawReg = fs.readFileSync(path.join(cr2, 'specs.json'), 'utf8');
+    let parsedReg; try { parsedReg = JSON.parse(rawReg); } catch (e) { parsedReg = null; }
+    assert(parsedReg !== null, 'FIX1-concurrency(batch14): specs.json remains valid JSON after concurrent touch/register');
+    assert(parsedReg && parsedReg.specs.length === 2, 'FIX1-concurrency(batch14): both specs survive concurrent touch/register');
+  }
+
   console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
   process.exit(failed > 0 ? 1 : 0);
 })();

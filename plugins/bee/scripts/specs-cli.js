@@ -58,10 +58,15 @@ function main(argv) {
   if (sub === 'register') {
     if (typeof f.slug !== 'string' || !f.slug) { process.stderr.write('register requires --slug\n'); return 1; }
     fs.mkdirSync(beeDir, { recursive: true });
-    backfillLegacySpec(beeDir);
-    const outgoing = currentGlobalSlug(beeDir);
-    if (outgoing && outgoing !== f.slug) snapshotToPerSpec(beeDir, outgoing);
+    // FIX 1: ALL STATE.md sync (snapshot/restore/init) must run INSIDE the same
+    // withRegistryLock as the registry read+write so register+touch races cannot
+    // interleave STATE.md file writes and corrupt the global.
     reg.withRegistryLock(beeDir, () => {
+      // Back-fill legacy spec while holding the lock so a concurrent register
+      // cannot produce duplicate entries from the same legacy slug.
+      backfillLegacySpec(beeDir);
+      const outgoing = currentGlobalSlug(beeDir);
+      if (outgoing && outgoing !== f.slug) snapshotToPerSpec(beeDir, outgoing);
       const r = reg.readRegistry(beeDir);
       const existing = reg.getSpec(r, f.slug);
       let stage = f.stage || 'shaping';
@@ -69,15 +74,22 @@ function main(argv) {
       if (!f['force-stage'] && existing && reg.STAGES.indexOf(stage) < reg.STAGES.indexOf(existing.stage)) stage = existing.stage;
       reg.upsertSpec(r, { slug: f.slug, title: f.title, stage, location: 'in-place' }, nowIso());
       reg.writeRegistry(beeDir, r);
+      // STATE.md sync inside the lock: init per-spec file, then mirror/restore.
+      // Track whether initSpecState created a genuinely new file (Overwrite deleted it)
+      // so we can distinguish "re-register live spec" from "Overwrite reset".
+      const perSpecExistedBefore = fs.existsSync(specStatePath(beeDir, f.slug));
+      initSpecState(beeDir, f.slug, { name: f.title || f.slug, status: 'SPEC_CREATED' });
+      const freshlyCreated = !perSpecExistedBefore;
+      if (!freshlyCreated && currentGlobalSlug(beeDir) === f.slug) {
+        // Re-registering the spec already reflected in global (not an Overwrite reset):
+        // capture the live global into its per-spec snapshot instead of clobbering it.
+        snapshotToPerSpec(beeDir, f.slug);
+      } else {
+        // New spec, Overwrite reset, or incoming spec switch:
+        // restore the (fresh or incoming) per-spec snapshot into the global.
+        restoreToGlobal(beeDir, f.slug);
+      }
     });
-    initSpecState(beeDir, f.slug, { name: f.title || f.slug, status: 'SPEC_CREATED' });
-    if (currentGlobalSlug(beeDir) === f.slug) {
-      // Re-registering the spec already reflected in global: capture the live
-      // global into its per-spec snapshot instead of clobbering it with a stale one.
-      snapshotToPerSpec(beeDir, f.slug);
-    } else {
-      restoreToGlobal(beeDir, f.slug);
-    }
     process.stdout.write(`registered ${f.slug}\n`);
     return 0;
   }
@@ -112,6 +124,10 @@ function main(argv) {
   }
   if (sub === 'touch') {
     let touchErr = null;
+    // FIX 1: ALL STATE.md sync (snapshotToPerSpec/restoreToGlobal) must run INSIDE
+    // the same withRegistryLock as the registry read+write.  A touch racing a
+    // cross-spec register previously could interleave STATE.md file writes and
+    // produce a global STATE.md contaminated with the wrong spec's content.
     reg.withRegistryLock(beeDir, () => {
       const r = reg.readRegistry(beeDir);
       let sp = reg.getSpec(r, f.slug);
@@ -138,15 +154,16 @@ function main(argv) {
       if (reg.TERMINAL_STAGES.includes(sp.stage)) { touchErr = 'touch: spec ' + f.slug + ' is ' + sp.stage + ' (completed/archived)\n'; return; }
       reg.touchSpec(r, f.slug, nowIso());
       reg.writeRegistry(beeDir, r);
+      // STATE.md sync inside the lock — atomic with the registry write.
+      const g = currentGlobalSlug(beeDir);
+      if (g === f.slug) {
+        snapshotToPerSpec(beeDir, f.slug); // same spec in global: capture latest edits into the snapshot
+      } else {
+        if (g) snapshotToPerSpec(beeDir, g); // a DIFFERENT real spec is in global: save it before switching
+        restoreToGlobal(beeDir, f.slug);     // load target's snapshot into global (also the NO_SPEC case)
+      }
     });
     if (touchErr) { process.stderr.write(touchErr); return 1; }
-    const g = currentGlobalSlug(beeDir);
-    if (g === f.slug) {
-      snapshotToPerSpec(beeDir, f.slug); // same spec in global: capture latest edits into the snapshot
-    } else {
-      if (g) snapshotToPerSpec(beeDir, g); // a DIFFERENT real spec is in global: save it before switching
-      restoreToGlobal(beeDir, f.slug);     // load target's snapshot into global (also the NO_SPEC case)
-    }
     process.stdout.write(`touched ${f.slug}\n`);
     return 0;
   }

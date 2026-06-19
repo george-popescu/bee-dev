@@ -480,6 +480,14 @@ Note: `{N}` still increments (it's the historical task counter), but the table o
 
 6. Write the updated STATE.md.
 
+7. **Touch the focused spec (FIX 6 batch14):** After writing STATE.md, bump the focused active spec's `last_touched` timestamp so quick work participates in active-spec ordering. Check whether a focused active spec exists by reading the `- Path:` line from STATE.md (the line was just written). If the path contains `.bee/specs/` and the derived slug is not `(none)`, run silently:
+
+   ```bash
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>
+   ```
+
+   Skip silently if the path is `(none)`, no specs.json exists (legacy single-spec repo), or the touch command exits non-zero (spec not found or terminal). Do NOT block or fail the quick task on any touch error.
+
 ### Step 7: Complete
 
 Display:

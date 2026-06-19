@@ -630,12 +630,17 @@ After all steps complete successfully (in either the new or amend flow), re-read
 
 1. Set **Current Spec Name** to the spec name (e.g., `user-management`)
 2. Set **Current Spec Path** to the spec folder path (e.g., `.bee/specs/2026-02-20-user-management/`)
-3. Set **Current Spec Status** to `SPEC_CREATED`
+3. Set **Current Spec Status**:
+   - For **new spec flow**: always `SPEC_CREATED`.
+   - For **amend flow** (FIX 3): derive the status from the phase state that will be written. If any preserved phase (from `$PRE_AMEND_PHASE_STATUS`) has its Executed or Committed column populated, set Status to `IN_PROGRESS`. If all phases are new (PENDING with no prior execution), set Status to `SPEC_CREATED`. Never regress Status from what the preserved phases imply — an amend that retains COMMITTED phases must not reset Status to SPEC_CREATED.
 4. Read the newly created (or updated) `phases.md` from the spec folder
 5. Populate the **Phases** table:
    - For **new spec flow**: one row per phase, all with Status `PENDING` and all other columns (Plan, Plan Review, Executed, Reviewed, Tested, Committed) empty.
    - For **amend flow**: for each phase, check `$PRE_AMEND_PHASE_STATUS`. If that phase has preserved Executed/Committed column values (from the preservation step in Step 10), write those values back rather than resetting to PENDING. Only new phases that did not previously exist start at PENDING.
-6. Set **Last Action** to:
+6. After writing the Phases table, sync the registry stage to match the Status written in step 3 (FIX 3). Do NOT regress the registry stage if it is already more advanced:
+   - If Status is `IN_PROGRESS` and the current registry stage is `shaping`, `discussing`, or `planning`, advance it to `executing` via: `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug <slug> --stage executing`
+   - If Status is `SPEC_CREATED`, keep the registry stage as-is (do not regress from `executing` or above).
+7. Set **Last Action** to:
    - Command: `/bee:new-spec` (or `/bee:new-spec --amend` if amending)
    - Timestamp: current ISO 8601 timestamp
    - Result: "Spec created" (or "Spec amended") with the spec name

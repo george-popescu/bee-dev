@@ -59,18 +59,44 @@ if [ -f "$BEE_DIR/user.md" ]; then
 fi
 
 # Load session context if exists (prefer per-spec COMPACT-CONTEXT.md over SESSION-CONTEXT.md).
-# Multi-spec: resolve the focused spec from global STATE.md Current Spec Path, then read
-# THAT spec's per-spec context. Only inject if it belongs to the focused spec.
+# Multi-spec: resolve the focused spec from specs.json activeSpecs (the same source the
+# resolver uses), NOT from the stale global STATE.md Path line.  Rules (FIX 4 batch14):
+#   - If exactly ONE active (non-terminal) spec: focus it.
+#   - If the global path-derived slug is TERMINAL (shipped/archived), suppress context entirely.
+#   - If MULTIPLE active specs and none clearly focused: suppress per-spec context.
+#   - Fix broken (none) guard: only extract slug when the path line contains .bee/specs/.
 # Backward compat: if no specs.json (legacy single-spec), fall back to global paths.
 # Cap at 100 lines to prevent unbounded context growth.
 CONTEXT_INJECTED=false
 if [ -f "$BEE_DIR/specs.json" ]; then
-  # Multi-spec mode: find focused spec slug from global STATE.md
-  FOCUSED_SLUG=""
-  if [ -f "$BEE_DIR/STATE.md" ]; then
-    FOCUSED_SLUG=$(grep -m1 '^- Path:' "$BEE_DIR/STATE.md" 2>/dev/null | sed 's|^- Path:.*\.bee/specs/||;s|/.*||' | tr -d ' ')
-  fi
-  if [ -n "$FOCUSED_SLUG" ] && [ "$FOCUSED_SLUG" != "(none)" ]; then
+  # FIX 4: derive focused slug from specs.json, not the stale global STATE.md
+  FOCUSED_SLUG=$(node -e "
+    (function() {
+      try {
+        const TERMINAL = ['shipped', 'archived'];
+        const reg = JSON.parse(require('fs').readFileSync('$BEE_DIR/specs.json', 'utf8'));
+        const active = (reg.specs || []).filter(s => !TERMINAL.includes(s.stage))
+          .sort((a,b) => String(b.last_touched).localeCompare(String(a.last_touched)));
+        if (active.length === 1) {
+          // Exactly one active spec: focus it regardless of what global STATE.md says
+          process.stdout.write(active[0].slug);
+        } else if (active.length > 1) {
+          // Multiple active: check if global STATE.md path resolves to one of them
+          // (from a prior touch/focus operation) to disambiguate
+          let resolved = '';
+          try {
+            const stateContent = require('fs').readFileSync('$BEE_DIR/STATE.md', 'utf8');
+            const m = stateContent.match(/^- Path:.*\.bee\/specs\/([^\/\s]+)/m);
+            if (m && m[1] && active.some(s => s.slug === m[1])) resolved = m[1];
+          } catch(_) {}
+          // Write resolved slug if found; otherwise suppress (empty = ambiguous)
+          process.stdout.write(resolved);
+        }
+        // else: no active specs — write nothing (suppress context)
+      } catch(e) { /* suppress context on any error */ }
+    })();
+  " 2>/dev/null)
+  if [ -n "$FOCUSED_SLUG" ]; then
     SPEC_CONTEXT_DIR="$BEE_DIR/specs/$FOCUSED_SLUG"
     if [ -f "$SPEC_CONTEXT_DIR/COMPACT-CONTEXT.md" ]; then
       echo "## Previous Session Context"
@@ -99,6 +125,7 @@ if [ -f "$BEE_DIR/specs.json" ]; then
     fi
     # If per-spec context absent, inject nothing (do not fall back to stale global)
   fi
+  # FOCUSED_SLUG empty = terminal global, multiple ambiguous actives, or no actives: suppress context
 else
   # Legacy (no specs.json): use global paths as before
   if [ -f "$BEE_DIR/COMPACT-CONTEXT.md" ]; then
