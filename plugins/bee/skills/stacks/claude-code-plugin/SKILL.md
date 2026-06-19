@@ -21,7 +21,8 @@ State is tracked on disk in the `.bee/` directory within the user's project:
 - `STATE.md` -- current spec, phase progress, decisions log, last action
 - `TASKS.md` -- per-phase execution contract with tasks, waves, acceptance criteria, research notes, agent notes
 - `config.json` -- project configuration (stacks, linter, test runner, CI, review settings)
-- `memory/` -- per-agent persistent knowledge files
+- `user.md` -- global persistent memory injected into every agent
+- `specs/<slug>/memory.md` -- per-spec memory injected while that spec is the single active one
 - `PROJECT.md` -- auto-generated codebase index
 
 ## Commands
@@ -65,7 +66,7 @@ Write-capable agents (implementer, fixer, researcher, spec-writer, phase-planner
 ### Conventions
 
 - Every agent begins with a "Read Stack Skill" step that reads config.json and the matching stack skill.
-- Agents that persist knowledge have a "Project Memory" section describing what to write to `.bee/memory/{agent-name}.md`.
+- Agents report findings and notes in structured output in their final message; conductors parse these and write to state files. Agents do not write memory files directly.
 - Instructions use numbered steps for the workflow.
 - Each agent ends with IMPORTANT notices (block capital) that enforce constraints. Read-only agents always end with notices like "You do NOT modify code. You are read-only."
 - Agents report structured output in their final message (task notes, fix reports, findings sections) that the conductor parses.

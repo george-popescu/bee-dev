@@ -77,7 +77,7 @@ Manage the two memory layers:
      ```markdown
      # Spec Memory — {spec title}
 
-     <!--
+     <!-- bee-spec-memory-template
      Per-spec memory. Manually curated, like .bee/user.md but scoped to THIS spec.
      It is injected into every bee agent at SubagentStart while this is the single active
      spec (suppressed when two or more specs are active). Put here what agents should ALWAYS

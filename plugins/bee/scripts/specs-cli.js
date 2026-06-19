@@ -34,8 +34,8 @@ function doResolve(beeDir, f) {
 // Curated content of a per-spec memory.md = the file minus its template title heading and the
 // template guidance comment. Empty string means "only the template / nothing to inject".
 function stripMemoryTemplate(s) {
-  let t = String(s).replace(/<!--[\s\S]*?-->/g, '');   // drop HTML comment blocks (template guidance)
-  t = t.replace(/^\s*#\s+Spec Memory\b.*$/m, '');       // drop the template H1 title line
+  let t = String(s).replace(/<!--\s*bee-spec-memory-template[\s\S]*?-->/g, '');
+  t = t.replace(/^\s*#\s+Spec Memory\b.*$/m, '');
   return t.trim();
 }
 
@@ -57,6 +57,7 @@ function backfillLegacySpec(beeDir) {
   const stage = cs.status === 'IN_PROGRESS' ? 'executing' : 'planning';
   reg.upsertSpec(r, { slug: cs.path, title: cs.name || cs.path, stage, location: 'in-place' }, nowIso());
   reg.writeRegistry(beeDir, r);
+  initSpecMemory(beeDir, cs.path, { name: cs.name || cs.path });
 }
 
 function parseFlags(argv) {
@@ -172,6 +173,7 @@ function main(argv) {
             const stage = cs.status === 'IN_PROGRESS' ? 'executing' : 'planning';
             reg.upsertSpec(r, { slug: f.slug, title: cs.name || f.slug, stage, location: 'in-place' }, nowIso());
             reg.writeRegistry(beeDir, r);
+            initSpecMemory(beeDir, f.slug, { name: cs.name || f.slug });
             sp = reg.getSpec(r, f.slug);
           }
         }

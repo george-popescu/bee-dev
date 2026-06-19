@@ -131,5 +131,58 @@ console.log('\nTest Group 6: inject-memory.sh — 2+ active injects only user.md
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
+console.log('\nTest Group 7: memory-context — legacy repo (no specs.json) falls back to global STATE.md');
+{
+  // Legacy setup: no specs.json, only a global .bee/STATE.md naming an active spec
+  const { tmp, beeDir } = tmpBee();
+  const slug = '2026-06-20-legacy-slug';
+  // Write global STATE.md naming the active spec (legacy format — path uses .bee/specs/ prefix)
+  const stateContent = [
+    '# Bee Project State', '',
+    '## Current Spec',
+    `- Name: Legacy Feature`,
+    `- Path: .bee/specs/${slug}/`,
+    `- Status: IN_PROGRESS`, '',
+    '## Phases',
+    '| # | Name | Status | Plan | Plan Review | Executed | Reviewed | Tested | Committed |',
+    '|---|------|--------|------|-------------|----------|----------|--------|-----------|', '',
+  ].join('\n');
+  fs.writeFileSync(path.join(beeDir, 'STATE.md'), stateContent);
+  // No specs.json — legacy repo
+  // Create the spec's memory.md with curated content (no registry, but file exists)
+  const specDir = path.join(beeDir, 'specs', slug);
+  fs.mkdirSync(specDir, { recursive: true });
+  fs.writeFileSync(path.join(specDir, 'memory.md'),
+    '# Spec Memory — Legacy Feature\n\n- always validate inputs on entry\n');
+  const { out, code } = capture(() => main(['memory-context', '--bee', beeDir]));
+  assert(code === 0, 'legacy: exits 0');
+  assert(out.includes('## Spec Memory'), 'legacy: emits spec memory header');
+  assert(out.includes('always validate inputs on entry'), 'legacy: curated content from legacy spec is injected');
+  fs.rmSync(tmp, { recursive: true, force: true });
+}
+
+console.log('\nTest Group 8: stripMemoryTemplate — user HTML comments survive injection');
+{
+  const { tmp, beeDir } = tmpBee();
+  registerSilently(beeDir, '2026-06-20-comment-test', 'Comment Test');
+  // Write memory with a user-authored HTML comment embedded in real content
+  fs.writeFileSync(specMemoryPath(beeDir, '2026-06-20-comment-test'),
+    '# Spec Memory — Comment Test\n\n- use pattern from <!-- https://example.com/docs -->\n');
+  const { out, code } = capture(() => main(['memory-context', '--bee', beeDir]));
+  assert(code === 0, 'user-comment: exits 0');
+  assert(out.includes('https://example.com/docs'), 'user-comment: user HTML comment content survives injection');
+  fs.rmSync(tmp, { recursive: true, force: true });
+}
+
+console.log('\nTest Group 9: stripMemoryTemplate — template-only still suppressed after fix');
+{
+  // Regression: the fix must not break template suppression
+  const { tmp, beeDir } = tmpBee();
+  registerSilently(beeDir, '2026-06-20-template-only', 'Template Only'); // leaves untouched template
+  const { out } = capture(() => main(['memory-context', '--bee', beeDir]));
+  assert(out.trim() === '', 'template-only: no injection after fix (regression guard)');
+  fs.rmSync(tmp, { recursive: true, force: true });
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);
