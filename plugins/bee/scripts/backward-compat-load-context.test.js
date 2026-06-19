@@ -451,5 +451,18 @@ console.log('FIX2 Test 4: per-spec SESSION-CONTEXT.md fallback when COMPACT-CONT
   }
 }
 
+console.log('\nResolver DRY: focused slug derived via specs-cli.js resolve');
+{
+  const lc = fs.readFileSync(path.join(__dirname, 'load-context.sh'), 'utf8');
+  assert(
+    lc.includes('specs-cli.js') && lc.includes('resolve'),
+    'load-context.sh derives the focused slug from specs-cli.js resolve'
+  );
+  assert(
+    lc.includes('.mode == "auto"') || lc.includes("mode == \"auto\"") || lc.includes('"auto"'),
+    'load-context.sh focuses only when resolve mode is auto (exactly one active spec)'
+  );
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

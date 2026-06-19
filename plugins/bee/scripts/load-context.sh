@@ -6,6 +6,7 @@
 shopt -s nullglob
 
 BEE_DIR="$CLAUDE_PROJECT_DIR/.bee"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Skip if .bee/ doesn't exist (project not initialized)
 if [ ! -d "$BEE_DIR" ]; then
@@ -73,24 +74,11 @@ if [ -f "$BEE_DIR/specs.json" ]; then
   # When 2+ specs are active, there is no reliable per-chat binding — suppress per-spec
   # context injection entirely and emit only the multi-spec advisory below.
   # Single-active-spec behavior unchanged (inject that spec's context).
-  FOCUSED_SLUG=$(node -e "
-    (function() {
-      try {
-        const TERMINAL = ['shipped', 'archived'];
-        const reg = JSON.parse(require('fs').readFileSync('$BEE_DIR/specs.json', 'utf8'));
-        const active = (reg.specs || []).filter(s => !TERMINAL.includes(s.stage))
-          .sort((a,b) => String(b.last_touched).localeCompare(String(a.last_touched)));
-        if (active.length === 1) {
-          // Exactly one active spec: focus it regardless of what global STATE.md says
-          process.stdout.write(active[0].slug);
-        }
-        // Multiple active (length > 1): suppress — no reliable per-chat binding exists.
-        // Do NOT attempt to resolve from global STATE.md path (that is a cross-chat signal).
-        // The multi-spec advisory below handles the 2+ case.
-        // Zero active: write nothing (suppress context)
-      } catch(e) { /* suppress context on any error */ }
-    })();
-  " 2>/dev/null)
+  # FIX 4 (batch16) + Step 2 DRY: derive the focused slug from the SAME resolver every spec
+  # command uses. mode=auto => exactly one active spec (or the legacy fallback) => focus it.
+  # mode=pick (2+) or create (0) => empty => suppress per-spec context (no per-chat binding).
+  RESOLVE_JSON=$(node "$SCRIPT_DIR/specs-cli.js" resolve --bee "$BEE_DIR" 2>/dev/null)
+  FOCUSED_SLUG=$(printf '%s' "$RESOLVE_JSON" | jq -r 'if .mode == "auto" then (.slug // "") else "" end' 2>/dev/null)
   if [ -n "$FOCUSED_SLUG" ]; then
     SPEC_CONTEXT_DIR="$BEE_DIR/specs/$FOCUSED_SLUG"
     if [ -f "$SPEC_CONTEXT_DIR/COMPACT-CONTEXT.md" ]; then
