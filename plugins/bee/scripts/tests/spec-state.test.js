@@ -30,11 +30,31 @@ fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('SPEC_CREATED', 'IN_PROGR
 S.initSpecState(bee, 'my-feature', { name: 'My Feature', status: 'SPEC_CREATED' });
 assert(parseStateMd(p).currentSpec.status === 'IN_PROGRESS', 'initSpecState does not overwrite existing');
 
-// renderSpecState includes ## Quick Tasks and ## Decisions Log
+// renderSpecState emits canonical init scaffold
 {
   const rendered = S.renderSpecState({ name: 'Test Spec', slug: 'test-spec', status: 'SPEC_CREATED' });
+  assert(rendered.startsWith('# Bee Project State'), 'renderSpecState H1 is "# Bee Project State"');
+  assert(rendered.includes('- Name: Test Spec'), 'renderSpecState emits spec Name');
+  assert(rendered.includes('- Path: .bee/specs/test-spec/'), 'renderSpecState emits spec Path');
+  assert(rendered.includes('- Status: SPEC_CREATED'), 'renderSpecState emits spec Status');
+  assert(rendered.includes('## Phases'), 'renderSpecState emits ## Phases section');
+  assert(rendered.includes('| # | Name | Status |'), 'renderSpecState emits Phases table header');
   assert(rendered.includes('## Quick Tasks'), 'renderSpecState emits ## Quick Tasks section');
+  assert(rendered.includes('| # | Description | Date | Commit |'), 'renderSpecState emits Quick Tasks table header');
   assert(rendered.includes('## Decisions Log'), 'renderSpecState emits ## Decisions Log section');
+  assert(rendered.includes('Valid Status values:'), 'renderSpecState emits Current Spec status legend');
+  assert(rendered.includes('Valid Phase Status values:'), 'renderSpecState emits Phase Status legend');
+}
+
+// parseStateMd of initSpecState file returns correct currentSpec and phases.length === 0
+{
+  const tmpBee2 = tmpBee();
+  const p2 = S.initSpecState(tmpBee2, 'canon-slug', { name: 'Canon Spec', status: 'SPEC_CREATED' });
+  const parsed2 = parseStateMd(p2);
+  assert(parsed2.currentSpec.name === 'Canon Spec', 'canonical template parses Name');
+  assert(parsed2.currentSpec.path === 'canon-slug', 'canonical template parses Path slug');
+  assert(parsed2.currentSpec.status === 'SPEC_CREATED', 'canonical template parses Status');
+  assert(parsed2.phases.length === 0, 'canonical template: table header row NOT mis-read as a phase (phases.length === 0)');
 }
 
 // restoreToGlobal preserves project-global sections from the live global
