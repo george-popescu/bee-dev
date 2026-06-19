@@ -159,7 +159,7 @@ When spawning agents via the Task tool, the conductor (parent command) chooses t
 
 ### User Preferences
 
-`.bee/user.md` is the only persistent memory file. It contains user preferences, work style rules, and recurring decisions. It is injected to all agents via the SubagentStart hook. Only conductor commands write to it — agents never modify it directly. Per-spec memory lives in `.bee/specs/<slug>/memory.md` and is injected alongside `user.md` only when exactly one spec is active; with two or more active specs it is suppressed (there is no per-chat binding). Manage both via `/bee:memory`.
+`.bee/user.md` is the global persistent memory file. It contains user preferences, work style rules, and recurring decisions. It is injected to all agents via the SubagentStart hook. Only conductor commands write to it — agents never modify it directly. Per-spec memory lives in `.bee/specs/<slug>/memory.md` and is injected alongside `user.md` only when exactly one spec is active; with two or more active specs it is suppressed (there is no per-chat binding). Manage both via `/bee:memory`.
 
 ### Context isolation for agents
 
