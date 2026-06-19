@@ -18,6 +18,7 @@ assert(content.includes('specs-cli.js list'), 'list subcommand calls specs-cli l
 assert(content.includes('specs-cli.js resolve'), 'use/status path calls specs-cli resolve');
 assert(content.includes('${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js'), 'invokes the CLI via CLAUDE_PLUGIN_ROOT');
 assert(/NOT_INITIALIZED/.test(content), 'has the NOT_INITIALIZED guard like sibling commands');
+assert(content.includes('specs-cli.js touch'), 'use subcommand calls specs-cli touch');
 
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

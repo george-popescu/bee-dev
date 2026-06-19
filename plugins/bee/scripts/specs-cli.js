@@ -1,10 +1,34 @@
 #!/usr/bin/env node
 // specs-cli.js -- CLI seam so markdown commands drive the multi-spec registry without
 // inlining JSON logic in prose. Subcommands: register, list, resolve, touch.
+const fs = require('fs');
 const path = require('path');
 const reg = require('./specs-registry');
 const { resolveTarget } = require('./spec-resolver');
-const { initSpecState, mirrorToGlobal } = require('./spec-state');
+const { initSpecState, mirrorToGlobal, specStatePath } = require('./spec-state');
+
+function nowIso() { return new Date().toISOString(); }
+
+function backfillLegacySpec(beeDir) {
+  const r = reg.readRegistry(beeDir);
+  if (reg.activeSpecs(r).length > 0) return;            // already have registered active specs
+  const globalState = path.join(beeDir, 'STATE.md');
+  if (!fs.existsSync(globalState)) return;
+  const { parseStateMd } = require('./hive-state-parser');
+  const cs = parseStateMd(globalState).currentSpec;
+  if (!cs || !cs.path || !cs.status || cs.status === 'NO_SPEC') return;
+  if (reg.getSpec(r, cs.path)) return;                  // already registered
+  // Preserve A's state: seed its per-spec STATE.md from the current global mirror (which holds A's state)
+  const perSpec = specStatePath(beeDir, cs.path);
+  if (!fs.existsSync(perSpec)) {
+    fs.mkdirSync(path.dirname(perSpec), { recursive: true });
+    fs.writeFileSync(perSpec, fs.readFileSync(globalState, 'utf8'));
+  }
+  // Register A as an active spec so it stays visible/recoverable
+  const stage = cs.status === 'IN_PROGRESS' ? 'executing' : 'planning';
+  reg.upsertSpec(r, { slug: cs.path, title: cs.name || cs.path, stage, location: 'in-place' }, nowIso());
+  reg.writeRegistry(beeDir, r);
+}
 
 function parseFlags(argv) {
   const f = {};
@@ -18,7 +42,6 @@ function parseFlags(argv) {
   }
   return f;
 }
-function nowIso() { return new Date().toISOString(); }
 
 function main(argv) {
   const sub = argv[0];
@@ -26,8 +49,9 @@ function main(argv) {
   const beeDir = f.bee || '.bee';
 
   if (sub === 'register') {
-    const fs = require('fs');
     fs.mkdirSync(beeDir, { recursive: true });
+    backfillLegacySpec(beeDir);
+    if (!f.slug) { process.stderr.write('register requires --slug\n'); return 1; }
     const r = reg.readRegistry(beeDir);
     reg.upsertSpec(r, { slug: f.slug, title: f.title, stage: f.stage || 'shaping', location: 'in-place' }, nowIso());
     reg.writeRegistry(beeDir, r);

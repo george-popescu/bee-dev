@@ -54,5 +54,22 @@ const lg = JSON.parse(res.stdout);
 assert(lg.mode === 'auto' && lg.slug === '2026-01-01-legacy', 'resolve falls back to legacy STATE.md spec');
 assert(lg.legacy === true, 'legacy fallback flagged');
 
+// slug-less register exits non-zero and writes no registry row
+const beeNoSlug = tmpBee();
+let res2 = run(['register', '--bee', beeNoSlug, '--title', 'NoSlug']);
+assert(res2.status !== 0, 'register without --slug exits non-zero');
+assert(!fs.existsSync(path.join(beeNoSlug, 'specs.json')), 'register without --slug writes no registry row');
+
+// legacy back-registration: repo with a legacy global STATE.md (no specs.json) registers a NEW spec
+// -> both specs must end up active, and legacy per-spec STATE.md must be seeded
+const up = tmpBee();
+fs.mkdirSync(up, { recursive: true });
+fs.writeFileSync(path.join(up, 'STATE.md'),
+  '# State\n\n## Current Spec\n- Name: Alpha Legacy\n- Path: .bee/specs/2026-01-01-alpha/\n- Status: IN_PROGRESS\n\n## Phases\n| 1 | Foo | DONE |\n\n## Last Action\n- Command: /bee:execute-phase\n- Timestamp: x\n- Result: y\n');
+run(['register', '--bee', up, '--slug', '2026-06-19-beta', '--title', 'Beta', '--stage', 'shaping']);
+const act = JSON.parse(run(['list', '--bee', up, '--active', '--json']).stdout);
+assert(act.length === 2, 'registering new spec back-registers the legacy spec (2 active)');
+assert(fs.existsSync(path.join(up, 'specs', '2026-01-01-alpha', 'STATE.md')), 'legacy spec per-spec STATE.md is seeded');
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

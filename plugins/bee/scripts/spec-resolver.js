@@ -3,6 +3,7 @@
 const { activeSpecs } = require('./specs-registry');
 
 function resolveTarget({ registry, worktreeSpec, legacySpec }) {
+  // worktreeSpec is wired for Step 3 (worktree promotion); no command passes it in Step 1 yet.
   if (worktreeSpec) return { mode: 'auto', slug: worktreeSpec };
   const active = activeSpecs(registry);
   if (active.length === 0) {
