@@ -32,6 +32,13 @@ git diff --stat
 git status --short
 ```
 
+Also read the multi-spec registry to detect queued specs:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active
+```
+
+Parse the output (tab-separated: slug, stage, location, title). If more than ONE active spec appears in the list, record the other slugs for a visibility note in Step 4.
+
 ### Step 2: Determine Next Command
 
 Apply the next-action table below. Check conditions top to bottom -- use the FIRST match:
@@ -70,6 +77,14 @@ For the selected option, display "Run `/bee:{command}` now." Do NOT auto-invoke.
 ### Step 4: Present Suggestion
 
 For the normal (non-ambiguous) case:
+
+If more than one active spec was found in Step 1, prepend a visibility note before the menu:
+
+```
+Note: {N} specs are active — this 'next' is for {focused-slug}. Others: {other-slugs}. Use `/bee:spec use <slug>` to switch.
+```
+
+When only one (or zero) active specs exist, omit this note entirely — no extra noise.
 
 ```
 AskUserQuestion(

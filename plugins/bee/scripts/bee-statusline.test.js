@@ -216,6 +216,87 @@ console.log('\nTest Group 9: Honeycomb per-phase count');
 }
 
 // ============================================================
+// Test Group 10: Multi-spec queue indicator
+// ============================================================
+console.log('\nTest Group 10: Multi-spec queue indicator');
+{
+  const os = require('os');
+
+  function renderWithSpecs(specsJson, stateContent) {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bee-sl-ms-'));
+    const beeDir = path.join(tmp, '.bee');
+    fs.mkdirSync(beeDir, { recursive: true });
+    if (stateContent) {
+      fs.writeFileSync(path.join(beeDir, 'STATE.md'), stateContent);
+    }
+    if (specsJson !== null) {
+      fs.writeFileSync(path.join(beeDir, 'specs.json'), JSON.stringify(specsJson, null, 2));
+    }
+    try {
+      return stripAnsi(runStatusline({ ...baseInput, workspace: { current_dir: tmp } }));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  }
+
+  const singleSpecState = `# State\n## Current Spec\n- Path: .bee/specs/feat-a/\n- Status: IN_PROGRESS\n## Phases\n| # | Name | Status |\n|---|---|---|\n| 1 | Setup | EXECUTING |\n## Quick Tasks\n`;
+  const twoSpecState = singleSpecState;
+
+  const singleRegistry = {
+    specs: [
+      { slug: 'feat-a', title: 'Feature A', stage: 'executing', location: 'in-place', created: '2026-01-01T00:00:00Z', last_touched: '2026-01-02T00:00:00Z' },
+    ],
+  };
+
+  const twoRegistry = {
+    specs: [
+      { slug: 'feat-a', title: 'Feature A', stage: 'executing', location: 'in-place', created: '2026-01-01T00:00:00Z', last_touched: '2026-01-02T00:00:00Z' },
+      { slug: 'feat-b', title: 'Feature B', stage: 'planning', location: 'in-place', created: '2026-01-01T00:00:00Z', last_touched: '2026-01-01T12:00:00Z' },
+    ],
+  };
+
+  const threeRegistry = {
+    specs: [
+      { slug: 'feat-a', title: 'Feature A', stage: 'executing', location: 'in-place', created: '2026-01-01T00:00:00Z', last_touched: '2026-01-03T00:00:00Z' },
+      { slug: 'feat-b', title: 'Feature B', stage: 'planning', location: 'in-place', created: '2026-01-01T00:00:00Z', last_touched: '2026-01-02T00:00:00Z' },
+      { slug: 'feat-c', title: 'Feature C', stage: 'shaping', location: 'in-place', created: '2026-01-01T00:00:00Z', last_touched: '2026-01-01T00:00:00Z' },
+    ],
+  };
+
+  const archivedRegistry = {
+    specs: [
+      { slug: 'feat-a', title: 'Feature A', stage: 'executing', location: 'in-place', created: '2026-01-01T00:00:00Z', last_touched: '2026-01-02T00:00:00Z' },
+      { slug: 'feat-old', title: 'Old Feature', stage: 'archived', location: 'in-place', created: '2025-01-01T00:00:00Z', last_touched: '2025-06-01T00:00:00Z' },
+    ],
+  };
+
+  // 10.1: Single active spec — no queue indicator
+  const singleOut = renderWithSpecs(singleRegistry, singleSpecState);
+  assert(!singleOut.includes('queued'), 'Single active spec: no "queued" indicator');
+
+  // 10.2: Two active specs — shows "+1 queued"
+  const twoOut = renderWithSpecs(twoRegistry, twoSpecState);
+  assert(twoOut.includes('+1 queued'), 'Two active specs: shows "+1 queued"');
+
+  // 10.3: Three active specs — shows "+2 queued"
+  const threeOut = renderWithSpecs(threeRegistry, singleSpecState);
+  assert(threeOut.includes('+2 queued'), 'Three active specs: shows "+2 queued"');
+
+  // 10.4: Terminal (archived) specs do not count toward queue
+  const archivedOut = renderWithSpecs(archivedRegistry, singleSpecState);
+  assert(!archivedOut.includes('queued'), 'Archived specs do not trigger queue indicator');
+
+  // 10.5: No specs.json (legacy repo) — output unchanged (no "queued")
+  const legacyOut = renderWithSpecs(null, singleSpecState);
+  assert(!legacyOut.includes('queued'), 'No specs.json (legacy): no queue indicator');
+
+  // 10.6: Single spec output is byte-identical with and without specs.json
+  const singleWithJson = renderWithSpecs(singleRegistry, singleSpecState);
+  const singleWithoutJson = renderWithSpecs(null, singleSpecState);
+  assert(singleWithJson === singleWithoutJson, 'Single-spec output with specs.json matches output without specs.json (byte-identical)');
+}
+
+// ============================================================
 // Results
 // ============================================================
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);

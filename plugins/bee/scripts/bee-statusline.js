@@ -173,6 +173,28 @@ process.stdin.on('end', () => {
       // Never crash the statusline
     }
 
+    // Multi-spec queue indicator — only shown when >1 active spec exists.
+    // When ≤1 active spec (or specs.json absent/legacy), this block is a no-op and
+    // beeSegment is left byte-identical to the single-spec path.
+    let queueSuffix = '';
+    try {
+      const specsJsonPath = path.join(dir, '.bee', 'specs.json');
+      if (fs.existsSync(specsJsonPath)) {
+        const raw = fs.readFileSync(specsJsonPath, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.specs)) {
+          const TERMINAL = ['shipped', 'archived'];
+          const active = parsed.specs.filter(s => !TERMINAL.includes(s.stage));
+          if (active.length > 1) {
+            queueSuffix = ` \x1b[2m+${active.length - 1} queued\x1b[0m`;
+          }
+        }
+      }
+    } catch (e) {
+      // Never crash the statusline — if specs.json is unreadable, proceed without it
+    }
+    if (queueSuffix) beeSegment = beeSegment + queueSuffix;
+
     // Git dirty count
     let gitSegment = '';
     const dirty = gitDirtyCount(dir);

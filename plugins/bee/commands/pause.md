@@ -69,6 +69,7 @@ Write `.bee/pause-handoff.md` using the Write tool with this structure:
 paused_at: {ISO 8601 timestamp}
 branch: {current git branch}
 uncommitted: {count of uncommitted files}
+spec_slug: {Current Spec Path slug from STATE.md, e.g. "my-feature" — or empty string if NO_SPEC}
 ---
 
 # Pause Handoff
@@ -77,6 +78,7 @@ uncommitted: {count of uncommitted files}
 
 ## Current Position
 - **Spec:** {spec name} ({status}) -- or "No active spec"
+- **Spec Slug:** {Current Spec Path slug from STATE.md} -- or "(none)"
 - **Phase:** Phase {N} -- {phase name} ({phase status}) -- or "No active phase"
 - **Stack:** {stack from config.json}
 

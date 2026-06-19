@@ -25,6 +25,29 @@ If the state above contains `NOT_INITIALIZED`, respond:
 
 Stop here -- do not proceed with the rest of the instructions.
 
+### Step: Resolve which spec to resume
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
+```
+
+Parse the JSON result and act on the `mode` field:
+
+- `mode:create` — no active spec exists. Brief the project generally (stack, last action from STATE.md) and suggest `/bee:new-spec` to start a new spec. Do NOT proceed to the pause detection or briefing below.
+- `mode:auto` — exactly one active spec; resume that spec as normal (proceed to Step 0 below).
+- `mode:pick` — multiple active specs and this chat is not bound to one. Present a picker:
+  ```
+  AskUserQuestion(
+    question: "Multiple active specs found. Which would you like to resume?",
+    options: [...candidates[].title (last-touched first), "Custom"]
+  )
+  ```
+  After the user picks, run:
+  ```bash
+  node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <chosen-slug>
+  ```
+  Then proceed to Step 0 below, briefing the chosen spec. Do NOT assume the last-touched spec when `mode:pick` — always ask.
+
 ### Step 0: Pause Detection
 
 If `NO_PAUSE_HANDOFF` does NOT appear in the injected context (meaning `.bee/pause-handoff.md` was found):
