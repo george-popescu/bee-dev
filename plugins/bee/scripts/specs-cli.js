@@ -160,7 +160,8 @@ function main(argv) {
         snapshotToPerSpec(beeDir, f.slug); // same spec in global: capture latest edits into the snapshot
       } else {
         if (g) snapshotToPerSpec(beeDir, g); // a DIFFERENT real spec is in global: save it before switching
-        restoreToGlobal(beeDir, f.slug);     // load target's snapshot into global (also the NO_SPEC case)
+        const ok = restoreToGlobal(beeDir, f.slug); // load target's snapshot into global (also the NO_SPEC case)
+        if (!ok) { touchErr = 'touch: spec ' + f.slug + ' has no per-spec STATE.md snapshot; cannot switch\n'; return; }
       }
     });
     if (touchErr) { process.stderr.write(touchErr); return 1; }

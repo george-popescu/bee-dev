@@ -108,7 +108,24 @@ Before creating directories, check whether `{YYYY-MM-DD}-{slug}` already exists:
 1. **Directory check:** `test -d .bee/specs/{YYYY-MM-DD}-{slug}` — exit code 0 means a directory already exists.
 2. **Registry check:** Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --json` and look for any entry whose slug equals `{YYYY-MM-DD}-{slug}`.
 
-If either check detects a collision, STOP and present:
+If either check detects a collision, determine whether the colliding spec is in a TERMINAL stage (shipped or archived). Check the registry JSON from step 2 above: find the entry whose slug equals `{YYYY-MM-DD}-{slug}` and read its `stage` field. A spec is terminal if its stage is `shipped` or `archived`.
+
+**If the colliding slug is TERMINAL (shipped/archived):** STOP and present:
+
+```
+AskUserQuestion(
+  question: "A spec with slug '{YYYY-MM-DD}-{slug}' already exists but is already completed ({stage}). How would you like to proceed?",
+  options: [
+    "Create a new spec with a fresh dated slug (recommended — the old spec is complete)",
+    "Overwrite (discards the archived spec's history)"
+  ]
+)
+```
+
+- **Create a new spec with a fresh dated slug**: Ask the user for a new feature name (return to Step 3). Re-derive the slug and re-check for collision with the new name before continuing.
+- **Overwrite**: Display "Warning: overwriting a completed/archived spec." Then reset the existing spec (proceed as in the Overwrite branch below).
+
+**If the colliding slug is ACTIVE (not terminal):** STOP and present:
 
 ```
 AskUserQuestion(

@@ -21,7 +21,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 
 - `{"mode":"create"}` → no active spec to complete. Tell the user: "No active spec to complete. Run `/bee:new-spec` first." Stop.
 - `{"mode":"auto","slug":"X"}` → target spec `X`. Check the Current Spec Path in `.bee/STATE.md`; if it does NOT already point to `.bee/specs/X/`, the touch below will re-sync it (stale global — e.g., prior complete reset to NO_SPEC).
-- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to complete. Present each candidate as `{title} ({stage})` (slug as selection value), last-touched first, `Custom` last. If two or more candidates share the same title AND stage, append ` [{slug}]` to each of those labels so they are distinguishable. If the JSON has `more`, add `+{more} more — run \`/bee:spec list\`` before Custom.
+- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to complete. Present each candidate as `{title} ({stage})` (slug as selection value), last-touched first, `Custom` last. If two or more candidates share the same title AND stage, append ` [{slug}]` to each of those labels so they are distinguishable. If the JSON has `more`, add `+{more} more active spec(s) — run \`/bee:spec list\` to see all.` as the last option before "Custom".
 
 Once the slug is chosen, run:
 
@@ -193,17 +193,28 @@ Read the Phases table from STATE.md. Check each phase row:
 
 ### Step 5.5: Archive Agent Memory
 
+Before archiving memory, check whether any OTHER spec is still active (other than the one being completed). Run:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active --json
+```
+
+Parse the JSON array. Count entries whose `slug` is NOT equal to `{spec-folder-name}` (the resolved slug from Step 0). Agent memory is project-global — archiving it while other specs are still active would wipe their accumulated context.
+
+- **If one or more OTHER active specs remain:** SKIP the `archive-memory.sh` call entirely. Tell the user: "Agent memory preserved — {N} other active spec(s) still use it; it will be archived when the last spec completes." Continue to Step 6.
+- **If this is the LAST active spec (no other active specs):** Proceed to run archive-memory.sh below.
+
 Archive agent memory from the completed spec before archiving the spec directory. Capture the script's stdout and display it to the user for visibility — the script emits one status line per outcome (success with count, no-op, or error) instead of running silently:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/archive-memory.sh "{spec-name}"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/archive-memory.sh "{spec-folder-name}"
 ```
 
 1. Capture stdout from the Bash invocation above.
-2. Display the captured output to the user verbatim (e.g. `archived 3 file(s) to .bee/memory-archive/{spec-name}/` or `no memory to archive (no shared entries found)`).
+2. Display the captured output to the user verbatim (e.g. `archived 3 file(s) to .bee/memory-archive/{spec-folder-name}/` or `no memory to archive (no shared entries found)`).
 3. If the script exits with a non-zero code, surface the stderr error message to the user before continuing the ceremony so the failure is not silent.
 
-This archives agent memory to `.bee/memory-archive/{spec-name}/`, keeps only project-level shared entries, and clears agent-specific memory.
+This archives agent memory to `.bee/memory-archive/{spec-folder-name}/`, keeps only project-level shared entries, and clears agent-specific memory.
 
 ### Step 6: Archive to .bee/archive/
 

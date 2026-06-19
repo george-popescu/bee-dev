@@ -220,8 +220,11 @@ process.stdin.on('end', () => {
               }
               // queued === 0: single-spec path — no-op, beeSegment unchanged
             } else {
-              // No focused spec but active specs exist — surface the queue explicitly
-              beeSegment = `\x1b[33m${active.length} spec(s) queued\x1b[0m \x1b[2m— none focused\x1b[0m`;
+              // No focused spec but active specs exist — surface the queue and name the most-recently-touched spec
+              const top = active[0]; // already sorted most-recently-touched first
+              const topLabel = top.title && top.title !== top.slug ? top.title : top.slug;
+              const queueSuffix = active.length > 1 ? ` \x1b[2m(+${active.length - 1} more)\x1b[0m` : '';
+              beeSegment = `\x1b[33m${active.length} queued\x1b[0m \x1b[2m— none focused; last: ${topLabel}\x1b[0m${queueSuffix}`;
             }
           }
         }

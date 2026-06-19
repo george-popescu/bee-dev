@@ -43,7 +43,7 @@ Parse the JSON result and act on the `mode` field:
     options: [...candidates as "{title} ({stage})" or "{title} ({stage}) — paused here" (slug as selection value, most-recently-touched first; if two candidates share the same title AND stage, append " [{slug}]" to each of those labels), "Custom"]
   )
   ```
-  If the JSON includes a `more` field, append `+{more} more — run \`/bee:spec list\` to see all` before "Custom". If a candidate lacks a `title`, fall back to its slug.
+  If the JSON includes a `more` field, append `+{more} more active spec(s) — run \`/bee:spec list\` to see all.` before "Custom". If a candidate lacks a `title`, fall back to its slug.
   After the user picks, run:
   ```bash
   node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <chosen-slug>

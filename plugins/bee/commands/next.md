@@ -38,7 +38,7 @@ Parse the JSON result and act on the `mode` field:
     options: [...candidates as "{title} ({stage})" (last-touched first, slug as selection value; if two candidates share the same title AND stage, append " [{slug}]" to each of those labels), "Custom"]
   )
   ```
-  If the JSON has `more`, append `+{more} more — run \`/bee:spec list\`` as the last option before "Custom".
+  If the JSON has `more`, append `+{more} more active spec(s) — run \`/bee:spec list\` to see all.` as the last option before "Custom".
   After the user picks, run:
   ```bash
   node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <chosen-slug>

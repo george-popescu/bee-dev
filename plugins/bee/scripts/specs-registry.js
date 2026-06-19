@@ -37,16 +37,19 @@ function writeRegistry(beeDir, reg) {
   return reg;
 }
 
+const LOCK_STALE_MS = 10000;  // steal a lock held longer than this (crashed holder)
+const LOCK_TIMEOUT_MS = 15000; // waiter deadline — must exceed LOCK_STALE_MS so a waiter can steal before giving up
+
 function withRegistryLock(beeDir, fn) {
   const lock = registryPath(beeDir) + '.lock';
-  const deadline = Date.now() + 5000;
+  const deadline = Date.now() + LOCK_TIMEOUT_MS;
   let fd = null;
   for (;;) {
     try { fd = fs.openSync(lock, 'wx'); break; }            // O_CREAT|O_EXCL
     catch (e) {
       if (e.code !== 'EEXIST') throw e;
-      // steal a stale lock (>10s old) to avoid permanent deadlock from a crashed writer
-      try { const st = fs.statSync(lock); if (Date.now() - st.mtimeMs > 10000) { fs.unlinkSync(lock); continue; } } catch (_) {}
+      // steal a stale lock (held > LOCK_STALE_MS) to avoid permanent deadlock from a crashed writer
+      try { const st = fs.statSync(lock); if (Date.now() - st.mtimeMs > LOCK_STALE_MS) { fs.unlinkSync(lock); continue; } } catch (_) {}
       if (Date.now() > deadline) throw new Error('specs.json lock timeout');
       try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20); } catch (_) {} // 20ms sync sleep
     }
