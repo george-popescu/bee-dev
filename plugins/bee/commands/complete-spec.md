@@ -200,6 +200,24 @@ This step reuses the same logic as `/bee:archive-spec` Steps 4-5:
    - If verification fails, tell the user: "Archive move failed. The spec directory may be in an inconsistent state. Check `.bee/archive/` and `.bee/specs/` manually." Stop.
 4. If the changelog was generated (Step 4), it is already inside the spec directory and was moved with it.
 
+### Step 6.5: Close the spec in the multi-spec registry
+
+Mark the completed spec terminal so it leaves the active queue (the resolver and `/bee:spec list` will stop offering it):
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug "{spec-folder-name}" --stage shipped
+```
+
+`{spec-folder-name}` is the last path component of the Current Spec Path (e.g. `2026-02-20-user-management`). If this prints `set-stage: unknown spec ...` (a legacy spec created before the registry existed), that is expected — continue without error.
+
+Then check whether other specs are still active:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active
+```
+
+If one or more specs remain, tell the user verbatim: "Completed {spec-name}. {N} other active spec(s) remain: {slugs}. Run `/bee:spec use <slug>` to continue one of them." If none remain, proceed normally.
+
 ### Step 7: Write Spec History Entry
 
 1. Create the history directory: `mkdir -p .bee/history/`

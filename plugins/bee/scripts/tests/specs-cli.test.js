@@ -186,6 +186,18 @@ assert(fs.readFileSync(gpath, 'utf8').includes('| 1 | Keep | PENDING |'),
     assert(parsed && parsed.specs.length === 2, 'concurrent registers both survive (lock + re-read)');
   }
 
+  // close-then-resolve flow
+  {
+    const lc = tmpBee(); fs.mkdirSync(lc, { recursive: true });
+    run(['register', '--bee', lc, '--slug', 'done-spec', '--title', 'Done', '--stage', 'reviewing']);
+    run(['register', '--bee', lc, '--slug', 'keep-spec', '--title', 'Keep', '--stage', 'planning']);
+    run(['set-stage', '--bee', lc, '--slug', 'done-spec', '--stage', 'shipped']);
+    const act = JSON.parse(run(['list', '--bee', lc, '--active', '--json']).stdout);
+    assert(act.length === 1 && act[0].slug === 'keep-spec', 'completing one spec leaves only the other active');
+    const r = JSON.parse(run(['resolve', '--bee', lc]).stdout);
+    assert(r.mode === 'auto' && r.slug === 'keep-spec', 'resolver auto-targets the remaining spec, not the shipped ghost');
+  }
+
   console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
   process.exit(failed > 0 ? 1 : 0);
 })();

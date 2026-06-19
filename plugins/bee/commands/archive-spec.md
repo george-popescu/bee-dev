@@ -65,6 +65,16 @@ If the user selects "Cancel", display "Archive cancelled." and stop.
    - Check that the original location no longer exists: `test ! -d {spec-path}`
    - If verification fails, tell the user: "Archive move failed. The spec directory may be in an inconsistent state. Check `.bee/archive/` and `.bee/specs/` manually." Stop.
 
+### Step 4.5: Close the spec in the multi-spec registry
+
+Mark the archived spec terminal so it leaves the active queue:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug "{spec-folder-name}" --stage archived
+```
+
+If this prints `set-stage: unknown spec ...` (a legacy spec not in the registry), that is expected — continue.
+
 ### Step 5: Reset STATE.md
 
 Perform a double-write to STATE.md to record the transition through ARCHIVED status:
