@@ -20,6 +20,19 @@ function currentGlobalSlug(beeDir) {
 // Shared resolver entry: registry + legacy-STATE fallback (when the registry has no specs at
 // all). Used by both `resolve` and `memory-context` so the 0/1/2+ rule lives in one place.
 function doResolve(beeDir, f) {
+  let worktreeSpec = f['worktree-spec'] || null;
+  // Directory wins: inside a promoted spec's worktree a `.bee/worktree-spec` marker names the
+  // bound spec. It overrides the registry's 0/1/2+ count so the worktree never shows a picker
+  // and never injects another spec's memory, even though the copied specs.json lists others.
+  if (!worktreeSpec) {
+    try {
+      const marker = path.join(beeDir, 'worktree-spec');
+      if (fs.existsSync(marker)) {
+        const m = fs.readFileSync(marker, 'utf8').trim();
+        if (m) worktreeSpec = m;
+      }
+    } catch (_) { /* ignore — fall through to registry resolution */ }
+  }
   const r = reg.readRegistry(beeDir);
   let legacySpec = null;
   if (r.specs.length === 0) {
@@ -28,7 +41,7 @@ function doResolve(beeDir, f) {
       legacySpec = st.currentSpec.path;
     }
   }
-  return resolveTarget({ registry: r, worktreeSpec: f['worktree-spec'] || null, legacySpec });
+  return resolveTarget({ registry: r, worktreeSpec, legacySpec });
 }
 
 // Curated content of a per-spec memory.md = the file minus its template title heading and the
