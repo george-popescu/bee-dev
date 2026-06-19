@@ -531,9 +531,33 @@ After generating ROADMAP.md, proceed to **Step 11: Update STATE.md**. (Note: If 
 
 This step runs only when `$ARGUMENTS` contains `--amend`.
 
-1. Read `.bee/STATE.md` and find the current spec path from the "Current Spec" section.
-2. If the Status is `NO_SPEC` or no current spec path exists, tell the user: "No active spec found. Run `/bee:new-spec` first to create one." Stop here.
+**Resolve the target spec explicitly (F26 fix — do NOT assume the last-touched spec):**
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
+```
+
+Interpret the JSON:
+- `{"mode":"create"}` → no active spec. Tell the user: "No active spec found. Run `/bee:new-spec` first to create one." Stop here.
+- `{"mode":"auto","slug":"X"}` → silently target spec `X`.
+- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to amend, listing candidates (last-touched first) with `Custom` last. Use the chosen slug.
+
+Once the slug is resolved, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` to sync the global STATE.md to the chosen spec before proceeding.
+
+1. Read `.bee/STATE.md` and find the current spec path from the "Current Spec" section (now guaranteed to reflect the resolved slug).
+2. If no current spec path exists after touch, tell the user: "No active spec found. Run `/bee:new-spec` first to create one." Stop here.
 3. Read the existing `requirements.md`, `spec.md`, and `phases.md` from the current spec folder.
+
+**Capture existing phase execution status before amending (F7 fix — preserve committed progress):**
+
+Read the Phases table from STATE.md. For each phase row, record:
+- Phase number, phase name
+- Executed column value (non-empty = executed)
+- Reviewed column value
+- Tested column value
+- Committed column value (non-empty = committed/done)
+
+Store this as `$PRE_AMEND_PHASE_STATUS`. This is the ground truth of what has already been done and MUST NOT be erased by the amend.
 
 **Spawn spec-shaper in amend mode:**
 Provide the spec-shaper agent with (omit model parameter -- amend mode needs full reasoning for nuanced changes):
@@ -548,6 +572,18 @@ After the spec-shaper finishes updating `requirements.md`, read `config.implemen
 - The spec folder path
 - Instruction: "This is an amended spec. Read the updated requirements.md. Rewrite only sections affected by the changes in spec.md and phases.md. Preserve unchanged content exactly."
 
+**After spec-writer finishes: preserve committed phase status in STATE.md (F7 fix):**
+
+Before proceeding to Step 9.5, apply the execution-status preservation rule:
+
+1. For each phase in `$PRE_AMEND_PHASE_STATUS` that has Executed or Committed columns populated:
+   a. Check whether the same phase (by number and substantially same name) still exists in the regenerated `phases.md`.
+   b. If the phase still exists: KEEP the Executed/Reviewed/Tested/Committed values from `$PRE_AMEND_PHASE_STATUS` — do NOT reset them to PENDING/empty.
+   c. If the phase has been structurally removed or its scope changed significantly: STOP and warn via AskUserQuestion before discarding its committed status:
+      "Amending will discard committed progress on Phase {N} ({name}). This progress is not recoverable from git (.bee/ is gitignored). Confirm to proceed?"
+      Options: ["Cancel (recommended)", "Proceed and discard committed progress", "Custom"]. Only proceed on explicit "Proceed" confirmation.
+2. Only NEW phases introduced by the amend start at PENDING with empty execution columns.
+
 After the spec-writer finishes, proceed to **Step 9.5: Spec Review Loop** to validate the amended spec. Then proceed to **Step 9.8: Generate ROADMAP.md** to regenerate the roadmap with any changed requirements or phases. Then proceed to **Step 11: Update STATE.md**.
 
 ### Step 11: Update STATE.md
@@ -558,7 +594,9 @@ After all steps complete successfully (in either the new or amend flow), re-read
 2. Set **Current Spec Path** to the spec folder path (e.g., `.bee/specs/2026-02-20-user-management/`)
 3. Set **Current Spec Status** to `SPEC_CREATED`
 4. Read the newly created (or updated) `phases.md` from the spec folder
-5. Populate the **Phases** table with one row per phase, all with Status `PENDING` and all other columns (Plan, Plan Review, Executed, Reviewed, Tested, Committed) empty
+5. Populate the **Phases** table:
+   - For **new spec flow**: one row per phase, all with Status `PENDING` and all other columns (Plan, Plan Review, Executed, Reviewed, Tested, Committed) empty.
+   - For **amend flow**: for each phase, check `$PRE_AMEND_PHASE_STATUS`. If that phase has preserved Executed/Committed column values (from the preservation step in Step 10), write those values back rather than resetting to PENDING. Only new phases that did not previously exist start at PENDING.
 6. Set **Last Action** to:
    - Command: `/bee:new-spec` (or `/bee:new-spec --amend` if amending)
    - Timestamp: current ISO 8601 timestamp

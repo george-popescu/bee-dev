@@ -24,7 +24,38 @@ You are running `/bee:plan-phase` -- the three-step planning command for BeeDev.
 ### Step 1: Validation Guards
 
 See `skills/command-primitives/SKILL.md` Validation Guards.
-Apply: NOT_INITIALIZED, NO_SPEC, Phase Number Argument, Already Planned.
+Apply: NOT_INITIALIZED.
+
+If the dynamic context contains NO_SPEC and no spec.md exists in any `.bee/specs/*/` directory: tell the user "No active spec. Run `/bee:new-spec` first." Stop. (Fallback only — the resolver below handles this for the multi-spec case.)
+
+### Step: Resolve target spec
+
+Determine which spec this command acts on:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
+```
+
+Interpret the JSON:
+- `{"mode":"create"}` → no active spec. Tell the user: "No active spec. Run `/bee:new-spec` first." Stop.
+- `{"mode":"auto","slug":"X"}` → silently target spec `X` (single-spec behavior, unchanged).
+- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to work on, listing candidates (last-touched first) with `Custom` last. Use the chosen slug.
+
+Once the slug is chosen, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` — this syncs `.bee/STATE.md` to the chosen spec. Then proceed using `.bee/STATE.md` as this command normally does.
+
+### Step 1.5: Post-Resolve Guards (evaluate against the CHOSEN spec)
+
+These guards run AFTER spec resolution so they evaluate the correct spec's state.
+
+**Phase Number Argument:** See `skills/command-primitives/SKILL.md` Guard: Phase Number Argument. Check `$ARGUMENTS` for a phase number against the resolved spec's `phases.md`. If missing, prompt; if exceeds phase count, stop.
+
+**Already Planned:** See `skills/command-primitives/SKILL.md` Guard: Already Planned. Evaluate the resolved spec's STATE.md Phases table. If the target phase's Plan column is `Yes`: PLANNED → soft warning; EXECUTING+ → strong warning that progress may be lost. Stop unless the user confirms.
+
+**Committed-phase hard stop:** Re-read the resolved spec's STATE.md Phases table. If the target phase's Executed AND Committed columns are both populated (non-empty), STOP immediately with a strong warning:
+
+"Phase {N} of spec {slug} is already executed and committed. Re-planning will overwrite its committed TASKS.md. Because .bee/ is gitignored, this file is NOT recoverable from git. Confirm to proceed?"
+
+Use AskUserQuestion with options: ["Cancel (recommended)", "Proceed anyway (data loss risk)", "Custom"]. Only proceed on explicit "Proceed anyway" confirmation.
 
 ### Step: Resolve target spec
 

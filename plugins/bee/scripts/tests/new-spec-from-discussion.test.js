@@ -198,6 +198,17 @@ assert(
   step3Content.includes('Spec Name') || step3Content.includes('spec name') || step3Content.toLowerCase().includes('slugify'),
   'Step 3 (Get Spec Name) is unchanged'
 );
+// Step 3.5 (Archive Previous Spec Memory) was removed in multispec-foundation:
+// new-spec no longer archives the previous spec (multiple specs may be active).
+// Verify the old archive-memory invocation is gone and the multispec note is present.
+assert(
+  !content.includes('archive-memory.sh'),
+  'Step 3.5 archive-memory.sh removed (multispec: no longer archives previous spec)'
+);
+assert(
+  content.includes('Multiple specs may be active') || content.includes('Archiving happens only at'),
+  'Step 3.5 replaced with multispec note (no archive on new-spec)'
+);
 const step4Content = contentBetweenSections('### Step 4', content);
 assert(
   step4Content.toLowerCase().includes('spec folder') || step4Content.toLowerCase().includes('spec directory'),
