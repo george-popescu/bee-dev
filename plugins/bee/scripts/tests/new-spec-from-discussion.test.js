@@ -198,11 +198,6 @@ assert(
   step3Content.includes('Spec Name') || step3Content.includes('spec name') || step3Content.toLowerCase().includes('slugify'),
   'Step 3 (Get Spec Name) is unchanged'
 );
-const step35Content = contentBetweenSections('### Step 3.5', content);
-assert(
-  step35Content.includes('archive-memory') || step35Content.toLowerCase().includes('archive'),
-  'Step 3.5 (Archive Previous Spec Memory) is unchanged'
-);
 const step4Content = contentBetweenSections('### Step 4', content);
 assert(
   step4Content.toLowerCase().includes('spec folder') || step4Content.toLowerCase().includes('spec directory'),

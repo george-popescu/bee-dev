@@ -58,18 +58,8 @@ If no description is provided, ask the user:
 
 Wait for the user's response. Extract a short name for the spec folder and store the full description as `$INITIAL_DESCRIPTION`.
 
-### Step 3.5: Archive Previous Spec Memory
-
-If STATE.md shows an existing spec (Status is NOT `NO_SPEC`), archive the memory from the previous spec before starting fresh:
-
-1. Get the previous spec name from STATE.md (Current Spec Name field)
-2. Run: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/archive-memory.sh "{previous-spec-name}"`
-3. Capture the script's stdout and display it to the user verbatim — the script emits one status line per outcome (e.g. `archived 3 file(s) to .bee/memory-archive/{previous-spec-name}/` or `no memory to archive (no shared entries found)`). This replaces the previous fire-and-forget silent invocation.
-4. If the script exits with a non-zero code, surface the stderr error message to the user before continuing so the failure is not silent.
-
-This archives agent memory to `.bee/memory-archive/{spec-name}/`, keeps only project-level shared entries (patterns, conventions, preferences), and clears agent-specific memory so agents start clean for the new spec.
-
-If there is no previous spec (Status is `NO_SPEC`), skip this step.
+This command does NOT close or archive any existing spec. Multiple specs may be active at
+once (a queue of un-executed specs is expected). Archiving happens only at `/bee:complete-spec`.
 
 ### Step 3.7: Surface Matching Seeds
 
@@ -117,6 +107,14 @@ Create the spec directory:
 Tell the user: "Spec folder created at `.bee/specs/{folder}/`. If you have mockups or screenshots, place them in `.bee/specs/{folder}/visuals/` now before we continue."
 
 Wait for the user to confirm they are ready to proceed (they may need time to add visuals).
+
+### Step: Register the spec in the multi-spec registry
+
+Run (this also creates the per-spec STATE.md and refreshes the global mirror):
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js register --bee .bee --slug "{YYYY-MM-DD}-{slug}" --title "{name}" --stage shaping
+```
 
 ### Step 5: Research Codebase
 
