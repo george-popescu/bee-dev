@@ -119,6 +119,33 @@ if [ -n "$ACTIVE_DEBUG" ]; then
   echo ""
 fi
 
+# Multi-spec awareness: if specs.json exists and more than one active spec is present,
+# emit a short advisory so a resumed chat knows no spec is auto-bound.
+# Single-active-spec and legacy (no specs.json) output is unchanged.
+if [ -f "$BEE_DIR/specs.json" ]; then
+  ACTIVE_SPEC_COUNT=$(node -e "
+    try {
+      const reg = JSON.parse(require('fs').readFileSync('$BEE_DIR/specs.json', 'utf8'));
+      const TERMINAL = ['shipped', 'archived'];
+      const active = (reg.specs || []).filter(s => !TERMINAL.includes(s.stage));
+      process.stdout.write(String(active.length));
+      if (active.length > 1) {
+        const slugs = active
+          .sort((a,b) => String(b.last_touched).localeCompare(String(a.last_touched)))
+          .map(s => s.slug).join(', ');
+        process.stdout.write('\n' + slugs);
+      }
+    } catch(e) { process.stdout.write('0'); }
+  " 2>/dev/null)
+  ACTIVE_COUNT=$(echo "$ACTIVE_SPEC_COUNT" | head -1)
+  ACTIVE_SLUGS=$(echo "$ACTIVE_SPEC_COUNT" | tail -n +2)
+  if [ "$ACTIVE_COUNT" -gt 1 ] 2>/dev/null; then
+    echo "## Multiple Active Specs"
+    echo "Multiple active specs ($ACTIVE_COUNT): $ACTIVE_SLUGS. This session is not bound to one — run a spec command (it will show a picker) or \`/bee:spec use <slug>\`."
+    echo ""
+  fi
+fi
+
 # Bee Quick Guide (compact workflow intelligence for parent Claude)
 echo "## Bee Quick Guide"
 echo "Intent routing: new-spec (feature) | quick (bugfix) | debug (investigate) | forensics (stuck workflow) | workspace (parallel work)"

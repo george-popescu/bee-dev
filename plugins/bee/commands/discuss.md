@@ -32,7 +32,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 Interpret the JSON:
 - `{"mode":"create"}` → no active spec yet. That's fine for discuss (it can lead to creating one) — proceed with no bound spec; do NOT stop.
 - `{"mode":"auto","slug":"X"}` → silently target spec `X` (single-spec behavior, unchanged).
-- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to work on, listing candidates (last-touched first) with `Custom` last. Use the chosen slug.
+- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to work on. Present each candidate as `{title} ({stage})` (slug as selection value), most-recently-touched first, `Custom` last. If the JSON includes a `more` field, append `+{more} more — run \`/bee:spec list\` to see all`. If a candidate lacks a `title`, fall back to its slug. Use the chosen slug.
 
 Once the slug is chosen, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` — this syncs `.bee/STATE.md` to the chosen spec. Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's. Then proceed using `.bee/STATE.md` as this command normally does.
 

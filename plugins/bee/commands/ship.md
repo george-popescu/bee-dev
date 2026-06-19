@@ -31,7 +31,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
 
 - `{"mode":"create"}` → no active spec. Tell the user "No active spec to ship. Run `/bee:new-spec` first." Stop.
 - `{"mode":"auto","slug":"X"}` → target spec `X`.
-- `{"mode":"pick","candidates":[…]}` → ship is unattended once it starts, so you MUST choose the spec NOW via AskUserQuestion (candidates last-touched first, `Custom` last). This entry-point menu is the ONE allowed interaction; the pipeline after Step 1 stays fully autonomous.
+- `{"mode":"pick","candidates":[…]}` → ship is unattended once it starts, so you MUST choose the spec NOW via AskUserQuestion. Present each candidate as `{title} ({stage})` (slug as selection value), most-recently-touched first, `Custom` last. If the JSON includes a `more` field, append `+{more} more — run \`/bee:spec list\` to see all`. If a candidate lacks a `title`, fall back to its slug. This entry-point menu is the ONE allowed interaction; the pipeline after Step 1 stays fully autonomous.
 
 Then sync global STATE.md to the chosen spec and record it as the Current Spec Path for the rest of this command:
 

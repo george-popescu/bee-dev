@@ -39,9 +39,10 @@ Parse the JSON result and act on the `mode` field:
   ```
   AskUserQuestion(
     question: "Multiple active specs found. Which would you like to resume?",
-    options: [...candidates[].title (last-touched first), "Custom"]
+    options: [...candidates as "{title} ({stage})" (slug as selection value, most-recently-touched first), "Custom"]
   )
   ```
+  If the JSON includes a `more` field, append `+{more} more — run \`/bee:spec list\` to see all` before "Custom". If a candidate lacks a `title`, fall back to its slug.
   After the user picks, run:
   ```bash
   node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <chosen-slug>

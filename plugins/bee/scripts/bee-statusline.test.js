@@ -294,6 +294,40 @@ console.log('\nTest Group 10: Multi-spec queue indicator');
   const singleWithJson = renderWithSpecs(singleRegistry, singleSpecState);
   const singleWithoutJson = renderWithSpecs(null, singleSpecState);
   assert(singleWithJson === singleWithoutJson, 'Single-spec output with specs.json matches output without specs.json (byte-identical)');
+
+  // 10.7: NO_SPEC global + 1 active spec → queue surfaced (not silent)
+  const noSpecState = `# State\n## Current Spec\n- Path: (none)\n- Status: NO_SPEC\n## Phases\n## Quick Tasks\n`;
+  const noSpecWithOneActive = renderWithSpecs(singleRegistry, noSpecState);
+  assert(
+    noSpecWithOneActive.includes('queued') || noSpecWithOneActive.includes('spec'),
+    'NO_SPEC global + 1 active spec: queue surfaced (not silent bare "ready")'
+  );
+  assert(
+    !stripAnsi(noSpecWithOneActive).match(/^[^q]*ready[^q]*$/m) ||
+    noSpecWithOneActive.includes('queued'),
+    'NO_SPEC global + 1 active spec: does not show bare "ready" without queue info'
+  );
+
+  // 10.8: NO_SPEC global + 2 active specs → explicitly surfaces count and "none focused"
+  const noSpecWithTwoActive = renderWithSpecs(twoRegistry, noSpecState);
+  const plainNoSpec2 = stripAnsi(noSpecWithTwoActive);
+  assert(
+    plainNoSpec2.includes('2') && (plainNoSpec2.includes('queued') || plainNoSpec2.includes('spec')),
+    'NO_SPEC global + 2 active specs: output includes count and queue indicator'
+  );
+  assert(
+    plainNoSpec2.includes('none focused') || plainNoSpec2.includes('no focused'),
+    'NO_SPEC global + 2 active specs: output indicates no spec is focused'
+  );
+
+  // 10.9: Focused spec + 1 other active spec → shows "+1 queued" (not "none focused")
+  const twoSpecFocusedOut = renderWithSpecs(twoRegistry, twoSpecState);
+  assert(twoSpecFocusedOut.includes('+1 queued'), 'Two active specs with focused: shows "+1 queued" (regression guard)');
+  assert(!twoSpecFocusedOut.includes('none focused'), 'Two active specs with focused: does NOT show "none focused"');
+
+  // 10.10: NO_SPEC global + no specs.json → bare "ready" (legacy unchanged)
+  const legacyNoSpecOut = renderWithSpecs(null, noSpecState);
+  assert(stripAnsi(legacyNoSpecOut).includes('ready'), 'NO_SPEC + no specs.json: bare "ready" (legacy unchanged)');
 }
 
 // ============================================================

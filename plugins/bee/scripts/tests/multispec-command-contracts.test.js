@@ -239,6 +239,54 @@ console.log('\nTest Group 6: lifecycle set-stage calls with regression guard (FI
 }
 
 // ============================================================
+// Test Group 7: Picker prose consistency — all resolver front-doors must present
+// candidates as "{title} ({stage})" with a slug as selection value, most-recently-touched
+// first, Custom last, and handle the optional `more` field.
+// ============================================================
+console.log('\nTest Group 7: Picker prose consistency across resolver front-doors');
+{
+  // All 8 resolver-bearing command files
+  const RESOLVER_CMDS = [
+    'plan-phase.md',
+    'discuss.md',
+    'execute-phase.md',
+    'ship.md',
+    'resume.md',
+    'complete-spec.md',
+    'archive-spec.md',
+    'next.md',
+  ];
+
+  for (const cmd of RESOLVER_CMDS) {
+    const content = readCmd(cmd);
+
+    // Must mention stage in the pick branch
+    assert(
+      content.includes('stage'),
+      `${cmd}: pick branch mentions "stage" (candidate format includes stage)`
+    );
+
+    // Must mention the `more` field or an equivalent "+N more" pattern
+    assert(
+      content.includes('more'),
+      `${cmd}: pick branch handles the "more" field (+N more — run /bee:spec list)`
+    );
+
+    // Must use "Custom" as last option
+    assert(
+      content.includes('Custom'),
+      `${cmd}: pick branch includes "Custom" as last option`
+    );
+
+    // Must present candidates last-touched first
+    assert(
+      content.includes('last-touched first') || content.includes('most-recently-touched first'),
+      `${cmd}: pick branch presents candidates most-recently-touched first`
+    );
+  }
+}
+
+// ============================================================
 // Results
 // ============================================================
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
