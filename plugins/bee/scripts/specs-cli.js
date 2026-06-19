@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // specs-cli.js -- CLI seam so markdown commands drive the multi-spec registry without
-// inlining JSON logic in prose. Subcommands: register, list, resolve, touch.
+// inlining JSON logic in prose. Subcommands: register, list, resolve, touch, set-stage, memory-context.
 const fs = require('fs');
 const path = require('path');
 const reg = require('./specs-registry');
 const { resolveTarget } = require('./spec-resolver');
-const { initSpecState, mirrorToGlobal, specStatePath, snapshotToPerSpec, globalStatePath, restoreToGlobal, initSpecMemory } = require('./spec-state');
+const { initSpecState, mirrorToGlobal, specStatePath, snapshotToPerSpec, globalStatePath, restoreToGlobal, initSpecMemory, specMemoryPath } = require('./spec-state');
 const { parseStateMd } = require('./hive-state-parser');
 
 function nowIso() { return new Date().toISOString(); }
@@ -15,6 +15,28 @@ function currentGlobalSlug(beeDir) {
   if (!fs.existsSync(g)) return null;
   const cs = parseStateMd(g).currentSpec;
   return (cs && cs.path && cs.status && cs.status !== 'NO_SPEC') ? cs.path : null;
+}
+
+// Shared resolver entry: registry + legacy-STATE fallback (when the registry has no specs at
+// all). Used by both `resolve` and `memory-context` so the 0/1/2+ rule lives in one place.
+function doResolve(beeDir, f) {
+  const r = reg.readRegistry(beeDir);
+  let legacySpec = null;
+  if (r.specs.length === 0) {
+    const st = parseStateMd(path.join(beeDir, 'STATE.md'));
+    if (st.currentSpec && st.currentSpec.path && st.currentSpec.status && st.currentSpec.status !== 'NO_SPEC') {
+      legacySpec = st.currentSpec.path;
+    }
+  }
+  return resolveTarget({ registry: r, worktreeSpec: f['worktree-spec'] || null, legacySpec });
+}
+
+// Curated content of a per-spec memory.md = the file minus its template title heading and the
+// template guidance comment. Empty string means "only the template / nothing to inject".
+function stripMemoryTemplate(s) {
+  let t = String(s).replace(/<!--[\s\S]*?-->/g, '');   // drop HTML comment blocks (template guidance)
+  t = t.replace(/^\s*#\s+Spec Memory\b.*$/m, '');       // drop the template H1 title line
+  return t.trim();
 }
 
 function backfillLegacySpec(beeDir) {
@@ -106,24 +128,24 @@ function main(argv) {
     return 0;
   }
   if (sub === 'resolve') {
-    const r = reg.readRegistry(beeDir);
-    // Backward compat: if the registry has NO specs at all (truly legacy repo that has never
-    // used multi-spec), fall back to a spec recorded in the global STATE.md.
-    // Do NOT fall back when the registry has specs but they are all terminal — that means
-    // all work is complete and the user should start a new spec (mode:create).
-    let legacySpec = null;
-    if (r.specs.length === 0) {
-      const st = parseStateMd(path.join(beeDir, 'STATE.md'));
-      if (st.currentSpec && st.currentSpec.path && st.currentSpec.status && st.currentSpec.status !== 'NO_SPEC') {
-        legacySpec = st.currentSpec.path;
-      }
-    }
-    let result = resolveTarget({ registry: r, worktreeSpec: f['worktree-spec'] || null, legacySpec });
+    let result = doResolve(beeDir, f);
     if (result.mode === 'pick' && result.candidates.length > 3) {
       const total = result.candidates.length;
       result = { ...result, candidates: result.candidates.slice(0, 3), more: total - 3 };
     }
     process.stdout.write(JSON.stringify(result) + '\n');
+    return 0;
+  }
+  if (sub === 'memory-context') {
+    // Inject a spec's curated memory ONLY when exactly one spec is active (mode=auto). At 0 or
+    // 2+ active, suppress — a non-interactive hook cannot pick, and there is no per-chat binding.
+    const result = doResolve(beeDir, f);
+    if (result.mode !== 'auto' || !result.slug) return 0;
+    const memPath = specMemoryPath(beeDir, result.slug);
+    if (!fs.existsSync(memPath)) return 0;
+    const curated = stripMemoryTemplate(fs.readFileSync(memPath, 'utf8'));
+    if (!curated) return 0;
+    process.stdout.write(`## Spec Memory (${result.slug})\n\n${curated}\n`);
     return 0;
   }
   if (sub === 'touch') {
