@@ -63,7 +63,10 @@ function main(argv) {
     if (outgoing && outgoing !== f.slug) snapshotToPerSpec(beeDir, outgoing);
     reg.withRegistryLock(beeDir, () => {
       const r = reg.readRegistry(beeDir);
-      reg.upsertSpec(r, { slug: f.slug, title: f.title, stage: f.stage || 'shaping', location: 'in-place' }, nowIso());
+      const existing = reg.getSpec(r, f.slug);
+      let stage = f.stage || 'shaping';
+      if (existing && reg.STAGES.indexOf(stage) < reg.STAGES.indexOf(existing.stage)) stage = existing.stage;
+      reg.upsertSpec(r, { slug: f.slug, title: f.title, stage, location: 'in-place' }, nowIso());
       reg.writeRegistry(beeDir, r);
     });
     initSpecState(beeDir, f.slug, { name: f.title || f.slug, status: 'SPEC_CREATED' });
@@ -98,15 +101,39 @@ function main(argv) {
         legacySpec = st.currentSpec.path;
       }
     }
-    process.stdout.write(JSON.stringify(resolveTarget({ registry: r, worktreeSpec: f['worktree-spec'] || null, legacySpec })) + '\n');
+    let result = resolveTarget({ registry: r, worktreeSpec: f['worktree-spec'] || null, legacySpec });
+    if (result.mode === 'pick' && result.candidates.length > 4) {
+      const total = result.candidates.length;
+      result = { ...result, candidates: result.candidates.slice(0, 4), more: total - 4 };
+    }
+    process.stdout.write(JSON.stringify(result) + '\n');
     return 0;
   }
   if (sub === 'touch') {
     let touchErr = null;
     reg.withRegistryLock(beeDir, () => {
       const r = reg.readRegistry(beeDir);
-      const sp = reg.getSpec(r, f.slug);
-      if (!sp) { touchErr = 'touch: unknown spec ' + f.slug + '\n'; return; }
+      let sp = reg.getSpec(r, f.slug);
+      if (!sp) {
+        // Self-heal: check whether this is the legacy global spec that was never registered
+        const globalState = path.join(beeDir, 'STATE.md');
+        if (fs.existsSync(globalState)) {
+          const cs = parseStateMd(globalState).currentSpec;
+          if (cs && cs.path === f.slug && cs.status && cs.status !== 'NO_SPEC') {
+            // Back-register the legacy spec
+            const perSpec = specStatePath(beeDir, f.slug);
+            if (!fs.existsSync(perSpec)) {
+              fs.mkdirSync(path.dirname(perSpec), { recursive: true });
+              fs.writeFileSync(perSpec, fs.readFileSync(globalState, 'utf8'));
+            }
+            const stage = cs.status === 'IN_PROGRESS' ? 'executing' : 'planning';
+            reg.upsertSpec(r, { slug: f.slug, title: cs.name || f.slug, stage, location: 'in-place' }, nowIso());
+            reg.writeRegistry(beeDir, r);
+            sp = reg.getSpec(r, f.slug);
+          }
+        }
+        if (!sp) { touchErr = 'touch: unknown spec ' + f.slug + '\n'; return; }
+      }
       if (reg.TERMINAL_STAGES.includes(sp.stage)) { touchErr = 'touch: spec ' + f.slug + ' is ' + sp.stage + ' (completed/archived)\n'; return; }
       reg.touchSpec(r, f.slug, nowIso());
       reg.writeRegistry(beeDir, r);

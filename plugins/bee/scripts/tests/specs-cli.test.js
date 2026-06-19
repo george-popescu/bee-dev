@@ -128,6 +128,45 @@ assert(fs.readFileSync(gpath, 'utf8').includes('| 1 | Keep | PENDING |'),
   assert(rg.includes('Use Vitest'), 'register preserves global Decisions Log on first-spec creation');
 }
 
+// F25: re-registering an advanced spec must not regress its stage
+{
+  const f25 = tmpBee(); fs.mkdirSync(f25, { recursive: true });
+  run(['register', '--bee', f25, '--slug', 'adv', '--title', 'Adv', '--stage', 'planning']);
+  run(['set-stage', '--bee', f25, '--slug', 'adv', '--stage', 'executing']);
+  run(['register', '--bee', f25, '--slug', 'adv', '--title', 'Adv', '--stage', 'shaping']); // re-register earlier stage
+  const list = JSON.parse(run(['list', '--bee', f25, '--json']).stdout);
+  const advSpec = list.find(s => s.slug === 'adv');
+  assert(advSpec && advSpec.stage === 'executing', 'F25: re-register with earlier stage does not regress executing->shaping');
+}
+
+// F15: touch on a legacy spec (no specs.json) self-heals and exits 0
+{
+  const f15 = tmpBee(); fs.mkdirSync(f15, { recursive: true });
+  fs.writeFileSync(path.join(f15, 'STATE.md'),
+    '# State\n\n## Current Spec\n- Name: Legacy\n- Path: .bee/specs/2026-01-01-leg/\n- Status: IN_PROGRESS\n');
+  // resolve returns auto+legacy
+  const resolveOut = JSON.parse(run(['resolve', '--bee', f15]).stdout);
+  assert(resolveOut.mode === 'auto' && resolveOut.legacy === true, 'F15: resolve returns auto legacy:true');
+  // touch must self-heal and succeed
+  const tr = run(['touch', '--bee', f15, '--slug', '2026-01-01-leg']);
+  assert(tr.status === 0, 'F15: touch on legacy slug exits 0 (self-heals)');
+  const active = JSON.parse(run(['list', '--bee', f15, '--active', '--json']).stdout);
+  assert(active.some(s => s.slug === '2026-01-01-leg'), 'F15: back-registered legacy spec appears in list --active');
+  // bogus slug still fails
+  const bogus = run(['touch', '--bee', f15, '--slug', 'bogus-unknown']);
+  assert(bogus.status !== 0, 'F15: genuinely unknown slug still exits non-zero');
+}
+
+// F22: resolve with 6 active specs caps candidates at 4, reports more:2
+{
+  const f22 = tmpBee(); fs.mkdirSync(f22, { recursive: true });
+  for (let i = 1; i <= 6; i++) run(['register', '--bee', f22, '--slug', `spec-${i}`, '--title', `Spec ${i}`, '--stage', 'planning']);
+  const r22 = JSON.parse(run(['resolve', '--bee', f22]).stdout);
+  assert(r22.mode === 'pick', 'F22: resolve is pick with 6 active');
+  assert(r22.candidates.length === 4, 'F22: candidates capped at 4');
+  assert(r22.more === 2, 'F22: more === 2 for the remaining specs');
+}
+
 // Async section: set-stage, touch-terminal-guard, concurrency
 (async () => {
   const { spawn } = require('child_process');
