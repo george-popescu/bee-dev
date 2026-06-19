@@ -193,31 +193,6 @@ Read the Phases table from STATE.md. Check each phase row:
 5. Display: "Git tag created: `{tag}`"
 6. Do NOT push the tag. The user pushes manually if desired.
 
-### Step 5.5: Archive Agent Memory
-
-Before archiving memory, check whether any OTHER spec is still active (other than the one being completed). Run:
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active --json
-```
-
-Parse the JSON array. Count entries whose `slug` is NOT equal to `{spec-folder-name}` (the resolved slug from Step 0). Agent memory is project-global — archiving it while other specs are still active would wipe their accumulated context.
-
-- **If one or more OTHER active specs remain:** SKIP the `archive-memory.sh` call entirely. Tell the user: "Agent memory preserved — {N} other active spec(s) still use it; it will be archived when the last spec completes." Continue to Step 6.
-- **If this is the LAST active spec (no other active specs):** Proceed to run archive-memory.sh below.
-
-Archive agent memory from the completed spec before archiving the spec directory. Capture the script's stdout and display it to the user for visibility — the script emits one status line per outcome (success with count, no-op, or error) instead of running silently:
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/archive-memory.sh "{spec-folder-name}"
-```
-
-1. Capture stdout from the Bash invocation above.
-2. Display the captured output to the user verbatim (e.g. `archived 3 file(s) to .bee/memory-archive/{spec-folder-name}/` or `no memory to archive (no shared entries found)`).
-3. If the script exits with a non-zero code, surface the stderr error message to the user before continuing the ceremony so the failure is not silent.
-
-This archives agent memory to `.bee/memory-archive/{spec-folder-name}/`, keeps only project-level shared entries, and clears agent-specific memory.
-
 ### Step 6: Archive to .bee/archive/
 
 This step reuses the same logic as `/bee:archive-spec` Steps 4-5:

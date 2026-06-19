@@ -1,11 +1,14 @@
 #!/usr/bin/env node
-// Tests for FIX 1, FIX 2, FIX 3, FIX 5, FIX 6 from batch15 multi-spec fixes.
+// Tests for multi-spec complete/archive lifecycle invariants.
 //
-// FIX 1: complete-spec/archive-spec skip archive-memory.sh when other active specs remain
-// FIX 2: specs-cli touch errors on missing per-spec STATE.md (no false "touched")
-// FIX 3: new-spec collision guard omits "Amend" for terminal (shipped/archived) colliding slug
-// FIX 5: archive-memory.sh called with {spec-folder-name} (slug) not {spec-name}
-// FIX 6: lock waiter timeout (15s) > stale-steal threshold (10s)
+// Groups 1-2: complete-spec/archive-spec no longer reference the retired archive-memory.sh
+//             (per-spec memory.md travels with the spec folder on archival).
+// Group 3 (FIX 2): specs-cli touch errors on missing per-spec STATE.md (no false "touched")
+// Group 4 (FIX 3): new-spec collision guard omits "Amend" for terminal colliding slug
+// Group 5 (FIX 6): lock waiter timeout (15s) > stale-steal threshold (10s)
+// Groups 6-7: complete-spec/archive-spec load the most-recent survivor into global
+// Group 8: touch exit-code honored across key commands
+// Group 9: new-spec amend resets registry stage via --force
 
 const fs = require('fs');
 const os = require('os');
@@ -32,94 +35,43 @@ function readCmd(name) {
 }
 
 // ============================================================
-// FIX 1 + FIX 5: complete-spec.md — memory guard before archive-memory.sh
+// Group 1: complete-spec.md — no longer references the retired archive-memory.sh
 // ============================================================
-console.log('Test Group 1: complete-spec.md — memory guard + slug arg (FIX 1 + FIX 5)');
+console.log('Test Group 1: complete-spec.md — no longer references the retired archive-memory.sh');
 {
   const content = readCmd('complete-spec.md');
-
-  // Must check active specs BEFORE calling archive-memory.sh
-  const activeCheckIdx = content.indexOf('list --bee .bee --active --json');
-  const archiveMemoryIdx = content.indexOf('archive-memory.sh');
   assert(
-    activeCheckIdx > -1,
-    'complete-spec.md calls specs-cli.js list --active --json before archive-memory (FIX 1)'
+    !content.includes('archive-memory.sh'),
+    'complete-spec.md no longer calls archive-memory.sh (retired; per-spec memory travels with the spec folder)'
   );
   assert(
-    archiveMemoryIdx > -1,
-    'complete-spec.md still contains archive-memory.sh call path'
+    !content.includes('Step 5.5: Archive Agent Memory') && !content.includes('Archive Agent Memory'),
+    'complete-spec.md no longer has an "Archive Agent Memory" step'
   );
+  // The spec folder mv (which carries memory.md into the archive) must remain.
   assert(
-    activeCheckIdx < archiveMemoryIdx,
-    'complete-spec.md: active-spec check comes BEFORE archive-memory.sh call (FIX 1)'
-  );
-
-  // Must mention skipping when other specs remain
-  assert(
-    content.includes('SKIP the `archive-memory.sh` call') || content.includes('SKIP the archive-memory.sh call'),
-    'complete-spec.md: explicitly states to SKIP archive-memory.sh when others are active (FIX 1)'
-  );
-
-  // Must use spec-folder-name (slug) not spec-name for the archive-memory.sh argument
-  // The actual bash invocation line: find the one with CLAUDE_PLUGIN_ROOT
-  const bashCallIdx = content.indexOf('${CLAUDE_PLUGIN_ROOT}/scripts/archive-memory.sh');
-  const bashCallLine = bashCallIdx > -1 ? content.slice(bashCallIdx, bashCallIdx + 100) : '';
-  assert(
-    bashCallLine.includes('{spec-folder-name}'),
-    'complete-spec.md: archive-memory.sh receives {spec-folder-name} (slug), not {spec-name} (FIX 5)'
-  );
-  assert(
-    !bashCallLine.includes('"{spec-name}"'),
-    'complete-spec.md: archive-memory.sh does NOT use plain {spec-name} arg (FIX 5)'
-  );
-
-  // User message must explain the skip reason
-  assert(
-    content.includes('other active spec(s) still use it'),
-    'complete-spec.md: skip message explains N other active specs still need memory (FIX 1)'
+    content.includes('mv {spec-path} .bee/archive/{spec-folder-name}/') || content.includes('.bee/archive/'),
+    'complete-spec.md still archives the spec folder (carrying memory.md with it)'
   );
 }
 
 // ============================================================
-// FIX 1 + FIX 5: archive-spec.md — memory guard + slug arg
+// Group 2: archive-spec.md — no longer references the retired archive-memory.sh
 // ============================================================
-console.log('\nTest Group 2: archive-spec.md — memory guard + slug arg (FIX 1 + FIX 5)');
+console.log('\nTest Group 2: archive-spec.md — no longer references the retired archive-memory.sh');
 {
   const content = readCmd('archive-spec.md');
-
-  const activeCheckIdx = content.indexOf('list --bee .bee --active --json');
-  const archiveMemoryIdx = content.indexOf('archive-memory.sh');
   assert(
-    activeCheckIdx > -1,
-    'archive-spec.md calls specs-cli.js list --active --json before archive-memory (FIX 1)'
+    !content.includes('archive-memory.sh'),
+    'archive-spec.md no longer calls archive-memory.sh (retired)'
   );
   assert(
-    archiveMemoryIdx > -1,
-    'archive-spec.md still contains archive-memory.sh call path'
+    !content.includes('Archive Agent Memory'),
+    'archive-spec.md no longer has an "Archive Agent Memory" step'
   );
   assert(
-    activeCheckIdx < archiveMemoryIdx,
-    'archive-spec.md: active-spec check comes BEFORE archive-memory.sh call (FIX 1)'
-  );
-  assert(
-    content.includes('SKIP the `archive-memory.sh` call') || content.includes('SKIP the archive-memory.sh call'),
-    'archive-spec.md: explicitly states to SKIP archive-memory.sh when others are active (FIX 1)'
-  );
-
-  const bashCallIdx2 = content.indexOf('${CLAUDE_PLUGIN_ROOT}/scripts/archive-memory.sh');
-  const bashCallLine2 = bashCallIdx2 > -1 ? content.slice(bashCallIdx2, bashCallIdx2 + 100) : '';
-  assert(
-    bashCallLine2.includes('{spec-folder-name}'),
-    'archive-spec.md: archive-memory.sh receives {spec-folder-name} (slug), not {spec-name} (FIX 5)'
-  );
-  assert(
-    !bashCallLine2.includes('"{spec-name}"'),
-    'archive-spec.md: archive-memory.sh does NOT use plain {spec-name} arg (FIX 5)'
-  );
-
-  assert(
-    content.includes('other active spec(s) still use it'),
-    'archive-spec.md: skip message explains N other active specs still need memory (FIX 1)'
+    content.includes('.bee/archive/'),
+    'archive-spec.md still archives the spec folder (carrying memory.md with it)'
   );
 }
 
