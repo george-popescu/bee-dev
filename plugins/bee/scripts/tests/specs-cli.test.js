@@ -71,5 +71,13 @@ const act = JSON.parse(run(['list', '--bee', up, '--active', '--json']).stdout);
 assert(act.length === 2, 'registering new spec back-registers the legacy spec (2 active)');
 assert(fs.existsSync(path.join(up, 'specs', '2026-01-01-alpha', 'STATE.md')), 'legacy spec per-spec STATE.md is seeded');
 
+// slug-less register with a legacy STATE.md present must NOT backfill before failing
+const legacyNoSlug = tmpBee();
+fs.mkdirSync(legacyNoSlug, { recursive: true });
+fs.writeFileSync(path.join(legacyNoSlug, 'STATE.md'), '# S\n\n## Current Spec\n- Name: L\n- Path: .bee/specs/2026-01-01-leg/\n- Status: IN_PROGRESS\n');
+const r3 = run(['register', '--bee', legacyNoSlug, '--title', 'X']);
+assert(r3.status !== 0, 'slug-less register exits non-zero even with a legacy spec present');
+assert(!fs.existsSync(path.join(legacyNoSlug, 'specs.json')), 'slug-less register does not back-register before failing');
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

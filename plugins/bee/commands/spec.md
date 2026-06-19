@@ -21,7 +21,7 @@ If the state above contains `NOT_INITIALIZED`, respond: "BeeDev is not initializ
 
 Parse `$ARGUMENTS` for the first word. If empty, default to `list`.
 
-### Step 3: list
+### Subcommand: list
 
 Run and display the table verbatim:
 
@@ -31,7 +31,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active
 
 If output is `No specs.`, tell the user: "No active specs. Run `/bee:new-spec` to create one." Then stop.
 
-### Step 4: use <slug>
+### Subcommand: use <slug>
 
 Set this chat's focus to `<slug>` by touching it (also refreshes the global mirror):
 
@@ -41,7 +41,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>
 
 Confirm: "Focused spec: <slug>. Spec commands in this chat will target it until you pick another."
 
-### Step 5: status
+### Subcommand: status
 
 Run the resolver and report the current binding:
 

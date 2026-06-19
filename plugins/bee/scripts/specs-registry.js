@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // specs-registry.js -- read/write and manipulate the .bee/specs.json multi-spec registry.
 // Pure manipulation (registry object in -> out) + thin fs IO keyed by beeDir. Node core only.
 const fs = require('fs');

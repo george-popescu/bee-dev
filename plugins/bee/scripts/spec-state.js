@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // spec-state.js -- per-spec STATE.md lifecycle + the global mirror. Per-spec STATE.md is
 // authoritative; .bee/STATE.md mirrors the last-touched spec so existing consumers keep working.
 const fs = require('fs');
@@ -17,7 +16,7 @@ function renderSpecState({ name, slug, status }) {
     '## Phases', '',
     '## Last Action',
     '- Command: /bee:new-spec',
-    '- Timestamp: ',
+    '- Timestamp:',
     '- Result: spec created', '',
   ].join('\n');
 }

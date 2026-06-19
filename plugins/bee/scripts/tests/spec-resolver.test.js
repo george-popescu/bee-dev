@@ -10,7 +10,7 @@ function assert(cond, name) {
 function regWith(stages) {
   const reg = R.emptyRegistry();
   let t = 0;
-  for (const [slug, stage] of stages) R.upsertSpec(reg, { slug, stage }, `2026-06-19T10:0${t++}:00Z`);
+  for (const [slug, stage] of stages) R.upsertSpec(reg, { slug, stage }, new Date(Date.UTC(2026, 5, 19, 10, 0, t++)).toISOString());
   return reg;
 }
 

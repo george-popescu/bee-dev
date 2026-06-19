@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // spec-resolver.js -- decide which spec a command targets. Pure logic over the registry.
 const { activeSpecs } = require('./specs-registry');
 

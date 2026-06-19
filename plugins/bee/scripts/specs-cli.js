@@ -6,6 +6,7 @@ const path = require('path');
 const reg = require('./specs-registry');
 const { resolveTarget } = require('./spec-resolver');
 const { initSpecState, mirrorToGlobal, specStatePath } = require('./spec-state');
+const { parseStateMd } = require('./hive-state-parser');
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -14,7 +15,6 @@ function backfillLegacySpec(beeDir) {
   if (reg.activeSpecs(r).length > 0) return;            // already have registered active specs
   const globalState = path.join(beeDir, 'STATE.md');
   if (!fs.existsSync(globalState)) return;
-  const { parseStateMd } = require('./hive-state-parser');
   const cs = parseStateMd(globalState).currentSpec;
   if (!cs || !cs.path || !cs.status || cs.status === 'NO_SPEC') return;
   if (reg.getSpec(r, cs.path)) return;                  // already registered
@@ -49,9 +49,9 @@ function main(argv) {
   const beeDir = f.bee || '.bee';
 
   if (sub === 'register') {
+    if (!f.slug) { process.stderr.write('register requires --slug\n'); return 1; }
     fs.mkdirSync(beeDir, { recursive: true });
     backfillLegacySpec(beeDir);
-    if (!f.slug) { process.stderr.write('register requires --slug\n'); return 1; }
     const r = reg.readRegistry(beeDir);
     reg.upsertSpec(r, { slug: f.slug, title: f.title, stage: f.stage || 'shaping', location: 'in-place' }, nowIso());
     reg.writeRegistry(beeDir, r);
@@ -74,7 +74,6 @@ function main(argv) {
     // spec recorded in the legacy global STATE.md so existing mid-spec repos keep working.
     let legacySpec = null;
     if (reg.activeSpecs(r).length === 0) {
-      const { parseStateMd } = require('./hive-state-parser');
       const st = parseStateMd(path.join(beeDir, 'STATE.md'));
       if (st.currentSpec && st.currentSpec.path && st.currentSpec.status && st.currentSpec.status !== 'NO_SPEC') {
         legacySpec = st.currentSpec.path;
