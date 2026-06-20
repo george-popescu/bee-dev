@@ -464,5 +464,23 @@ console.log('\nResolver DRY: focused slug derived via specs-cli.js resolve');
   );
 }
 
+// ============================================================
+// Finding 1: multi-spec advisory must be guarded by the worktree-spec marker
+// ============================================================
+console.log('\nFinding 1: multi-spec advisory is skipped inside a promoted worktree');
+{
+  const lc = fs.readFileSync(path.join(__dirname, 'load-context.sh'), 'utf8');
+
+  // Locate the advisory guard region: from the comment above the guard to the fi closing it.
+  // We check that the string "worktree-spec" appears in the advisory guard condition
+  // (before the specs.json check) so promoted worktrees are excluded from the advisory.
+  const advisoryGuardIdx = lc.indexOf('worktree-spec');
+  const specsJsonGuardIdx = lc.indexOf('specs.json');
+  assert(advisoryGuardIdx > -1, 'load-context.sh references worktree-spec in the advisory guard region');
+  // The worktree-spec check must appear on the same guard line or before specs.json in the condition
+  assert(advisoryGuardIdx < specsJsonGuardIdx || lc.includes('! -f "$BEE_DIR/worktree-spec"'),
+    'load-context.sh guards the multi-spec advisory with a worktree-spec marker check');
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

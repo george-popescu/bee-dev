@@ -71,7 +71,24 @@ Promote a spec to its own git worktree so it can be built in parallel with anoth
    WORKTREE_BASE="$(dirname "$MAIN_PROJECT_PATH")/${PROJECT_NAME}-bee-workspaces"
    WORKTREE_PATH="${WORKTREE_BASE}/spec-{slug}"
    ```
-   If `bee/spec/{slug}` branch already exists (`git rev-parse --verify bee/spec/{slug}`) or `$WORKTREE_PATH` exists, tell the user and stop.
+   Before checking for conflicts, detect a **partial-promotion state**: if `bee/spec/{slug}` branch already exists OR `$WORKTREE_PATH` already exists on disk, AND the spec's registry `location` is still `in-place` (read from the list output above), this means a previous promotion failed mid-way and left an orphaned worktree or branch.
+   - Display a clear diagnostic: "Partial promotion detected for `{slug}` — the branch or worktree directory already exists but the spec's location in the registry is still `in-place`. The previous promotion likely failed mid-way."
+   - Present a repair option:
+     ```
+     AskUserQuestion(
+       question: "How would you like to repair the partial promotion?",
+       options: ["Remove orphaned worktree and branch, then retry cleanly", "Abort — I will investigate manually", "Custom"]
+     )
+     ```
+   - If the user selects remove-and-retry:
+     ```bash
+     git worktree remove --force "$WORKTREE_PATH" 2>/dev/null || true
+     git branch -D bee/spec/{slug} 2>/dev/null || true
+     ```
+     Then continue from Step 4 (the worktree/branch are now gone; re-creation will succeed).
+   - If the user selects abort: Stop.
+   
+   If the branch or directory exists AND the registry `location` is already a worktree path (not `in-place`), that is the normal "already promoted" case — tell the user and stop (as before).
 
 4. **Create the worktree + branch:**
    ```bash
@@ -101,6 +118,14 @@ Promote a spec to its own git worktree so it can be built in parallel with anoth
      "depends_on": [], "files_changed": [], "conflicts_with": [], "last_conflict_check": null
    }
    ```
+   If the workspaces.json write fails, **roll back** — remove the worktree and branch created in Steps 4-5:
+   ```bash
+   git worktree remove "$WORKTREE_PATH"
+   git branch -D bee/spec/{slug}
+   ```
+   Display the error and stop. Do NOT proceed to Step 7. The location flip in the registry (Step 7) must never happen without a confirmed workspaces.json entry.
+
+   **Ordering invariant:** the workspaces.json entry must exist and be confirmed on disk BEFORE `set-location` flips the registry. This ensures `/bee:workspace complete` can always find the workspace entry when it needs to reconcile state.
 
 7. **Flip `location` in the main registry:**
    ```bash

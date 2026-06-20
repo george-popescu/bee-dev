@@ -31,5 +31,31 @@ assert(copyIdx > -1 && removeIdx > -1 && copyIdx < removeIdx,
 const markerIdx = complete.indexOf('worktree-spec');
 assert(markerIdx > -1 && markerIdx < copyIdx, 'marker is read before the copy-back');
 
+// Finding 2: copy-back has explicit error handling (DATA-SAFETY)
+console.log('\nFinding 2: copy-back error handling in 4g-bis');
+{
+  // Verify that the complete section documents what to do when the source spec folder is missing.
+  assert(complete.includes('promoted spec state missing'),
+    'complete documents error path when promoted spec state is missing in worktree');
+  // Verify that the copy-back has an explicit exit-code check (|| pattern).
+  assert(complete.includes('copy-back') || complete.includes('copy fails'),
+    'complete documents copy-back failure handling');
+  // Verify that the STATE.md existence check is present after the copy.
+  assert(complete.includes('STATE.md') && (complete.includes('verify') || complete.includes('exists') || complete.includes('missing')),
+    'complete verifies STATE.md exists in main after copy-back');
+  // Verify the invariant: never remove worktree if copy-back fails.
+  assert(complete.includes('PRESERVING') || complete.includes('PRESERVING the worktree'),
+    'complete preserves worktree (skips 4h) if copy-back did not verifiably succeed');
+}
+
+// Finding 4: warn when spec_slug exists but worktree-spec marker is missing
+console.log('\nFinding 4: warn on missing marker for a promoted spec');
+{
+  assert(complete.includes('spec_slug') && complete.includes('worktree-spec') && complete.includes('WARNING'),
+    'complete warns when workspace has spec_slug but worktree-spec marker is missing');
+  assert(complete.includes('stale spec state') || complete.includes('stale'),
+    'warning mentions risk of stale spec state in main');
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

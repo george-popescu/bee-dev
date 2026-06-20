@@ -30,5 +30,35 @@ console.log('\nGroup: promote subcommand');
   assert(c.includes('spec_slug'), 'promote registers the workspace with a spec_slug back-reference');
 }
 
+// Findings 5+6: promote rollback + ordering invariant when workspaces.json write fails
+console.log('\nFindings 5+6: promote rollback and atomicity for steps 6-7');
+{
+  const c = content; // already read above
+  // Rollback: if workspaces.json write fails, worktree+branch must be removed.
+  assert(c.includes('roll back') || c.includes('ROLL BACK'),
+    'promote documents rollback if workspaces.json registration fails');
+  // The rollback must remove the worktree and branch.
+  assert(c.includes('git worktree remove') && c.includes('git branch -D'),
+    'promote rollback removes both the worktree and the bee/spec/<slug> branch');
+  // The ordering invariant must be stated explicitly.
+  assert(c.includes('Ordering invariant') || c.includes('ordering invariant') || c.includes('must exist and be confirmed'),
+    'promote states the ordering invariant: workspaces.json confirmed before set-location flips the registry');
+  // Step 7 (set-location) must not run if step 6 failed.
+  assert(c.includes('Do NOT proceed to Step 7') || c.includes('do NOT proceed') || c.includes('Do NOT run step 7'),
+    'promote: set-location (step 7) must not run if workspaces.json write failed');
+}
+
+// Finding 7: partial-promotion detection and repair
+console.log('\nFinding 7: partial-promotion detection and repair');
+{
+  const c = content;
+  // Detect the partial-promotion scenario (branch/worktree exists but location is in-place).
+  assert(c.includes('Partial promotion') || c.includes('partial promotion') || c.includes('partial-promotion'),
+    'promote detects partial-promotion state (orphaned worktree/branch, location still in-place)');
+  // Present a repair option (remove orphaned artifacts and retry).
+  assert(c.includes('Remove orphaned') || c.includes('remove orphaned') || c.includes('retry cleanly'),
+    'promote offers a repair option to remove orphaned worktree+branch and retry cleanly');
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

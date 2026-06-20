@@ -175,7 +175,8 @@ fi
 # Multi-spec awareness: if specs.json exists and more than one active spec is present,
 # emit a short advisory so a resumed chat knows no spec is auto-bound.
 # Single-active-spec and legacy (no specs.json) output is unchanged.
-if [ -f "$BEE_DIR/specs.json" ]; then
+# Skip the advisory inside a promoted worktree — directory-wins binds this chat to one spec.
+if [ ! -f "$BEE_DIR/worktree-spec" ] && [ -f "$BEE_DIR/specs.json" ]; then
   ACTIVE_SPEC_COUNT=$(node -e "
     try {
       const reg = JSON.parse(require('fs').readFileSync('$BEE_DIR/specs.json', 'utf8'));
