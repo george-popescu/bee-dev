@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.8.2] - 2026-06-21 -- Faster meta-test runner
+
+### Changed
+- The meta-test runner (`run-meta-tests.js`) now runs suites in a bounded concurrency pool instead of one at a time, cutting a full local run from ~49s to ~33s. Performance suites that measure real wall-clock run isolated first (on a quiet machine) so their measurements stay accurate, and the pre-commit gate's budgeted path is unchanged. Override the pool size with `BEE_META_CONCURRENCY`.
+- Plugin version: 4.8.1 → 4.8.2 (`plugins/bee/.claude-plugin/plugin.json`)
+- Marketplace version: 1.10.1 → 1.10.2 (`.claude-plugin/marketplace.json` lockstep)
+
 ## [4.8.1] - 2026-06-20 -- Execution speed
 
 ### Changed

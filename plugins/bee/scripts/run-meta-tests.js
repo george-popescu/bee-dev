@@ -41,7 +41,23 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const os = require('os');
+const { spawn } = require('child_process');
+
+// Suites are independent standalone processes (each uses its own tmp dirs), so they run
+// in a bounded concurrency pool instead of one-at-a-time. Leave 2 cores headroom; cap at
+// 8 — most suites themselves spawn node/bash children, so a higher cap oversubscribes the
+// CPU and the heavy suites get SLOWER, not faster. Override with BEE_META_CONCURRENCY.
+const CONCURRENCY = (() => {
+  const env = parseInt(process.env.BEE_META_CONCURRENCY || '', 10);
+  if (Number.isFinite(env) && env > 0) return env;
+  return Math.max(1, Math.min(8, os.cpus().length - 2));
+})();
+
+// Timing-sensitive suites measure real wall-clock (e.g. validator NFR budgets) and must
+// run on a quiet machine — they are excluded from the pool and run serially, alone, after
+// it. Matched by filename so future perf suites opt in by name.
+const isSerialSuite = (suiteRel) => /wallclock|-perf\b|\bperf-/.test(suiteRel);
 
 const DEFAULT_BASELINE = 'plugins/bee/scripts/meta-test-baseline.txt';
 const SELF = 'plugins/bee/scripts/run-meta-tests.js';
@@ -100,17 +116,63 @@ function readBaseline(file) {
     .filter(l => l && !l.startsWith('#'));
 }
 
-function runSuite(suiteRel, root, timeoutMs) {
-  const abs = path.join(root, suiteRel);
-  const cmd = suiteRel.endsWith('.sh') ? 'bash' : 'node';
-  const res = spawnSync(cmd, [abs], { cwd: root, timeout: timeoutMs, encoding: 'utf8' });
-  // res.signal set => killed by timeout; res.error => spawn problem
-  if (res.error && res.error.code !== 'ETIMEDOUT') return { status: 'FAIL', detail: String(res.error) };
-  if (res.signal || (res.error && res.error.code === 'ETIMEDOUT')) return { status: 'FAIL', detail: `killed (per-suite timeout ${timeoutMs}ms)` };
-  return { status: res.status === 0 ? 'PASS' : 'FAIL', detail: '' };
+// Run one suite as an async child. Resolves (never rejects) with {status, detail} — same
+// shape and semantics as the former synchronous runSuite: a non-zero exit or a per-suite
+// timeout kill is FAIL; a clean exit is PASS. stdio is ignored (the runner only consumes
+// the exit code, exactly as before).
+function runSuiteAsync(suiteRel, root, timeoutMs) {
+  return new Promise((resolve) => {
+    const abs = path.join(root, suiteRel);
+    const cmd = suiteRel.endsWith('.sh') ? 'bash' : 'node';
+    let settled = false;
+    let timedOut = false;
+    let hardKill = null;
+    const done = (r) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (hardKill) clearTimeout(hardKill);
+      resolve(r);
+    };
+    let child;
+    try {
+      child = spawn(cmd, [abs], { cwd: root, stdio: 'ignore' });
+    } catch (e) {
+      return resolve({ status: 'FAIL', detail: String(e) });
+    }
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try { child.kill('SIGTERM'); } catch { /* already gone */ }
+      hardKill = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* gone */ } }, 2000);
+    }, timeoutMs);
+    child.on('error', (err) => done({ status: 'FAIL', detail: String(err) }));
+    child.on('close', (code, signal) => {
+      if (timedOut || signal) return done({ status: 'FAIL', detail: `killed (per-suite timeout ${timeoutMs}ms)` });
+      done({ status: code === 0 ? 'PASS' : 'FAIL', detail: '' });
+    });
+  });
 }
 
-function main() {
+// Bounded-concurrency map: runs worker(item, index) over all items with at most
+// `concurrency` in flight, returning results in ITEM order (deterministic reporting,
+// independent of completion order).
+async function runPool(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function lane() {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      results[i] = await worker(items[i], i);
+    }
+  }
+  const lanes = [];
+  for (let k = 0; k < Math.max(1, Math.min(concurrency, items.length)); k++) lanes.push(lane());
+  await Promise.all(lanes);
+  return results;
+}
+
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   let root;
   try {
@@ -138,8 +200,17 @@ function main() {
   // --- generation mode -------------------------------------------------------
   if (args.generate) {
     const failing = [];
-    for (const suite of roster) {
-      const r = runSuite(suite, root, args.suiteTimeoutMs);
+    // Same split as run mode: pool for most, timing-sensitive suites serially + alone, so a
+    // wallclock suite is never recorded as "failing" merely because the pool loaded the CPU.
+    const genResults = new Array(roster.length);
+    const genPoolIdx = [], genSerialIdx = [];
+    roster.forEach((s, i) => (isSerialSuite(s) ? genSerialIdx : genPoolIdx).push(i));
+    const gp = await runPool(genPoolIdx, CONCURRENCY, (i) => runSuiteAsync(roster[i], root, args.suiteTimeoutMs));
+    genPoolIdx.forEach((i, k) => { genResults[i] = gp[k]; });
+    for (const i of genSerialIdx) genResults[i] = await runSuiteAsync(roster[i], root, args.suiteTimeoutMs);
+    for (let i = 0; i < roster.length; i++) {
+      const suite = roster[i];
+      const r = genResults[i];
       process.stdout.write(`${r.status === 'PASS' ? 'PASS' : 'FAIL'} ${suite}\n`);
       if (r.status !== 'PASS') failing.push(suite);
     }
@@ -180,18 +251,48 @@ function main() {
   let pass = 0, fail = 0, warn = 0, skip = 0;
   const blockers = [];
 
-  for (const suite of toRun) {
-    if (deadline && Date.now() >= deadline) {
+  // Disposition for one suite, resolved at the moment it would launch (same order as the
+  // former sequential loop: budget first, then missing) so a budget that expires mid-run
+  // still SKIPs not-yet-started suites.
+  const dispose = async (suite) => {
+    if (deadline && Date.now() >= deadline) return { kind: 'skip-budget' };
+    if (!fs.existsSync(path.join(root, suite))) return { kind: 'skip-missing' };
+    const remaining = deadline ? Math.max(1, deadline - Date.now()) : args.suiteTimeoutMs;
+    const perSuite = Math.min(args.suiteTimeoutMs, remaining);
+    return { kind: 'ran', r: await runSuiteAsync(suite, root, perSuite) };
+  };
+
+  const outcomes = new Array(toRun.length);
+  if (deadline) {
+    // Budget mode (the pre-commit gate passes --budget-ms): the overall wallclock budget is
+    // an inherently serial "run in order until the clock runs out, SKIP the rest" contract.
+    // Run sequentially in toRun order to honour it exactly.
+    for (let i = 0; i < toRun.length; i++) outcomes[i] = await dispose(toRun[i]);
+  } else {
+    // Full / unbudgeted run. Timing-sensitive suites (isSerialSuite) measure real wall-clock,
+    // so they run FIRST — serially and alone, on the quiet machine before the pool heats it up
+    // — then everything else runs in the parallel pool.
+    const poolIdx = [];
+    const serialIdx = [];
+    toRun.forEach((suite, i) => (isSerialSuite(suite) ? serialIdx : poolIdx).push(i));
+    for (const i of serialIdx) outcomes[i] = await dispose(toRun[i]);
+    const poolRes = await runPool(poolIdx, CONCURRENCY, (i) => dispose(toRun[i]));
+    poolIdx.forEach((i, k) => { outcomes[i] = poolRes[k]; });
+  }
+
+  // Report in toRun order — deterministic regardless of completion order.
+  for (let i = 0; i < toRun.length; i++) {
+    const suite = toRun[i];
+    const o = outcomes[i];
+    if (o.kind === 'skip-budget') {
       process.stdout.write(`SKIP ${suite} (budget expired — run the full aggregate: node ${SELF})\n`);
       skip++; continue;
     }
-    if (!fs.existsSync(path.join(root, suite))) {
+    if (o.kind === 'skip-missing') {
       process.stdout.write(`SKIP ${suite} (not found on disk)\n`);
       skip++; continue;
     }
-    const remaining = deadline ? Math.max(1, deadline - Date.now()) : args.suiteTimeoutMs;
-    const perSuite = Math.min(args.suiteTimeoutMs, remaining);
-    const r = runSuite(suite, root, perSuite);
+    const r = o.r;
     if (r.status === 'PASS') { process.stdout.write(`PASS ${suite}\n`); pass++; }
     else if (baseline.includes(suite)) { process.stdout.write(`WARN ${suite} (baselined known-failing)\n`); warn++; }
     else {
@@ -204,4 +305,7 @@ function main() {
   process.exit(fail > 0 ? 1 : 0);
 }
 
-main();
+main().catch((e) => {
+  process.stderr.write(`run-meta-tests: unexpected failure: ${e && e.stack ? e.stack : e}\n`);
+  process.exit(2);
+});
