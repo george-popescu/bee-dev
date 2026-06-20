@@ -43,18 +43,7 @@ Check these guards in order. Stop immediately if any fails:
 
 ### Step: Resolve target spec
 
-Determine which spec this command acts on:
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
-```
-
-Interpret the JSON:
-- `{"mode":"create"}` → no active spec. Tell the user: "No active spec. Run `/bee:new-spec` first." Stop.
-- `{"mode":"auto","slug":"X"}` → target spec `X`. Check the Current Spec Path in `.bee/STATE.md`; if it does NOT already point to `.bee/specs/X/`, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug X` and re-read `.bee/STATE.md` from disk (stale global — e.g., prior complete reset to NO_SPEC). If the Current Spec Path already matches, proceed without touching (single-spec byte-for-byte: no extra noise).
-- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to work on. Present each candidate as `{title} ({stage})` (slug as selection value), most-recently-touched first, `Custom` last. If two or more candidates share the same title AND stage, append ` [{slug}]` to each of those labels so they are distinguishable. If the JSON includes a `more` field, include "+{more} more active spec(s) — run `/bee:spec list` to see all." as informational text in the question body (NOT as a selectable option). If a candidate lacks a `title`, fall back to its slug. Use the chosen slug.
-
-For the **pick** branch (and the **auto** branch where the Current Spec Path did NOT already match): run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` — this syncs `.bee/STATE.md` to the chosen spec. Check the exit code of this touch command. If it exits non-zero (snapshot missing or spec unknown), ABORT with an explicit error: "Could not switch to spec <slug> (snapshot missing); aborting to avoid acting on the wrong spec. Run `/bee:spec list`." Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's. Then proceed using `.bee/STATE.md` as this command normally does. For the **auto** branch where the Current Spec Path already matched: proceed without touching (no noise).
+See `skills/command-primitives/SKILL.md` Spec Resolver (action: `execute`). The execute-time guard below advances the stage to `executing`.
 
 ### Step: Execute-time guard (concurrency offer)
 

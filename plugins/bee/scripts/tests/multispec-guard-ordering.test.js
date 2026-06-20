@@ -35,21 +35,25 @@ console.log('Test Group 1: plan-phase.md — guard ordering and committed-phase 
 {
   const content = readCmd('plan-phase.md');
 
-  // The resolver call must be present
+  // The resolver must be referenced — either inline or via pointer to command-primitives/SKILL.md
+  const SKILL_POINTER = 'command-primitives/SKILL.md` Spec Resolver';
+  const usesPointer = content.includes(SKILL_POINTER);
   assert(
-    content.includes('specs-cli.js resolve --bee .bee'),
-    'plan-phase.md contains specs-cli.js resolve --bee .bee'
+    content.includes('specs-cli.js resolve --bee .bee') || usesPointer,
+    'plan-phase.md contains specs-cli.js resolve --bee .bee (inline or via Spec Resolver pointer)'
   );
 
-  // Already Planned guard must appear AFTER the resolver
-  const resolveIdx = content.indexOf('specs-cli.js resolve --bee .bee');
+  // Already Planned guard must appear AFTER the resolver section
+  const resolveIdx = usesPointer
+    ? content.indexOf(SKILL_POINTER)
+    : content.indexOf('specs-cli.js resolve --bee .bee');
   const alreadyPlannedIdx = content.indexOf('Already Planned');
   assert(
     resolveIdx > -1 && alreadyPlannedIdx > -1 && alreadyPlannedIdx > resolveIdx,
     'Already Planned guard appears AFTER specs-cli.js resolve (not before)'
   );
 
-  // Phase Number Argument guard must appear AFTER the resolver
+  // Phase Number Argument guard must appear AFTER the resolver section
   const phaseNumberIdx = content.indexOf('Phase Number Argument');
   assert(
     resolveIdx > -1 && phaseNumberIdx > -1 && phaseNumberIdx > resolveIdx,

@@ -352,6 +352,10 @@ console.log('\nTest Group 7: archive-spec.md — survivor-loading after archivin
 console.log('\nTest Group 8: touch exit-code honored — commands abort on non-zero (FIX 2 batch16)');
 {
   const ABORT_NEEDLE = 'snapshot missing';
+  const SKILL_POINTER = 'command-primitives/SKILL.md` Spec Resolver';
+  const SKILL_PATH = path.join(SCRIPTS_DIR, '..', 'skills', 'command-primitives', 'SKILL.md');
+  const skillContent = fs.readFileSync(SKILL_PATH, 'utf8');
+
   const commandsToCheck = [
     'ship.md',
     'plan-phase.md',
@@ -365,8 +369,13 @@ console.log('\nTest Group 8: touch exit-code honored — commands abort on non-z
   ];
   for (const cmd of commandsToCheck) {
     const content = readCmd(cmd);
+    // Commands that use the Spec Resolver pointer delegate the abort contract to
+    // SKILL.md (which explicitly mandates aborting on non-zero exit). Check there.
+    const usesPointer = content.includes(SKILL_POINTER);
+    const effectiveContent = usesPointer ? skillContent : content;
     assert(
-      content.includes(ABORT_NEEDLE) || content.includes('exit code') || content.includes('exits non-zero') || content.includes('non-zero'),
+      effectiveContent.includes(ABORT_NEEDLE) || effectiveContent.includes('exit code') ||
+      effectiveContent.includes('exits non-zero') || effectiveContent.includes('non-zero'),
       `${cmd}: aborts or checks exit code when touch fails (FIX 2 batch16)`
     );
   }

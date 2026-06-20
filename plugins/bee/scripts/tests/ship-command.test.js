@@ -451,28 +451,34 @@ assert(
 // ============================================================
 console.log('\nTest 16: Multispec resolver entry step');
 const step0Content = contentFromHeading('### Step 0:', content);
+const SKILL_POINTER_SHIP = 'command-primitives/SKILL.md` Spec Resolver';
+const shipUsesPointer = step0Content.includes(SKILL_POINTER_SHIP);
+const skillForShip = shipUsesPointer
+  ? fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'command-primitives', 'SKILL.md'), 'utf8')
+  : '';
+const step0Effective = shipUsesPointer ? skillForShip : step0Content;
 assert(
-  step0Content.includes('specs-cli.js resolve'),
+  step0Content.includes('specs-cli.js resolve') || shipUsesPointer,
   'Step 0 runs specs-cli.js resolve'
 );
 assert(
-  step0Content.includes('mode') && step0Content.includes('pick'),
+  step0Effective.includes('mode') && step0Effective.includes('pick'),
   'Step 0 handles mode:pick'
 );
 assert(
-  step0Content.includes('AskUserQuestion'),
+  step0Effective.includes('AskUserQuestion'),
   'Step 0 uses AskUserQuestion for mode:pick (entry-point menu)'
 );
 assert(
-  step0Content.includes('specs-cli.js touch'),
+  step0Effective.includes('specs-cli.js touch'),
   'Step 0 runs specs-cli.js touch to sync STATE.md'
 );
 assert(
-  step0Content.includes('mode') && step0Content.includes('create'),
+  step0Effective.includes('mode') && step0Effective.includes('create'),
   'Step 0 handles mode:create (no active spec)'
 );
 assert(
-  step0Content.includes('mode') && step0Content.includes('auto'),
+  step0Effective.includes('mode') && step0Effective.includes('auto'),
   'Step 0 handles mode:auto (single spec)'
 );
 

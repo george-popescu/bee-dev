@@ -15,23 +15,7 @@ You are running `/bee:complete-spec` -- the full spec lifecycle ceremony command
 
 ### Step 0: Resolve target spec
 
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
-```
-
-- `{"mode":"create"}` → no active spec to complete. Tell the user: "No active spec to complete. Run `/bee:new-spec` first." Stop.
-- `{"mode":"auto","slug":"X"}` → target spec `X`. Check the Current Spec Path in `.bee/STATE.md`; if it does NOT already point to `.bee/specs/X/`, the touch below will re-sync it (stale global — e.g., prior complete reset to NO_SPEC).
-- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to complete. Present each candidate as `{title} ({stage})` (slug as selection value), last-touched first, `Custom` last. If two or more candidates share the same title AND stage, append ` [{slug}]` to each of those labels so they are distinguishable. If the JSON has `more`, include "+{more} more active spec(s) — run `/bee:spec list` to see all." as informational text in the question body (NOT as a selectable option).
-
-Once the slug is chosen, run:
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>
-```
-
-Check the exit code of this touch command. If it exits non-zero (snapshot missing or spec unknown), ABORT with an explicit error: "Could not switch to spec <slug> (snapshot missing); aborting to avoid acting on the wrong spec. Run `/bee:spec list`."
-
-so that global STATE.md reflects the chosen spec for the rest of this command. Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's. Use this resolved slug as `{spec-folder-name}` wherever that placeholder appears in the steps below.
+See `skills/command-primitives/SKILL.md` Spec Resolver (action: `complete`). Use the resolved slug as `{spec-folder-name}` wherever that placeholder appears below.
 
 ### Step 0.5: Worktree Check
 

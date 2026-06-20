@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.8.1] - 2026-06-20 -- Execution speed
+
+### Changed
+- Faster agent validation in normal use: the per-agent SubagentStop validators only act during autonomous runs, so in manual runs a lightweight shell gate now skips starting Node entirely. A review or audit that stops many agents no longer pays a Node start per agent. (The gate checks for an active autonomous run under either candidate project root, so validation is never skipped while one is running.)
+- `/bee:audit` quality mode runs all ten auditors in a single parallel batch instead of two sequential batches — the end-to-end bug detector and the integration checker scan the codebase themselves and consume no output from the other auditors, so they no longer wait on a first batch to finish.
+- Less per-command overhead: the "resolve which spec this command acts on" procedure shared by `/bee:plan-phase`, `/bee:execute-phase`, `/bee:ship`, `/bee:discuss`, `/bee:archive-spec`, and `/bee:complete-spec` is now single-sourced in the command-primitives skill — identical behavior with less duplicated instruction text loaded on each run.
+- Plugin version: 4.8.0 → 4.8.1 (`plugins/bee/.claude-plugin/plugin.json`)
+- Marketplace version: 1.10.0 → 1.10.1 (`.claude-plugin/marketplace.json` lockstep)
+
 ## [4.8.0] - 2026-06-20 -- Bee Multi-Spec — parallel specs, per-spec memory, worktree promotion, dashboard
 
 ### Added

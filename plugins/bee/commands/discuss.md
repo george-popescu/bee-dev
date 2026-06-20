@@ -23,30 +23,7 @@ Do NOT proceed with any further steps.
 
 ### Step: Resolve target spec
 
-Determine which spec this command acts on:
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
-```
-
-Interpret the JSON:
-- `{"mode":"create"}` → no active spec yet. That's fine for discuss (it can lead to creating one) — proceed with no bound spec; do NOT stop.
-- `{"mode":"auto","slug":"X"}` → target spec `X`. Check the Current Spec Path in `.bee/STATE.md`; if it does NOT already point to `.bee/specs/X/`, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug X` and check its exit code — if non-zero, ABORT with: "Could not switch to spec X (snapshot missing); aborting. Run `/bee:spec list`." Then re-read `.bee/STATE.md` from disk (stale global — e.g., prior complete reset to NO_SPEC). If the Current Spec Path already matches, proceed without touching (single-spec byte-for-byte: no extra noise).
-- `{"mode":"pick","candidates":[…]}` → ask via AskUserQuestion which spec to work on. Present each candidate as `{title} ({stage})` (slug as selection value), most-recently-touched first, `Custom` last. If two or more candidates share the same title AND stage, append ` [{slug}]` to each of those labels so they are distinguishable. If the JSON includes a `more` field, include "+{more} more active spec(s) — run `/bee:spec list` to see all." as informational text in the question body (NOT as a selectable option). If a candidate lacks a `title`, fall back to its slug. Use the chosen slug.
-
-Once the slug is chosen, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>` — this syncs `.bee/STATE.md` to the chosen spec. Check the exit code. If non-zero (snapshot missing), ABORT with: "Could not switch to spec <slug> (snapshot missing); aborting. Run `/bee:spec list`." Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's. Then proceed using `.bee/STATE.md` as this command normally does.
-
-**Advance spec stage to `discussing` (if not already at a later stage):**
-
-Check the current registry stage by running:
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active --json
-```
-Find the entry matching `<slug>`. The `STAGES` order is: `shaping`, `discussing`, `planning`, `executing`, `reviewing`, `shipped`, `archived`. If the spec's current stage index is already >= the index of `discussing` (i.e., it is `discussing`, `planning`, `executing`, `reviewing`, `shipped`, or `archived`), skip the set-stage call. Otherwise:
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug <slug> --stage discussing
-```
-If this prints `set-stage: unknown spec ...` (legacy spec not in registry), tolerate it and continue.
+See `skills/command-primitives/SKILL.md` Spec Resolver (action: `discuss`, on_no_spec: `proceed`, advance_stage: `discussing`).
 
 ### Step 2: Get Topic
 

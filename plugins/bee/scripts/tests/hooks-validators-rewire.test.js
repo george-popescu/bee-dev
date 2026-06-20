@@ -286,8 +286,18 @@ if (!isRewired) {
     dispatchHook
       && dispatchHook.type === 'command'
       && typeof dispatchHook.command === 'string'
-      && dispatchHook.command.includes('dispatch.js'),
-    'first SubagentStop entry routes to dispatch.js'
+      && dispatchHook.command.includes('dispatch-gate.sh'),
+    'first SubagentStop entry routes to dispatch-gate.sh (gated dispatcher)'
+  );
+  // The gate execs validators/dispatch.js only when an autonomous run is active —
+  // the routing chain is preserved, just deferred behind a marker check (validators
+  // no-op in manual mode anyway, so this is byte-identical with the node boot removed).
+  const dispatchGateSrc = fs.readFileSync(
+    path.join(VALIDATORS_DIR, '..', 'dispatch-gate.sh'), 'utf8'
+  );
+  assert(
+    /\.autonomous-run-active/.test(dispatchGateSrc) && /validators\/dispatch\.js/.test(dispatchGateSrc),
+    'dispatch-gate.sh gates on .autonomous-run-active and execs validators/dispatch.js'
   );
 
   // 5d: dispatch.js RULES contain all 25 validator filenames.

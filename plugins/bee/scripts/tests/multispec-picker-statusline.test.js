@@ -48,11 +48,10 @@ function runStatusline(inputData) {
 console.log('Test Group 1: picker "more" wording — standardized across all 8 commands (FIX 4)');
 {
   // Canonical wording from the fix spec
-  const CANONICAL = '+{more} more active spec(s) — run `/bee:spec list` to see all.';
-  // As it appears in markdown (backtick-escaped)
-  const CANONICAL_MD = '+{more} more active spec(s) — run \\`/bee:spec list\\` to see all.';
-  // Raw string to search (without escape backslashes)
   const SEARCH = '+{more} more active spec(s)';
+  const SKILL_POINTER = 'command-primitives/SKILL.md` Spec Resolver';
+  const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'command-primitives', 'SKILL.md');
+  const skillContent = fs.readFileSync(SKILL_PATH, 'utf8');
 
   const commands = [
     'complete-spec.md',
@@ -66,29 +65,23 @@ console.log('Test Group 1: picker "more" wording — standardized across all 8 c
 
   for (const cmd of commands) {
     const content = readCmd(cmd);
+    // Commands using the Spec Resolver pointer satisfy picker-wording contract via SKILL.md.
+    const usesPointer = content.includes(SKILL_POINTER);
+    const effectiveContent = usesPointer ? skillContent : content;
     assert(
-      content.includes(SEARCH),
+      effectiveContent.includes(SEARCH),
       `${cmd}: contains canonical "+{more} more active spec(s)" wording (FIX 4)`
     );
     assert(
-      content.includes('to see all'),
+      effectiveContent.includes('to see all'),
       `${cmd}: "more" line includes "to see all" suffix (FIX 4)`
     );
   }
 
-  // Also verify new-spec.md amend flow pick branch — it has a resolver pick branch too
-  const newSpec = readCmd('new-spec.md');
-  // new-spec amend flow pick branch uses a different format — just verify no old stale wording
-  // The amend pick branch does not paginate (no 'more' field handling expected there currently)
-  // so we only check the 7 commands above.
-
-  // Verify none of the 7 still use the OLD short form (without "active spec(s)")
+  // Verify none of the 7 still use the OLD short form (without "active spec(s)") in their own content
   for (const cmd of commands) {
     const content = readCmd(cmd);
-    // Old form: "+{more} more — run `/bee:spec list`" without "active spec(s)"
-    // Check that the spec list reference always includes "active spec(s)"
     const oldFormShort = /\+\{more\} more — run/.test(content);
-    // If it contains the old form, it must be paired with "active spec(s)" now
     if (oldFormShort) {
       assert(
         content.includes('+{more} more active spec(s) — run'),

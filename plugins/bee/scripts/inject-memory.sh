@@ -49,6 +49,9 @@ fi
 
 # Per-spec memory (.bee/specs/<slug>/memory.md) — injected ONLY when exactly one spec is active
 # (resolver mode=auto). Suppressed at 0 or 2+ active: no per-chat binding to choose from.
+# NOTE: this resolves via the registry OR a legacy STATE.md fallback (a single-spec repo with
+# no specs.json still injects its curated memory), so it cannot be cheaply skipped on specs.json
+# absence — the node call is the authority on whether there is anything to inject.
 SPEC_MEMORY=$(node "$SCRIPT_DIR/specs-cli.js" memory-context --bee "$BEE_DIR" 2>/dev/null)
 if [ -n "$SPEC_MEMORY" ]; then
   if [ -n "$CONTEXT" ]; then

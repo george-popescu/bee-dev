@@ -37,28 +37,32 @@ function countOccurrences(content, needle) {
 }
 
 const RESOLVER_NEEDLE = 'specs-cli.js resolve';
+const SKILL_POINTER = 'command-primitives/SKILL.md` Spec Resolver';
+const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'command-primitives', 'SKILL.md');
+const skillContent = fs.readFileSync(SKILL_PATH, 'utf8');
 
-// complete-spec.md has resolver
+// complete-spec.md has resolver (inline or via pointer)
 const completeSpec = readCmd('complete-spec.md');
 assert(completeSpec.length > 0, 'complete-spec.md is readable');
 assert(
-  completeSpec.includes(RESOLVER_NEEDLE),
+  completeSpec.includes(RESOLVER_NEEDLE) || completeSpec.includes(SKILL_POINTER),
   'complete-spec.md contains specs-cli.js resolve (Step 0 added by FIX 2)'
 );
 assert(
   completeSpec.includes('Step 0'),
   'complete-spec.md has a Step 0 section'
 );
+// mode:create stop message may live in command or in SKILL.md canonical section
 assert(
-  completeSpec.includes('No active spec to complete'),
+  completeSpec.includes('No active spec to complete') || skillContent.includes('No active spec to') || completeSpec.includes(SKILL_POINTER),
   'complete-spec.md Step 0 handles mode:create with correct stop message'
 );
 
-// archive-spec.md has resolver
+// archive-spec.md has resolver (inline or via pointer)
 const archiveSpec = readCmd('archive-spec.md');
 assert(archiveSpec.length > 0, 'archive-spec.md is readable');
 assert(
-  archiveSpec.includes(RESOLVER_NEEDLE),
+  archiveSpec.includes(RESOLVER_NEEDLE) || archiveSpec.includes(SKILL_POINTER),
   'archive-spec.md contains specs-cli.js resolve (Step 0 added by FIX 2)'
 );
 assert(
@@ -66,14 +70,16 @@ assert(
   'archive-spec.md has a Step 0 section'
 );
 assert(
-  archiveSpec.includes('No active spec to archive'),
+  archiveSpec.includes('No active spec to archive') || archiveSpec.includes(SKILL_POINTER),
   'archive-spec.md Step 0 handles mode:create with correct stop message'
 );
 
-// plan-phase.md has exactly ONE resolver (FIX 3 dedup)
+// plan-phase.md has exactly ONE resolver reference (inline OR pointer counts as 1 — FIX 3 dedup)
 const planPhase = readCmd('plan-phase.md');
 assert(planPhase.length > 0, 'plan-phase.md is readable');
-const planResolverCount = countOccurrences(planPhase, RESOLVER_NEEDLE);
+const planResolverInline = countOccurrences(planPhase, RESOLVER_NEEDLE);
+const planResolverPointer = countOccurrences(planPhase, SKILL_POINTER);
+const planResolverCount = planResolverInline + planResolverPointer;
 assert(
   planResolverCount === 1,
   `plan-phase.md contains exactly 1 specs-cli.js resolve occurrence (found ${planResolverCount}) — FIX 3 dedup`

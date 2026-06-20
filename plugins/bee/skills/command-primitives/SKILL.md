@@ -79,6 +79,67 @@ If the detected phase Plan column is `Yes`, warn before overwriting:
 PLANNED → soft warning; EXECUTING+ → strong warning that progress may be
 lost. Stop unless the user confirms.
 
+## Spec Resolver
+
+Binds a command to the single spec it acts on, switching the global `.bee/STATE.md`
+to that spec and (optionally) advancing its registry stage. The call site supplies:
+
+- `action` — the verb used in user-facing messages (e.g. `plan`, `ship`, `archive`).
+- `on_no_spec` — `stop` (default: tell the user and halt) or `proceed` (continue
+  with no bound spec — only `/bee:discuss`, which may create one).
+- `advance_stage` — a target stage to advance to (e.g. `planning`, `discussing`),
+  or omit for none.
+
+Resolve the active spec:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
+```
+
+Interpret the JSON `mode`:
+
+- **`{"mode":"create"}`** — no active spec. If `on_no_spec` is `stop`: tell the user
+  "No active spec to {action}. Run `/bee:new-spec` first." and STOP. If `on_no_spec` is
+  `proceed`: continue with no bound spec (do NOT stop).
+- **`{"mode":"auto","slug":"X"}`** — target spec `X`. Check the Current Spec Path in
+  `.bee/STATE.md`. If it already points to `.bee/specs/X/`, proceed without touching
+  (single-spec byte-for-byte: no extra noise). If it does NOT, run **Switch** below for `X`.
+- **`{"mode":"pick","candidates":[…]}`** — ask via AskUserQuestion which spec to {action}.
+  Present each candidate as `{title} ({stage})` (slug as the selection value),
+  most-recently-touched first, `Custom` last. If two or more candidates share the same
+  title AND stage, append ` [{slug}]` to each so they are distinguishable. If a candidate
+  lacks a `title`, fall back to its slug. If the JSON includes a `more` field, add
+  "+{more} more active spec(s) — run `/bee:spec list` to see all." as informational text in
+  the question body (NOT a selectable option). Use the chosen slug, then run **Switch**.
+
+**Switch** (the pick branch, and the auto branch where the path did NOT match):
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js touch --bee .bee --slug <slug>
+```
+
+This syncs `.bee/STATE.md` to the chosen spec. Check the exit code: if non-zero (snapshot
+missing or spec unknown), ABORT with "Could not switch to spec <slug> (snapshot missing);
+aborting to avoid acting on the wrong spec. Run `/bee:spec list`." — never act on the stale
+previously-focused spec. On success, re-read `.bee/STATE.md` from disk now (the touch
+re-synced it); use this fresh copy, not the preamble's, for the rest of the command.
+
+**Advance stage** (only when `advance_stage` is supplied):
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active --json
+```
+
+Find the `<slug>` entry. STAGES order: `shaping`, `discussing`, `planning`, `executing`,
+`reviewing`, `shipped`, `archived`. If the spec's current stage index is already >= the index
+of `{advance_stage}`, skip. Otherwise:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug <slug> --stage {advance_stage}
+```
+
+If this prints `set-stage: unknown spec ...` (legacy spec not in registry), tolerate and continue.
+
 ## Auto-Mode Marker
 
 Used by `/bee:ship`, `/bee:plan-all`, `/bee:autonomous` to flag an autonomous
