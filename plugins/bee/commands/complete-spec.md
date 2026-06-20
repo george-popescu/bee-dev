@@ -33,6 +33,29 @@ Check the exit code of this touch command. If it exits non-zero (snapshot missin
 
 so that global STATE.md reflects the chosen spec for the rest of this command. Re-read `.bee/STATE.md` now — the `touch` above re-synced it to the resolved spec; use this fresh copy, not the preamble's. Use this resolved slug as `{spec-folder-name}` wherever that placeholder appears in the steps below.
 
+### Step 0.5: Worktree Check
+
+Before running the ceremony, check whether the resolved spec lives in a promoted worktree rather than in-place. Inspect the registry entry:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active --json
+```
+
+Parse the JSON and find the row whose `slug` matches the resolved slug. Read its `location` field. If `location` is not `in-place` (i.e., it is a worktree path), display this advisory:
+
+> **Advisory:** This spec (`{slug}`) lives in a worktree (`{location}`). Its committed code is on branch `bee/spec/{slug}` — NOT on the main branch. Run `/bee:workspace complete spec-{slug}` from the main project FIRST to merge its code + final state back in-place and remove the worktree. Completing the ceremony before merging back will archive the spec while its code remains stranded on `bee/spec/{slug}`.
+>
+> You can still proceed if you have already merged the worktree back manually. If unsure, cancel and run `/bee:workspace complete spec-{slug}`.
+
+AskUserQuestion(
+  question: "Proceed with completion ceremony for spec '{slug}' (worktree detected at '{location}')?",
+  options: ["Proceed anyway (already merged back)", "Cancel — run workspace complete first", "Custom"]
+)
+
+If the user selects "Cancel — run workspace complete first", display: "Run `/bee:workspace complete spec-{slug}` from the main project first, then re-run `/bee:complete-spec`." Stop.
+
+If `location` is `in-place` or the spec row is not found in the JSON (legacy spec predating the registry), skip this step and proceed.
+
 ### Step 1: Validation Guards
 
 See `skills/command-primitives/SKILL.md` Validation Guards.
