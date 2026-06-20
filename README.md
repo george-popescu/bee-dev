@@ -39,7 +39,7 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 /bee:hive            # Open the live web dashboard at http://localhost:3333
 ```
 
-## Commands (50)
+## Commands (52)
 
 ### Setup & Navigation
 | Command | Description |
@@ -51,11 +51,16 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 | `/bee:pause` | Save work-in-progress state for later |
 | `/bee:compact` | Smart compact -- preserve bee context, then compress conversation |
 | `/bee:profile` | View/edit user profile and preferences |
-| `/bee:memory` | View accumulated agent memories for the current project |
+| `/bee:memory` | View and manage memory — global preferences (`user.md`) and per-spec memory |
 | `/bee:refresh-context` | Re-run codebase context extraction, overwriting CONTEXT.md |
 | `/bee:update` | Update bee statusline and clean up legacy local copies |
 | `/bee:do` | Natural language intent router -- type what you want, get the right command |
 | `/bee:help` | Full command reference and usage guide |
+
+### Multi-Spec
+| Command | Description |
+|---------|-------------|
+| `/bee:spec` | List active specs, switch focus (`use <slug>`), show status, promote a spec to its own parallel worktree, and dashboard all active specs |
 
 ### Specification
 | Command | Description |
@@ -138,6 +143,18 @@ claude --plugin-dir /path/to/bee-dev/plugins/bee
 /bee:init -> /bee:new-spec -> /bee:plan-phase 1 -> /bee:execute-phase 1 -> /bee:review -> /bee:test -> /bee:commit
                                                       | repeat for each phase |
                               /bee:review-implementation -> /bee:complete-spec -> /bee:eod
+```
+
+### Parallel Specs
+
+Run a second spec alongside an active one without touching it. `/bee:new-spec` always creates a new spec and leaves the currently focused one in place. Once ready to build in isolation, promote it to its own worktree, execute there, then merge back.
+
+```
+/bee:new-spec                          # Start a second spec (first spec stays active and untouched)
+/bee:spec promote <slug>               # Promote to a dedicated parallel worktree
+cd ../<worktree-dir>                   # Enter the worktree
+/bee:execute-phase 1                   # Build in isolation
+/bee:workspace complete spec-<slug>    # Merge back into the main tree
 ```
 
 ### Autonomous Workflow

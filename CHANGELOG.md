@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Multi-spec support: bee now tracks multiple concurrent active specs in a `.bee/specs.json` registry, each with its own state and phases. `/bee:spec list` shows them, `/bee:spec use <slug>` focuses one for this chat, `/bee:spec status` reports the focused spec. Single-spec projects are unaffected (byte-for-byte the same).
 - Per-spec memory: each spec can carry `.bee/specs/<slug>/memory.md` with guidance that is injected into agents while that spec is the active one. View and edit it with `/bee:memory`.
 - Worktree promotion: promote any active spec to its own git worktree with `/bee:spec promote <slug>` to build it in parallel; merge back with `/bee:workspace complete`.
 - Execute-time guard: starting a second spec's execution in the same tree now offers to promote it to a worktree, queue it, or pause the other — never a hard stop.
