@@ -418,7 +418,7 @@ If the conflict pre-check (4c-bis) found a clean merge, show the standard confir
 
 ```
 AskUserQuestion(
-  question: "Complete workspace '{name}'? This will merge branch bee/workspace/{name} into {source_branch} and remove the worktree.",
+  question: "Complete workspace '{name}'? This will merge branch {branch} into {source_branch} and remove the worktree.",
   options: ["Yes, merge and clean up", "No, cancel", "Custom"]
 )
 ```
@@ -444,7 +444,7 @@ git -C {$MAIN_PROJECT_PATH} checkout {source_branch}
 **4g. Merge workspace branch:**
 
 ```bash
-git -C {$MAIN_PROJECT_PATH} merge --no-ff bee/workspace/{name} -m "Merge workspace: {name}"
+git -C {$MAIN_PROJECT_PATH} merge --no-ff {branch} -m "Merge workspace: {name}"
 ```
 
 If merge fails (conflicts):
@@ -503,7 +503,7 @@ git worktree remove {workspace_path}
 **4i. Delete branch:**
 
 ```bash
-git -C "$MAIN_PROJECT_PATH" branch -d bee/workspace/{name}
+git -C "$MAIN_PROJECT_PATH" branch -d {branch}
 ```
 
 **4j. Update workspaces.json:**

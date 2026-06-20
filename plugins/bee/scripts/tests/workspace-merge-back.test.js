@@ -57,5 +57,17 @@ console.log('\nFinding 4: warn on missing marker for a promoted spec');
     'warning mentions risk of stale spec state in main');
 }
 
+// Branch-name fix: complete must use the workspace entry's stored {branch} for merge + delete,
+// NOT a reconstructed bee/workspace/{name} (a promoted spec's branch is bee/spec/<slug>).
+console.log('\nMerge/delete use the stored branch (promoted specs are on bee/spec/<slug>)');
+{
+  assert(/merge --no-ff \{branch\}/.test(complete),
+    'complete merges the entry\'s stored {branch}, not a hardcoded bee/workspace/{name}');
+  assert(/branch -d \{branch\}/.test(complete),
+    'complete deletes the entry\'s stored {branch}, not a hardcoded bee/workspace/{name}');
+  assert(!/merge --no-ff bee\/workspace\/\{name\}/.test(complete) && !/branch -d bee\/workspace\/\{name\}/.test(complete),
+    'complete no longer hardcodes bee/workspace/{name} for merge/delete');
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);
