@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `/bee:memory` now manages both global preferences (`user.md`) and the active spec's memory.
 - `/bee:health` now validates the multi-spec registry (per-spec snapshots, promoted-worktree locations, orphaned entries); `/bee:update` backfills the spec registry for existing single-spec projects on upgrade.
 - Performance: the dashboard activity-feed hook no longer cold-starts Node on every tool call — a tiny shell gate boots Node only when a consumer (the hive dashboard or an autonomous run) is actually reading events. The redundant pre-tool-use event was dropped (the dashboard already hid it) and the team-collaboration validators fast-exit when Agent Teams is disabled. No change to linting, the commit gate, or the per-agent validators.
+- Internal: the 25 per-agent SubagentStop validators are now routed by a single in-process dispatcher instead of 25 separate hook entries — identical validation (proven by an equivalence test), fewer moving parts in `hooks.json`.
 - Plugin version: 4.7.0 → 4.8.0 (`plugins/bee/.claude-plugin/plugin.json`)
 - Marketplace version: 1.9.2 → 1.10.0 (`.claude-plugin/marketplace.json` lockstep)
 
