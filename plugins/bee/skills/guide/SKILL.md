@@ -42,8 +42,11 @@ This guide teaches you to use Bee intelligently -- when to suggest commands, wha
 | 3+ phases remain unplanned | `/bee:plan-all` | Batch plan saves time |
 | All phases PLAN_REVIEWED | `/bee:autonomous` or `/bee:ship` | Batch execute with review loops |
 | Urgent bug mid-execution | `/bee:insert-phase N.1` | Decimal phase insertion |
-| Multiple independent features | `/bee:workspace new` | Parallel worktrees |
+| Multiple independent features | `/bee:spec promote <slug>` (spec-first) or `/bee:workspace new` (ad-hoc) | `/bee:spec promote` carries the spec's plan and state into a dedicated worktree; `/bee:workspace new` is for generic/ad-hoc parallel work without an existing spec |
+| Switch focus between active specs | `/bee:spec use <slug>` | Re-focuses the session on a different active spec |
+| See all active specs at a glance | `/bee:spec dashboard` | Multi-spec roster with stage/location per spec |
 | All phases COMMITTED | `/bee:complete-spec` | Full ceremony (audit + changelog + tag + archive) |
+| Per-spec memory | `.bee/specs/<slug>/memory.md` is injected when exactly one spec is active | Keeps spec-scoped preferences and context in scope |
 
 ## 2. Command Reference by Intent
 
@@ -71,7 +74,10 @@ This guide teaches you to use Bee intelligently -- when to suggest commands, wha
 | Execute planned phase | `/bee:execute-phase N` |
 | Run everything hands-free | `/bee:autonomous` (plan+execute+review per phase) |
 | Execute + review + commit all | `/bee:ship` (for PLAN_REVIEWED phases) |
-| Work on two features at once | `/bee:workspace new {name}` |
+| Work on two specs in parallel (spec-first) | `/bee:spec promote <slug>` — promotes existing spec + its plan/state into its own worktree |
+| Ad-hoc parallel work (no existing spec) | `/bee:workspace new {name}` |
+| Switch focused spec | `/bee:spec use <slug>` |
+| See all active specs | `/bee:spec list` or `/bee:spec dashboard` |
 
 ### Review and Fix
 | Intent | Command | Scope |
@@ -226,10 +232,12 @@ Proactively suggest these when conditions are met -- don't wait for the user to 
 
 ### Workflow Efficiency
 - IF all phases planned: suggest `/bee:ship` or `/bee:autonomous` over manual per-phase
-- IF multiple unrelated tasks: suggest `/bee:workspace` for parallel worktrees
+- IF multiple unrelated tasks: suggest `/bee:workspace` for ad-hoc parallel worktrees; suggest `/bee:spec promote` when the second track already has an active spec with a plan
+- IF a second spec is about to execute while another is running in-place: `/bee:execute-phase` auto-offers promote/queue/pause — promote creates a dedicated worktree, queue defers, pause halts the current spec
 - IF long session with growing context: mention `/bee:compact` preserves bee state
 - IF end of day: suggest `/bee:eod` for integrity check
 - IF spec complete: suggest `/bee:complete-spec` (full ceremony) over bare `/bee:archive-spec`
+- IF 2+ active specs and user asks "what are my specs": suggest `/bee:spec dashboard`
 
 ### Idea Capture
 - IF user mentions "later" or a tangent: suggest `/bee:seed` with trigger conditions

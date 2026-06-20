@@ -64,6 +64,9 @@ Match the intent text against these keyword patterns. Use the FIRST match found:
 | test-gen, generate tests, coverage gap, requirement test | `/bee:test-gen` | Generate tests from requirements |
 | e2e, end to end, integration test | `/bee:test-e2e` | End-to-end testing |
 | test, run tests, test suite | `/bee:test` | Test scenarios |
+| list specs, my specs, active specs, switch spec, which spec, focus spec, use spec | `/bee:spec` | List/switch active specs |
+| promote spec, promote to worktree, build in parallel, two specs at once, parallel specs, run specs in parallel, work on both specs | `/bee:spec promote` | Promote spec to its own worktree |
+| spec dashboard, all specs status, spec overview | `/bee:spec dashboard` | Multi-spec roster overview |
 | spec, feature, new feature, design | `/bee:new-spec` | Create a spec |
 | deploy, ship, release | `/bee:ship` | Ship to production |
 | status, progress, where am I | `/bee:progress` | Check progress |
@@ -80,7 +83,7 @@ Match the intent text against these keyword patterns. Use the FIRST match found:
 | context, refresh, extract context | `/bee:refresh-context` | Refresh context |
 | next, what's next, advance | `/bee:next` | Next workflow step |
 | thread, knowledge | `/bee:thread` | Knowledge threads |
-| workspace, worktree, parallel, isolated, workspace dashboard, conflict matrix, merge order, workspace depends, workspace check | `/bee:workspace` | Manage isolated workspaces |
+| workspace, worktree, isolated, workspace dashboard, conflict matrix, merge order, workspace depends, workspace check | `/bee:workspace` | Manage isolated workspaces |
 | seed list, manage seeds, review backlog, backlog, review seeds | `/bee:backlog` | Manage seed backlog |
 | seed, plant seed, capture idea, backlog idea | `/bee:seed` | Plant a seed idea |
 | audit spec, traceability, trace requirements, requirement coverage | `/bee:audit-spec` | Spec traceability audit |

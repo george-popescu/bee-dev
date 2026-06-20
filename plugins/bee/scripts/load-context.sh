@@ -203,7 +203,8 @@ fi
 
 # Bee Quick Guide (compact workflow intelligence for parent Claude)
 echo "## Bee Quick Guide"
-echo "Intent routing: new-spec (feature) | quick (bugfix) | debug (investigate) | forensics (stuck workflow) | workspace (parallel work)"
+echo "Intent routing: new-spec (feature) | quick (bugfix) | debug (investigate) | forensics (stuck workflow) | workspace (parallel work) | spec (multi-spec: switch/promote/parallel)"
+echo "Multi-spec: /bee:spec list|dashboard (see active specs) | promote <slug> (run a spec in its own worktree, in parallel) | execute-phase auto-offers promote/queue/pause when a 2nd spec executes"
 echo "Phase cycle: plan-phase -> plan-review -> execute-phase -> review -> test -> commit (repeat per phase)"
 echo "Automation: autonomous (full pipeline per phase) | ship (execute all planned) | plan-all (batch plan)"
 echo "Review depth: review (per-phase) < swarm-review (multi-agent) < review-implementation (cross-phase) < audit (codebase)"
