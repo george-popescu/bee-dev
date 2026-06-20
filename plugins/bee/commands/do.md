@@ -51,7 +51,7 @@ Match the intent text against these keyword patterns. Use the FIRST match found:
 | insert phase, insert, urgent phase, hotfix phase, emergency phase | `/bee:insert-phase` | Insert phase between existing phases |
 | plan, decompose, break down | `/bee:plan-phase` | Plan a phase |
 | another feature, start another spec, second feature, while this builds, queue a spec, plan ahead, încă un spec, alt feature în paralel | `/bee:new-spec` | Queue a 2nd spec (does NOT archive the active one) |
-| build these two, build both, at the same time, concurrently, in parallel, în paralel, două spec-uri în paralel, ambele spec-uri, isolate this spec, make a worktree for this spec, run this spec separately | `/bee:spec promote` | Promote spec to its own worktree for parallel work |
+| build these two, build both, at the same time, concurrently, in parallel, în paralel, in paralel, două spec-uri, doua spec-uri, ambele spec-uri, isolate this spec, make a worktree for this spec, run this spec separately | `/bee:spec promote` | Promote spec to its own worktree for parallel work |
 | execute, implement, build phase, run phase, execute phase | `/bee:execute-phase` | Execute a phase |
 | ui spec, ui design, design contract, visual spec | `/bee:ui-spec` | Generate UI spec |
 | ui review, visual audit, ui audit, accessibility audit | `/bee:ui-review` | UI visual audit |
@@ -66,10 +66,10 @@ Match the intent text against these keyword patterns. Use the FIRST match found:
 | test-gen, generate tests, coverage gap, requirement test | `/bee:test-gen` | Generate tests from requirements |
 | e2e, end to end, integration test | `/bee:test-e2e` | End-to-end testing |
 | test, run tests, test suite | `/bee:test` | Test scenarios |
-| list specs, my specs, active specs, switch spec, which spec, focus spec, use spec, spec-uri active, ce spec-uri, comută spec, schimbă spec, folosește spec, lista spec-uri, dashboard spec-uri | `/bee:spec` | List/switch active specs |
-| promote spec, promote to worktree, build in parallel, two specs at once, parallel specs, run specs in parallel, work on both specs | `/bee:spec promote` | Promote spec to its own worktree |
+| list specs, my specs, active specs, switch spec, which spec, focus spec, use spec, spec-uri active, ce spec-uri, comută, comuta, schimbă spec, schimba spec, folosește spec, foloseste spec, lista spec-uri, dashboard spec-uri | `/bee:spec` | List/switch active specs |
+| promote spec, promote this spec, promote to worktree, to a worktree, worktree for this spec, build in parallel, two specs at once, parallel specs, run specs in parallel, work on both specs | `/bee:spec promote` | Promote spec to its own worktree |
 | spec dashboard, all specs status, spec overview | `/bee:spec dashboard` | Multi-spec roster overview |
-| spec, feature, new feature, design | `/bee:new-spec` | Create a spec |
+| feature, new feature, new spec, design idea | `/bee:new-spec` | Create a spec |
 | deploy, ship, release | `/bee:ship` | Ship to production |
 | status, progress, where am I | `/bee:progress` | Check progress |
 | metrics, statistics, velocity, bottleneck, performance data | `/bee:progress` | View phase metrics and bottleneck detection |
