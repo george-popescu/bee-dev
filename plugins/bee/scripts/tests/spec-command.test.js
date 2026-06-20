@@ -6,6 +6,14 @@ function assert(cond, name) {
   if (cond) { passed++; console.log(`  PASS: ${name}`); }
   else { failed++; console.log(`  FAIL: ${name}`); }
 }
+// Extract the content of a ### subcommand section (from its heading to the next ### heading)
+function sectionSlice(fullContent, heading) {
+  const startIdx = fullContent.indexOf(heading);
+  if (startIdx === -1) return '';
+  const afterHeading = fullContent.substring(startIdx + heading.length);
+  const nextH3 = afterHeading.search(/\n### /);
+  return nextH3 === -1 ? afterHeading : afterHeading.substring(0, nextH3);
+}
 const CMD = path.join(__dirname, '..', '..', 'commands', 'spec.md');
 let content;
 try { content = fs.readFileSync(CMD, 'utf8'); }
@@ -22,8 +30,8 @@ assert(content.includes('specs-cli.js touch'), 'use subcommand calls specs-cli t
 
 console.log('\nGroup: promote subcommand');
 {
-  const c = fs.readFileSync(path.join(__dirname, '..', '..', 'commands', 'spec.md'), 'utf8');
-  assert(c.includes('promote'), 'spec.md documents a promote subcommand');
+  const c = sectionSlice(content, '### Subcommand: promote');
+  assert(c.includes('promote') || content.includes('### Subcommand: promote'), 'spec.md documents a promote subcommand');
   assert(c.includes('git worktree add -b bee/spec/'), 'promote creates a bee/spec/<slug> worktree');
   assert(c.includes('worktree-spec'), 'promote writes the .bee/worktree-spec marker');
   assert(c.includes('set-location'), 'promote flips location in the main registry via set-location');
@@ -33,7 +41,7 @@ console.log('\nGroup: promote subcommand');
 // Findings 5+6: promote rollback + ordering invariant when workspaces.json write fails
 console.log('\nFindings 5+6: promote rollback and atomicity for steps 6-7');
 {
-  const c = content; // already read above
+  const c = sectionSlice(content, '### Subcommand: promote');
   // Rollback: if workspaces.json write fails, worktree+branch must be removed.
   assert(c.includes('roll back') || c.includes('ROLL BACK'),
     'promote documents rollback if workspaces.json registration fails');
@@ -51,7 +59,7 @@ console.log('\nFindings 5+6: promote rollback and atomicity for steps 6-7');
 // Finding 7: partial-promotion detection and repair
 console.log('\nFinding 7: partial-promotion detection and repair');
 {
-  const c = content;
+  const c = sectionSlice(content, '### Subcommand: promote');
   // Detect the partial-promotion scenario (branch/worktree exists but location is in-place).
   assert(c.includes('Partial promotion') || c.includes('partial promotion') || c.includes('partial-promotion'),
     'promote detects partial-promotion state (orphaned worktree/branch, location still in-place)');
@@ -62,8 +70,8 @@ console.log('\nFinding 7: partial-promotion detection and repair');
 
 console.log('\nGroup: dashboard subcommand');
 {
-  const c = fs.readFileSync(path.join(__dirname, '..', '..', 'commands', 'spec.md'), 'utf8');
-  assert(c.includes('dashboard'), 'spec.md documents a dashboard subcommand');
+  const c = sectionSlice(content, '### Subcommand: dashboard');
+  assert(content.includes('### Subcommand: dashboard'), 'spec.md documents a dashboard subcommand');
   assert(c.includes('list --bee .bee --active --json') || c.includes('--active --json'), 'dashboard reads active specs from the registry');
   assert(c.includes('workspaces.json'), 'dashboard joins worktree info from workspaces.json');
   assert(c.includes('stage') && (c.includes('worktree') || c.includes('in-place')), 'dashboard shows stage and where each spec lives');

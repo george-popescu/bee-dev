@@ -695,6 +695,10 @@ Phases: {N} phases (updated if affected)
 ROADMAP.md: regenerated
 ```
 
+If more than one active (non-terminal) spec now exists in the registry (check the registry JSON loaded at Step 4.5 collision-guard — any entry whose stage is not `shipped` or `archived`, excluding the spec just created), append this informational line to the message above (before the AskUserQuestion):
+
+"Your other active spec(s) ({slugs of other active specs}) are untouched — this is a separate spec in the queue. Run `/bee:spec list` to see all, or `/bee:spec promote <slug>` to build two in parallel."
+
 Then use AskUserQuestion for the next step:
 
 ```

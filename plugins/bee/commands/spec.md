@@ -23,6 +23,8 @@ Parse `$ARGUMENTS` for the first word. If empty, default to `list`. Recognized s
 
 ### Subcommand: list
 
+Quick roster of all active specs — use this when you want a fast at-a-glance count of what's in the queue.
+
 Run:
 
 ```bash
@@ -45,7 +47,9 @@ Confirm: "Focused spec: <slug>. Spec commands in this chat will target it until 
 
 ### Subcommand: status
 
-Run the resolver and report the current binding:
+What this chat is focused on — use this to confirm which spec will be targeted by commands like `/bee:plan-phase` and `/bee:ship`, and whether a picker will appear when more than one spec is active.
+
+Run the resolver and report the focused spec:
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js resolve --bee .bee
@@ -144,7 +148,7 @@ Promote a spec to its own git worktree so it can be built in parallel with anoth
 
 ### Subcommand: dashboard
 
-Show the full multi-spec picture: every active spec, its stage, where it lives, and last activity.
+Full roster with where each spec lives (in-place vs worktree) and last activity — use this when you want more than just a name list and need to see topology at a glance.
 
 1. Read active specs:
    ```bash
@@ -154,4 +158,4 @@ Show the full multi-spec picture: every active spec, its stage, where it lives, 
 2. Read `.bee/workspaces.json` (if present) to join worktree rows by matching `spec_slug` to each spec's slug (or `location` to the workspace `path`).
 3. Print a compact table — one row per active spec: `slug`, `stage`, where (`in-place` or `⊞ worktree`), and last activity (humanized `last_touched`). Sort by `last_touched` (most recent first).
 4. Below the table, if any spec is in a worktree, list the merge command for each: `{slug} → {branch}  (merge: /bee:workspace complete spec-{slug})`.
-5. Keep it terse (this is a status view, not a report).
+5. Keep it terse (this is a terse overview, not a report).
