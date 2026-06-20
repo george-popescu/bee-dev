@@ -200,10 +200,12 @@ console.log('\nTest Group 5: re-read STATE.md after touch (FIX 2)');
 // ============================================================
 console.log('\nTest Group 6: lifecycle set-stage calls with regression guard (FIX 3)');
 {
+  // discuss.md and plan-phase.md use an explicit set-stage call with a pre-check guard.
+  // execute-phase.md is excluded here: its stage advance to 'executing' is done atomically
+  // inside the guard subcommand (check-and-claim). See Group 6b below for the guard contract.
   const stageTests = [
     { cmd: 'discuss.md', stage: 'discussing' },
     { cmd: 'plan-phase.md', stage: 'planning' },
-    { cmd: 'execute-phase.md', stage: 'executing' },
   ];
   for (const { cmd, stage } of stageTests) {
     const content = readCmd(cmd);
@@ -236,6 +238,26 @@ console.log('\nTest Group 6: lifecycle set-stage calls with regression guard (FI
       `${cmd} set-stage call appears AFTER the touch call`
     );
   }
+}
+
+console.log('\nTest Group 6b: execute-phase.md — guard does atomic check-and-claim (no separate set-stage)');
+{
+  const content = readCmd('execute-phase.md');
+  // The guard subcommand atomically advances the target to 'executing'; execute-phase must NOT
+  // have a separate set-stage --stage executing step (that was the TOCTOU-prone old approach).
+  const hasGuard = content.includes('specs-cli.js guard');
+  assert(hasGuard, 'execute-phase.md uses the guard subcommand for concurrency check');
+  // Guard output includes 'claimed'; execute-phase should act on conflict:false → proceed
+  assert(
+    content.includes('claimed') || content.includes('CLAIMED'),
+    'execute-phase.md references the claimed field from the guard output'
+  );
+  // The Pause branch must re-run the guard (to claim target after pausing the other)
+  assert(
+    content.includes('RE-RUN the guard') || content.includes('re-run the guard') ||
+    (content.includes('guard') && content.includes('--slug {target')),
+    'execute-phase.md Pause branch re-runs the guard to atomically claim after pausing other'
+  );
 }
 
 // ============================================================

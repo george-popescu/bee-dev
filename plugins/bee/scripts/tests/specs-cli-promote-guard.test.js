@@ -65,5 +65,66 @@ console.log('\nGroup 5: guard — target already in a worktree → never conflic
   fs.rmSync(t, { recursive: true, force: true });
 }
 
+console.log('\nGroup 6: guard atomically claims target when no conflict (stage advances to executing)');
+{
+  const { t, b } = tmpBee();
+  writeReg(b, [row('target', 'planning', 'in-place')]);
+  const r = cap(() => main(['guard', '--bee', b, '--slug', 'target']));
+  const out = JSON.parse(r.o);
+  assert(out.conflict === false && out.claimed === true, 'no conflict → claimed:true returned');
+  const reg2 = JSON.parse(fs.readFileSync(path.join(b, 'specs.json'), 'utf8'));
+  assert(reg2.specs[0].stage === 'executing', 'target stage advanced to executing in registry');
+  fs.rmSync(t, { recursive: true, force: true });
+}
+
+console.log('\nGroup 7: guard does NOT claim when there IS a conflict (target stage unchanged)');
+{
+  const { t, b } = tmpBee();
+  writeReg(b, [row('target', 'planning', 'in-place'), row('other', 'executing', 'in-place')]);
+  const r = cap(() => main(['guard', '--bee', b, '--slug', 'target']));
+  const out = JSON.parse(r.o);
+  assert(out.conflict === true && out.claimed === false, 'conflict → claimed:false returned');
+  const reg2 = JSON.parse(fs.readFileSync(path.join(b, 'specs.json'), 'utf8'));
+  const tgt = reg2.specs.find(s => s.slug === 'target');
+  assert(tgt.stage === 'planning', 'target stage unchanged when conflict blocks claim');
+  fs.rmSync(t, { recursive: true, force: true });
+}
+
+console.log('\nGroup 8: worktree marker suppresses conflict and claims target');
+{
+  const { t, b } = tmpBee();
+  writeReg(b, [row('target', 'planning', 'in-place'), row('other', 'executing', 'in-place')]);
+  fs.writeFileSync(path.join(b, 'worktree-spec'), 'target');
+  const r = cap(() => main(['guard', '--bee', b, '--slug', 'target']));
+  const out = JSON.parse(r.o);
+  assert(out.conflict === false, 'worktree marker suppresses conflict even though other is executing in-place');
+  assert(out.claimed === true, 'worktree guard claims target (advances to executing)');
+  const reg2 = JSON.parse(fs.readFileSync(path.join(b, 'specs.json'), 'utf8'));
+  const tgt = reg2.specs.find(s => s.slug === 'target');
+  assert(tgt.stage === 'executing', 'target stage advanced to executing inside worktree');
+  fs.rmSync(t, { recursive: true, force: true });
+}
+
+console.log('\nGroup 9: pause→resync flow — set-stage A→planning, re-guard B claims B');
+{
+  const { t, b } = tmpBee();
+  writeReg(b, [row('specA', 'executing', 'in-place'), row('specB', 'planning', 'in-place')]);
+  // Guard B: conflict because A is executing in-place
+  const r1 = cap(() => main(['guard', '--bee', b, '--slug', 'specB']));
+  const out1 = JSON.parse(r1.o);
+  assert(out1.conflict === true && out1.other === 'specA', 'initial guard B sees conflict with A');
+  assert(out1.claimed === false, 'B not claimed when conflict');
+  // Pause A: set A back to planning
+  cap(() => main(['set-stage', '--bee', b, '--slug', 'specA', '--stage', 'planning']));
+  // Re-run guard for B: now no conflict, B should be claimed
+  const r2 = cap(() => main(['guard', '--bee', b, '--slug', 'specB']));
+  const out2 = JSON.parse(r2.o);
+  assert(out2.conflict === false && out2.claimed === true, 'after pausing A, guard B → no conflict, claimed');
+  const reg2 = JSON.parse(fs.readFileSync(path.join(b, 'specs.json'), 'utf8'));
+  const specB = reg2.specs.find(s => s.slug === 'specB');
+  assert(specB.stage === 'executing', 'B stage advanced to executing after pause+resync');
+  fs.rmSync(t, { recursive: true, force: true });
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

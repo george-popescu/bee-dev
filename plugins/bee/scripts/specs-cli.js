@@ -232,18 +232,30 @@ function main(argv) {
     });
   }
   if (sub === 'guard') {
-    // Execute-time guard signal: is it unsafe for `target` to execute IN-PLACE right now?
-    // Conflict iff target is in-place AND a DIFFERENT active spec is executing in-place.
-    const r = reg.readRegistry(beeDir);
-    const target = reg.getSpec(r, f.slug);
-    const targetInPlace = !target || !target.location || target.location === 'in-place';
-    let other = null;
-    if (targetInPlace) {
-      other = reg.activeSpecs(r).find(s =>
-        s.slug !== f.slug && s.stage === 'executing' && (!s.location || s.location === 'in-place')) || null;
-    }
-    process.stdout.write(JSON.stringify({ conflict: !!other, other: other ? other.slug : null }) + '\n');
-    return 0;
+    // Atomic check-and-CLAIM. Inside one registry lock: if a DIFFERENT active spec is executing
+    // in-place, report conflict (do NOT claim). Otherwise atomically advance the target to
+    // 'executing' (the claim) so a concurrent execute-phase sees it and cannot also proceed.
+    // Inside a promoted worktree (marker present) the spec is already isolated — never a conflict.
+    return reg.withRegistryLock(beeDir, () => {
+      const inWorktree = fs.existsSync(path.join(beeDir, 'worktree-spec'));
+      const r = reg.readRegistry(beeDir);
+      const target = reg.getSpec(r, f.slug);
+      const targetInPlace = !inWorktree && !!target && (!target.location || target.location === 'in-place');
+      let other = null;
+      if (targetInPlace) {
+        other = reg.activeSpecs(r).find(s =>
+          s.slug !== f.slug && s.stage === 'executing' && (!s.location || s.location === 'in-place')) || null;
+      }
+      let claimed = false;
+      if (!other && target && !reg.TERMINAL_STAGES.includes(target.stage)
+          && reg.STAGES.indexOf(target.stage) < reg.STAGES.indexOf('executing')) {
+        reg.setStage(r, f.slug, 'executing');
+        reg.writeRegistry(beeDir, r);
+        claimed = true;
+      }
+      process.stdout.write(JSON.stringify({ conflict: !!other, other: other ? other.slug : null, claimed }) + '\n');
+      return 0;
+    });
   }
   process.stderr.write(`unknown subcommand: ${sub}\n`);
   return 1;

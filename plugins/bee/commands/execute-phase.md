@@ -64,10 +64,10 @@ Before executing, check whether another spec is already executing in-place. This
 node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js guard --bee .bee --slug {target-slug}
 ```
 
-Parse the JSON `{ "conflict": bool, "other": slug|null }`.
+Parse the JSON `{ "conflict": bool, "other": slug|null, "claimed": bool }`.
 
-- **`conflict` is false** → proceed to wave execution normally. (This is the common case: single spec, or the only executing spec is this one, or this spec is already in a worktree.)
-- **`conflict` is true** → another spec (`{other}`) is executing in-place. Offer (never auto-decide):
+- **`conflict` is false** → the target has been atomically CLAIMED (advanced to `executing` in the registry); proceed to wave execution normally. (This is the common case: single spec, or the only executing spec is this one, or this spec is already in a worktree.)
+- **`conflict` is true** → another spec (`{other}`) is executing in-place; the target was NOT claimed. Offer (never auto-decide):
 
   ```
   AskUserQuestion(
@@ -81,23 +81,11 @@ Parse the JSON `{ "conflict": bool, "other": slug|null }`.
   )
   ```
 
-  - **Promote (Recommended):** run `/bee:spec promote {target-slug}`, then tell the user to `cd` into the new worktree and re-run `/bee:execute-phase` there. Do NOT execute in-place now. Stop.
-  - **Keep queued:** stop before wave execution; the spec stays planned/queued. Tell the user it will wait. Stop.
-  - **Pause '{other}':** set `{other}`'s currently-EXECUTING phase back to `PLANNED` in its per-spec STATE.md (so it is no longer "executing"), then continue executing `{target-slug}` in-place.
+  - **Promote (Recommended):** run `/bee:spec promote {target-slug}`, then tell the user to `cd` into the new worktree and re-run `/bee:execute-phase` there. Do NOT execute in-place now. Stop. (Target was NOT claimed — it remains at its prior stage.)
+  - **Keep queued:** stop before wave execution; the spec stays planned/queued, with no stale `executing` entry in the registry. Tell the user it will wait. Stop.
+  - **Pause '{other}':** (a) sync the registry: `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug {other} --stage planning`; (b) set `{other}`'s currently-EXECUTING phase back to `PLANNED` in its per-spec STATE.md (so it is no longer "executing"); (c) RE-RUN the guard for `{target-slug}`: `node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js guard --bee .bee --slug {target-slug}` — now there is no conflict, so the guard atomically claims `{target-slug}` (advances it to `executing`); then proceed to wave execution.
 
 The guard never hard-stops — every branch leaves the user a way forward.
-
-**Advance spec stage to `executing` (if not already at a later stage):**
-
-Check the current registry stage by running:
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active --json
-```
-Find the entry matching `<slug>`. The `STAGES` order is: `shaping`, `discussing`, `planning`, `executing`, `reviewing`, `shipped`, `archived`. If the spec's current stage index is already >= the index of `executing` (i.e., it is `executing`, `reviewing`, `shipped`, or `archived`), skip the set-stage call. Otherwise:
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-stage --bee .bee --slug <slug> --stage executing
-```
-If this prints `set-stage: unknown spec ...` (legacy spec not in registry), tolerate it and continue.
 
 ### Step 1b: Parse Arguments
 
