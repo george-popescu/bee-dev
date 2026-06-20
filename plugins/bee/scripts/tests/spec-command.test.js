@@ -60,5 +60,14 @@ console.log('\nFinding 7: partial-promotion detection and repair');
     'promote offers a repair option to remove orphaned worktree+branch and retry cleanly');
 }
 
+console.log('\nGroup: dashboard subcommand');
+{
+  const c = fs.readFileSync(path.join(__dirname, '..', '..', 'commands', 'spec.md'), 'utf8');
+  assert(c.includes('dashboard'), 'spec.md documents a dashboard subcommand');
+  assert(c.includes('list --bee .bee --active --json') || c.includes('--active --json'), 'dashboard reads active specs from the registry');
+  assert(c.includes('workspaces.json'), 'dashboard joins worktree info from workspaces.json');
+  assert(c.includes('stage') && (c.includes('worktree') || c.includes('in-place')), 'dashboard shows stage and where each spec lives');
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

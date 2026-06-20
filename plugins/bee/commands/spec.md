@@ -1,6 +1,6 @@
 ---
 description: List active specs, switch focus, show spec status, or promote a spec to a worktree (multi-spec registry)
-argument-hint: "[list|use <slug>|status|promote <slug>]"
+argument-hint: "[list|use <slug>|status|promote <slug>|dashboard]"
 ---
 
 ## Current State (load before proceeding)
@@ -19,7 +19,7 @@ If the state above contains `NOT_INITIALIZED`, respond: "BeeDev is not initializ
 
 ### Step 2: Parse subcommand
 
-Parse `$ARGUMENTS` for the first word. If empty, default to `list`. Recognized subcommands: `list`, `use`, `status`, `promote`.
+Parse `$ARGUMENTS` for the first word. If empty, default to `list`. Recognized subcommands: `list`, `use`, `status`, `promote`, `dashboard`.
 
 ### Subcommand: list
 
@@ -141,3 +141,17 @@ Promote a spec to its own git worktree so it can be built in parallel with anoth
    Execute it in isolation: /bee:execute-phase   (the worktree is bound to this spec)
    Merge back when done:    /bee:workspace complete spec-{slug}
    ```
+
+### Subcommand: dashboard
+
+Show the full multi-spec picture: every active spec, its stage, where it lives, and last activity.
+
+1. Read active specs:
+   ```bash
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js list --bee .bee --active --json
+   ```
+   If the array is empty: "No active specs. Run `/bee:new-spec` to start one." Stop.
+2. Read `.bee/workspaces.json` (if present) to join worktree rows by matching `spec_slug` to each spec's slug (or `location` to the workspace `path`).
+3. Print a compact table — one row per active spec: `slug`, `stage`, where (`in-place` or `⊞ worktree`), and last activity (humanized `last_touched`). Sort by `last_touched` (most recent first).
+4. Below the table, if any spec is in a worktree, list the merge command for each: `{slug} → {branch}  (merge: /bee:workspace complete spec-{slug})`.
+5. Keep it terse (this is a status view, not a report).
