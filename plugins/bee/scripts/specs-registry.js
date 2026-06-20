@@ -82,7 +82,7 @@ function setLocation(registry, slug, location) { const s = getSpec(registry, slu
 function activeSpecs(reg) {
   return reg.specs
     .filter(s => !TERMINAL_STAGES.includes(s.stage))
-    .sort((a, b) => String(b.last_touched).localeCompare(String(a.last_touched)));
+    .sort((a, b) => String(b.last_touched || '').localeCompare(String(a.last_touched || '')));
 }
 
 module.exports = {

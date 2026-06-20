@@ -69,5 +69,26 @@ console.log('\nMerge/delete use the stored branch (promoted specs are on bee/spe
     'complete no longer hardcodes bee/workspace/{name} for merge/delete');
 }
 
+// FIX A: 4g-bis must call specs-cli.js sync-global after set-location
+console.log('\nFIX A: 4g-bis calls sync-global after set-location (global mirror re-sync)');
+{
+  assert(
+    complete.includes('sync-global'),
+    '4g-bis calls specs-cli.js sync-global to re-sync the global STATE.md mirror after merge-back'
+  );
+  // sync-global step must come AFTER set-location step
+  const setLocationIdx = complete.indexOf('set-location');
+  const syncGlobalIdx = complete.indexOf('sync-global');
+  assert(
+    setLocationIdx > -1 && syncGlobalIdx > -1 && syncGlobalIdx > setLocationIdx,
+    '4g-bis: sync-global step appears AFTER set-location step'
+  );
+  // The step must explain why it prevents data-loss
+  assert(
+    complete.includes('stale') || complete.includes('merge-back') || complete.includes('reconciled'),
+    '4g-bis sync-global step explains the data-loss prevention rationale'
+  );
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

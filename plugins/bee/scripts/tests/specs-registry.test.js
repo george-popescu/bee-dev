@@ -73,5 +73,17 @@ assert(fs.existsSync(path.join(bee2, 'specs.json.bak')), 'structurally-invalid s
   assert(R.readRegistry(wb).specs.length === 1, 'writeRegistry written file is readable');
 }
 
+// FIX C: activeSpecs — undated rows (no last_touched) sort LAST, not first
+{
+  const fb = tmpBee();
+  let fr = R.readRegistry(fb);
+  // One spec with a real ISO timestamp, one with no last_touched (undefined)
+  fr.specs.push({ slug: 'dated', title: 'Dated', stage: 'planning', location: 'in-place', created: '2026-01-01T00:00:00Z', last_touched: '2026-01-01T00:00:00Z' });
+  fr.specs.push({ slug: 'undated', title: 'Undated', stage: 'planning', location: 'in-place', created: '2026-01-01T00:00:00Z' });
+  const sorted = R.activeSpecs(fr);
+  assert(sorted[0].slug === 'dated', 'FIX C: dated spec sorts before undated spec (undated last)');
+  assert(sorted[1].slug === 'undated', 'FIX C: undated spec (no last_touched) sorts last');
+}
+
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
 process.exit(failed > 0 ? 1 : 0);

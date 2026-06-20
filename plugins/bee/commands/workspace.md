@@ -494,6 +494,11 @@ Because `.bee/` is gitignored, the merge above brings back the spec's *code* but
    node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js set-location --bee "$MAIN_PROJECT_PATH/.bee" --slug "${SPEC_SLUG}" --location in-place
    ```
 
+8. Re-sync the global STATE.md mirror from the reconciled per-spec snapshot (without this step, the global would remain pinned to the stale promote-time snapshot, and the next `/bee:spec use`/`resume`/etc. would call `snapshotToPerSpec` because `g === slug`, copying the stale global back over the just-merged per-spec STATE.md and losing the merge-back):
+   ```bash
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/specs-cli.js sync-global --bee "$MAIN_PROJECT_PATH/.bee" --slug "${SPEC_SLUG}"
+   ```
+
 **4h. Remove worktree:**
 
 ```bash

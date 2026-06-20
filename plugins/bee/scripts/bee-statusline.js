@@ -200,7 +200,7 @@ process.stdin.on('end', () => {
           const TERMINAL = ['shipped', 'archived'];
           const active = parsed.specs
             .filter(s => !TERMINAL.includes(s.stage))
-            .sort((a, b) => String(b.last_touched).localeCompare(String(a.last_touched)));
+            .sort((a, b) => String(b.last_touched || '').localeCompare(String(a.last_touched || '')));
 
           if (active.length > 0) {
             // Detect focused spec: extract slug from STATE.md Current Spec Path and match registry

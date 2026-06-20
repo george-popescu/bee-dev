@@ -403,6 +403,83 @@ console.log('\nTest Group 9: new-spec.md — amend SPEC_CREATED resets registry 
 }
 
 // ============================================================
+// Group 10: specs-cli.js touch — failed touch must not change last_touched (FIX B)
+// ============================================================
+console.log('\nTest Group 10: specs-cli.js touch — failed touch is a no-op on last_touched (FIX B)');
+{
+  const { main: cliMain } = require(path.join(SCRIPTS_DIR, 'specs-cli.js'));
+  const tmp10 = fs.mkdtempSync(path.join(os.tmpdir(), 'bee-fixb-'));
+  const beeDir10 = path.join(tmp10, '.bee');
+  fs.mkdirSync(beeDir10, { recursive: true });
+
+  // global STATE.md reflects spec-b (so g !== 'spec-a', restoreToGlobal will be attempted)
+  const globalStateFB = [
+    '# Bee Project State',
+    '## Current Spec',
+    '- Name: spec-b',
+    '- Path: .bee/specs/spec-b/',
+    '- Status: IN_PROGRESS',
+    '',
+    '## Phases',
+    '| # | Name | Status | Plan | Plan Review | Executed | Reviewed | Tested | Committed |',
+    '|---|------|--------|------|-------------|----------|----------|--------|-----------|',
+    '',
+    '## Quick Tasks',
+    '| # | Description | Date | Commit |',
+    '|---|-------------|------|--------|',
+    '',
+    '## Decisions Log',
+    '',
+    '## Last Action',
+    '- Command: /bee:new-spec',
+    '- Timestamp: 2026-01-01T00:00:00Z',
+    '- Result: spec created',
+  ].join('\n');
+  fs.writeFileSync(path.join(beeDir10, 'STATE.md'), globalStateFB);
+
+  // per-spec STATE.md for spec-b (so it's legitimate in global)
+  const specBDir10 = path.join(beeDir10, 'specs', 'spec-b');
+  fs.mkdirSync(specBDir10, { recursive: true });
+  fs.writeFileSync(path.join(specBDir10, 'STATE.md'), globalStateFB);
+
+  const BEFORE_TS = '2026-01-01T00:00:00Z';
+  const registry10 = {
+    specs: [
+      { slug: 'spec-a', title: 'Spec A', stage: 'planning', location: 'in-place', created: BEFORE_TS, last_touched: BEFORE_TS },
+      { slug: 'spec-b', title: 'Spec B', stage: 'executing', location: 'in-place', created: BEFORE_TS, last_touched: '2026-01-02T00:00:00Z' },
+    ],
+  };
+  fs.writeFileSync(path.join(beeDir10, 'specs.json'), JSON.stringify(registry10, null, 2) + '\n');
+  // spec-a has NO per-spec STATE.md — touch will fail on restoreToGlobal
+
+  let stderrFB = '', stdoutFB = '';
+  const origStdoutFB = process.stdout.write.bind(process.stdout);
+  const origStderrFB = process.stderr.write.bind(process.stderr);
+  process.stdout.write = s => { stdoutFB += s; return true; };
+  process.stderr.write = s => { stderrFB += s; return true; };
+  let exitCodeFB;
+  try {
+    exitCodeFB = cliMain(['touch', '--bee', beeDir10, '--slug', 'spec-a']);
+  } finally {
+    process.stdout.write = origStdoutFB;
+    process.stderr.write = origStderrFB;
+  }
+
+  assert(exitCodeFB !== 0, 'FIX B: touch with missing per-spec STATE.md exits non-zero');
+  assert(!stdoutFB.includes('touched'), 'FIX B: failed touch does not print "touched"');
+
+  // Read specs.json back and verify last_touched was NOT changed
+  const regAfter10 = JSON.parse(fs.readFileSync(path.join(beeDir10, 'specs.json'), 'utf8'));
+  const specAAfter = regAfter10.specs.find(s => s.slug === 'spec-a');
+  assert(
+    specAAfter && specAAfter.last_touched === BEFORE_TS,
+    'FIX B: failed touch leaves last_touched unchanged (registry not mutated on failure)'
+  );
+
+  fs.rmSync(tmp10, { recursive: true, force: true });
+}
+
+// ============================================================
 // Results
 // ============================================================
 console.log(`\nResults: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);

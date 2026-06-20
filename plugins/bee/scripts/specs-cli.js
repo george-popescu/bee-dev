@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // specs-cli.js -- CLI seam so markdown commands drive the multi-spec registry without
-// inlining JSON logic in prose. Subcommands: register, list, resolve, touch, set-stage, memory-context, set-location, guard.
+// inlining JSON logic in prose. Subcommands: register, list, resolve, touch, set-stage, memory-context, set-location, sync-global, guard.
 const fs = require('fs');
 const path = require('path');
 const reg = require('./specs-registry');
@@ -193,9 +193,7 @@ function main(argv) {
         if (!sp) { touchErr = 'touch: unknown spec ' + f.slug + '\n'; return; }
       }
       if (reg.TERMINAL_STAGES.includes(sp.stage)) { touchErr = 'touch: spec ' + f.slug + ' is ' + sp.stage + ' (completed/archived)\n'; return; }
-      reg.touchSpec(r, f.slug, nowIso());
-      reg.writeRegistry(beeDir, r);
-      // STATE.md sync inside the lock — atomic with the registry write.
+      // STATE.md sync BEFORE registry mutation: if the sync fails we must NOT bump last_touched.
       const g = currentGlobalSlug(beeDir);
       if (g === f.slug) {
         snapshotToPerSpec(beeDir, f.slug); // same spec in global: capture latest edits into the snapshot
@@ -204,6 +202,9 @@ function main(argv) {
         const ok = restoreToGlobal(beeDir, f.slug); // load target's snapshot into global (also the NO_SPEC case)
         if (!ok) { touchErr = 'touch: spec ' + f.slug + ' has no per-spec STATE.md snapshot; cannot switch\n'; return; }
       }
+      // Only bump recency and persist AFTER the STATE-sync succeeded.
+      reg.touchSpec(r, f.slug, nowIso());
+      reg.writeRegistry(beeDir, r);
     });
     if (touchErr) { process.stderr.write(touchErr); return 1; }
     process.stdout.write(`touched ${f.slug}\n`);
@@ -228,6 +229,17 @@ function main(argv) {
       reg.setLocation(r, f.slug, f.location);
       reg.writeRegistry(beeDir, r);
       process.stdout.write('set-location ' + f.slug + ' -> ' + f.location + '\n');
+      return 0;
+    });
+  }
+  if (sub === 'sync-global') {
+    // Load a spec's authoritative per-spec STATE.md into the global mirror (preserving the live
+    // global's project-global sections). Used by merge-back so global reflects the reconciled spec.
+    if (typeof f.slug !== 'string' || !f.slug) { process.stderr.write('sync-global requires --slug\n'); return 1; }
+    return reg.withRegistryLock(beeDir, () => {
+      const ok = restoreToGlobal(beeDir, f.slug);
+      if (!ok) { process.stderr.write('sync-global: spec ' + f.slug + ' has no per-spec STATE.md snapshot\n'); return 1; }
+      process.stdout.write('sync-global ' + f.slug + '\n');
       return 0;
     });
   }
