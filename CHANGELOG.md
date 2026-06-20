@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [4.8.0] - 2026-06-20 -- Bee Multi-Spec — parallel specs, per-spec memory, worktree promotion, dashboard
 
 ### Added
 - Multi-spec support: bee now tracks multiple concurrent active specs in a `.bee/specs.json` registry, each with its own state and phases. `/bee:spec list` shows them, `/bee:spec use <slug>` focuses one for this chat, `/bee:spec status` reports the focused spec. Single-spec projects are unaffected (byte-for-byte the same).
@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - `/bee:memory` now manages both global preferences (`user.md`) and the active spec's memory.
+- Plugin version: 4.7.0 → 4.8.0 (`plugins/bee/.claude-plugin/plugin.json`)
+- Marketplace version: 1.9.2 → 1.10.0 (`.claude-plugin/marketplace.json` lockstep)
 
 ### Removed
 - Retired the unused project-global agent-memory archiving (`.bee/memory/` and `archive-memory.sh`). `user.md` remains the global persistent memory; per-spec memory now lives with each spec.
