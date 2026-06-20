@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - `/bee:memory` now manages both global preferences (`user.md`) and the active spec's memory.
+- `/bee:health` now validates the multi-spec registry (per-spec snapshots, promoted-worktree locations, orphaned entries); `/bee:update` backfills the spec registry for existing single-spec projects on upgrade.
 - Plugin version: 4.7.0 → 4.8.0 (`plugins/bee/.claude-plugin/plugin.json`)
 - Marketplace version: 1.9.2 → 1.10.0 (`.claude-plugin/marketplace.json` lockstep)
 
