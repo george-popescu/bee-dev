@@ -537,10 +537,10 @@ if (hooksJson && hooksJson.hooks) {
     );
   }
 
-  // Count matcher-groups that use type:"command" — Phase 1 v4.5.0 converted all 27 prompt validators
-  // to 24 retained type:"command" Node-script validators (3 removed per REQ-03), then F-BUG-001
-  // added finding-validator.js for the review-pipeline `## Classification` schema → 25 per-agent
-  // matchers + 1 terminal emit-event.js catch-all = 26 total command entries under SubagentStop.
+  // Count matcher-groups that use type:"command" — perf/validator-dispatcher consolidated the
+  // 25 per-agent SubagentStop matchers into a single dispatch.js entry. SubagentStop now has
+  // exactly 2 type:"command" entries: dispatch.js (routes all 25 validators in-process) + the
+  // terminal emit-event-gate.sh catch-all. The 25 matchers live in dispatch.js RULES.
   let commandValidatorCount = 0;
   if (Array.isArray(hooksJson.hooks.SubagentStop)) {
     for (const grp of hooksJson.hooks.SubagentStop) {
@@ -552,8 +552,8 @@ if (hooksJson && hooksJson.hooks) {
     }
   }
   assert(
-    commandValidatorCount === 26,
-    `SubagentStop has exactly 26 type:"command" entries (25 per-agent + 1 catch-all) (found ${commandValidatorCount})`
+    commandValidatorCount === 2,
+    `SubagentStop has exactly 2 type:"command" entries (dispatcher + catch-all) (found ${commandValidatorCount})`
   );
 
   // Specific existing matcher-groups we promised to preserve.

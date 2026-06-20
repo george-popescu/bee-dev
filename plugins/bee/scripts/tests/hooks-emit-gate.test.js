@@ -23,8 +23,11 @@ assert(!/node \$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/hooks\/emit-event\.js/.test(hoo
 const pre = JSON.stringify(hooksJson.hooks.PreToolUse || []);
 assert(/pre-commit-gate\.sh/.test(pre), 'PreToolUse still runs pre-commit-gate.sh (quality gate untouched)');
 assert(!/emit-event/.test(pre), 'PreToolUse no longer emits events');
-// The per-agent SubagentStop validators are NOT touched by this change.
-assert((hooks.match(/scripts\/hooks\/validators\//g) || []).length === 25, 'all 25 per-agent validators preserved (unchanged)');
+// The per-agent SubagentStop validators are consolidated into dispatch.js (perf/validator-dispatcher).
+// hooks.json now has 1 dispatch.js reference; dispatch.js itself routes to all 25 validators.
+assert((hooks.match(/scripts\/hooks\/validators\//g) || []).length === 1, 'hooks.json references validators/ exactly once (via dispatch.js)');
+const dispatchSrc = fs.readFileSync(path.join(ROOT, 'scripts', 'hooks', 'validators', 'dispatch.js'), 'utf8');
+assert((dispatchSrc.match(/^  \[/gm) || []).length === 25, 'dispatch.js RULES array has exactly 25 per-agent entries');
 
 console.log('\nemit-event-gate.sh exists + executable + checks the right markers');
 const gate = path.join(ROOT, 'scripts', 'hooks', 'emit-event-gate.sh');

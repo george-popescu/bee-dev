@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Test: swarm-consolidator.md agent has deduplication, cross-agent consensus scoring,
 // evidence chains, severity-ordered output, and read-only constraint.
-// hooks.json SubagentStop validates output; inject-memory.sh registers agent.
+// dispatch.js RULES cover SubagentStop routing; inject-memory.sh registers agent.
+// After perf/validator-dispatcher: matchers live in dispatch.js RULES, not hooks.json.
 
 const fs = require('fs');
 const path = require('path');
@@ -11,6 +12,9 @@ const CONSOLIDATOR_PATH = path.join(
 );
 const HOOKS_PATH = path.join(
   __dirname, '..', '..', 'hooks', 'hooks.json'
+);
+const DISPATCH_PATH = path.join(
+  __dirname, '..', 'hooks', 'validators', 'dispatch.js'
 );
 const INJECT_MEMORY_PATH = path.join(
   __dirname, '..', '..', 'scripts', 'inject-memory.sh'
@@ -157,16 +161,14 @@ try {
 }
 
 const subagentStopHooks = hooksJson.hooks.SubagentStop || [];
-const consolidatorHook = subagentStopHooks.find(h => h.matcher === '^swarm-consolidator$');
-const consolidatorPrompt = consolidatorHook && consolidatorHook.hooks && consolidatorHook.hooks[0]
-  ? consolidatorHook.hooks[0].prompt || ''
-  : '';
 
-// Test 11: hooks.json contains a SubagentStop entry with matcher "swarm-consolidator"
-console.log('\nTest 11: hooks.json swarm-consolidator matcher');
+// Test 11: dispatch.js RULES contains entry for swarm-consolidator
+// (After perf/validator-dispatcher: matchers live in dispatch.js RULES.)
+console.log('\nTest 11: dispatch.js RULES swarm-consolidator entry');
+const { pickValidator } = require(DISPATCH_PATH);
 assert(
-  consolidatorHook !== undefined,
-  'hooks.json contains a SubagentStop entry with matcher "^swarm-consolidator$"'
+  pickValidator('swarm-consolidator') === 'swarm-consolidator',
+  'dispatch.js RULES routes "swarm-consolidator" to swarm-consolidator validator'
 );
 
 // Test 12: hooks.json swarm-consolidator SubagentStop validates "## Swarm Review Consolidation" heading

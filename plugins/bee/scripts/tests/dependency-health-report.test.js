@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Test: dependency-auditor.md agent exists with manifest scanning, audit CLI,
 // phase-relevance filtering, Blocking/Informational classification;
-// hooks.json SubagentStop validates output; inject-memory.sh registers agent.
+// dispatch.js RULES route SubagentStop; inject-memory.sh registers agent.
+// After perf/validator-dispatcher: matchers live in dispatch.js RULES, not hooks.json.
 
 const fs = require('fs');
 const path = require('path');
@@ -11,6 +12,9 @@ const AGENT_PATH = path.join(
 );
 const HOOKS_PATH = path.join(
   __dirname, '..', '..', 'hooks', 'hooks.json'
+);
+const DISPATCH_PATH = path.join(
+  __dirname, '..', 'hooks', 'validators', 'dispatch.js'
 );
 const INJECT_MEMORY_PATH = path.join(
   __dirname, '..', '..', 'scripts', 'inject-memory.sh'
@@ -180,16 +184,12 @@ try {
   process.exit(1);
 }
 
-const subagentStopHooks = hooksJson.hooks.SubagentStop || [];
-const depAuditorHook = subagentStopHooks.find(h => h.matcher === '^dependency-auditor$');
-const depAuditorPrompt = depAuditorHook && depAuditorHook.hooks && depAuditorHook.hooks[0]
-  ? depAuditorHook.hooks[0].prompt || ''
-  : '';
-
-// Test 16: hooks.json contains "dependency-auditor" matcher in SubagentStop
-console.log('\nTest 16: hooks.json dependency-auditor matcher');
+// Test 16: dispatch.js RULES contains entry for dependency-auditor
+// (After perf/validator-dispatcher: matchers live in dispatch.js RULES.)
+console.log('\nTest 16: dispatch.js RULES dependency-auditor entry');
+const { pickValidator } = require(DISPATCH_PATH);
 assert(
-  depAuditorHook !== undefined,
+  pickValidator('dependency-auditor') === 'dependency-auditor',
   'hooks.json contains "dependency-auditor" matcher in SubagentStop'
 );
 
